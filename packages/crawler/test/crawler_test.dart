@@ -418,10 +418,7 @@ void main() {
   });
 
   group('JS 插件运行时测试', () {
-    /// 单元测试中无法运行 JS（需要 Flutter 平台环境）
-    const _canRunJs = false;
-
-    test('下载并加载插件到 JsRuntime', () async {
+    test('下载并加载插件到 JsRuntime，执行搜索和获取播放 URL', () async {
       final downloader = PluginDownloader();
 
       // 下载小秋音乐插件
@@ -434,55 +431,57 @@ void main() {
 
       final jsContent = File(jsPath).readAsStringSync();
 
-      if (!_canRunJs) {
-        // 无法运行 JS，验证插件可被 LxMusicAdapter 正确识别
+      // 尝试初始化 JS 运行时
+      late JsRuntime runtime;
+      try {
+        runtime = JsRuntime();
+        await runtime.init();
+      } catch (e) {
+        // WebView 不可用（如 CI 环境），降级验证插件结构
         final source = await LxMusicAdapter.tryCreate(jsContent);
-        expect(source, isNotNull);
+        expect(source, isNotNull, reason: '插件无法被 LxMusicAdapter 识别');
         expect(source!.sourceInfo.name, contains('小秋音乐'));
         return;
       }
 
-      // 初始化 JS 运行时并加载插件
-      final runtime = JsRuntime();
-      await runtime.init();
-      await runtime.loadPlugin(jsContent);
+      try {
+        // 加载插件
+        await runtime.loadPlugin(jsContent);
+        final loaded = await runtime.isPluginLoaded();
+        expect(loaded, isTrue, reason: '插件加载失败');
+        expect(await runtime.hasFunction('search'), isTrue);
+        expect(await runtime.hasFunction('getMediaSource'), isTrue);
 
-      final loaded = await runtime.isPluginLoaded();
-      expect(loaded, isTrue, reason: '插件加载失败');
+        // 执行搜索
+        final searchResult = await runtime.callPluginFunction("search('周杰伦', 1, 'music')");
+        expect(searchResult, isNotNull);
+        expect(searchResult, isNot(contains('"error"')), reason: '搜索出错');
 
-      // 检查插件导出的函数
-      expect(await runtime.hasFunction('search'), isTrue, reason: 'search 函数未导出');
-      expect(await runtime.hasFunction('getMediaSource'), isTrue, reason: 'getMediaSource 函数未导出');
+        // 解析搜索结果
+        final searchJson = jsonDecode(searchResult!) as Map<String, dynamic>;
+        final data = searchJson['data'] as List?;
+        expect(data, isNotEmpty, reason: '搜索无结果');
 
-      // 执行搜索
-      final searchResult = await runtime.callPluginFunction("search('周杰伦', 1, 'music')");
-      expect(searchResult, isNotNull);
-      expect(searchResult, isNot(contains('"error"')), reason: '搜索出错: $searchResult');
+        // 获取第一首歌的播放 URL
+        if (data!.isNotEmpty) {
+          final firstSong = data.first as Map<String, dynamic>;
+          final songId = firstSong['id']?.toString() ?? firstSong['songmid']?.toString() ?? '';
+          expect(songId.isNotEmpty, isTrue, reason: '歌曲 ID 为空');
 
-      // 解析搜索结果
-      final searchJson = jsonDecode(searchResult!) as Map<String, dynamic>;
-      final data = searchJson['data'] as List?;
-      expect(data, isNotEmpty, reason: '搜索无结果');
+          // 获取播放 URL
+          final urlResult = await runtime.callPluginFunction(
+            "(async function() { const item = (await window.__plugin.search('周杰伦', 1, 'music')).data[0]; const media = await window.__plugin.getMediaSource(item, 'standard'); return JSON.stringify(media); })()",
+          );
+          expect(urlResult, isNotNull);
+          expect(urlResult, isNot(contains('"error"')), reason: '获取播放 URL 出错');
 
-      // 获取第一首歌的播放 URL
-      if (data!.isNotEmpty) {
-        final firstSong = data.first as Map<String, dynamic>;
-        final songId = firstSong['id']?.toString() ?? firstSong['songmid']?.toString() ?? '';
-        expect(songId.isNotEmpty, isTrue, reason: '歌曲 ID 为空');
-
-        // 获取播放 URL
-        final urlResult = await runtime.callPluginFunction(
-          "(async function() { const item = (await window.__plugin.search('周杰伦', 1, 'music')).data[0]; const media = await window.__plugin.getMediaSource(item, 'standard'); return JSON.stringify(media); })()",
-        );
-        expect(urlResult, isNotNull);
-        expect(urlResult, isNot(contains('"error"')), reason: '获取播放 URL 出错: $urlResult');
-
-        final urlJson = jsonDecode(urlResult!) as Map<String, dynamic>;
-        final playUrl = urlJson['url'] as String?;
-        expect(playUrl, isNotEmpty, reason: '播放 URL 为空');
+          final urlJson = jsonDecode(urlResult!) as Map<String, dynamic>;
+          final playUrl = urlJson['url'] as String?;
+          expect(playUrl, isNotEmpty, reason: '播放 URL 为空');
+        }
+      } finally {
+        await runtime.dispose();
       }
-
-      await runtime.dispose();
     });
   });
 }

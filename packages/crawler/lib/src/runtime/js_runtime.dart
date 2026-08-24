@@ -15,25 +15,39 @@ class JsRuntime {
   Future<void> init() async {
     if (_initialized) return;
 
-    _webView = HeadlessInAppWebView(
-      initialData: InAppWebViewInitialData(
-        data: _buildPolyfillPage(),
-      ),
-      initialSettings: InAppWebViewSettings(
-        javaScriptEnabled: true,
-        allowContentAccess: true,
-        allowFileAccess: true,
-        useHybridComposition: true,
-      ),
-      onWebViewCreated: (controller) {
-        _controller = controller;
-        _readyCompleter.complete();
-      },
-    );
+    try {
+      _webView = HeadlessInAppWebView(
+        initialData: InAppWebViewInitialData(
+          data: _buildPolyfillPage(),
+        ),
+        initialSettings: InAppWebViewSettings(
+          javaScriptEnabled: true,
+          allowContentAccess: true,
+          allowFileAccess: true,
+          useHybridComposition: true,
+        ),
+        onWebViewCreated: (controller) {
+          _controller = controller;
+          if (!_readyCompleter.isCompleted) {
+            _readyCompleter.complete();
+          }
+        },
+      );
 
-    await _webView!.run();
-    await _readyCompleter.future;
-    _initialized = true;
+      await _webView!.run();
+
+      // 等待初始化完成，超时 10 秒
+      await _readyCompleter.future.timeout(const Duration(seconds: 10));
+      _initialized = true;
+    } catch (e) {
+      // 清理资源
+      if (_webView != null) {
+        await _webView!.dispose();
+        _webView = null;
+      }
+      _controller = null;
+      rethrow;
+    }
   }
 
   /// 注入插件 JS 代码
