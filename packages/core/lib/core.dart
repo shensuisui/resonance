@@ -1,8 +1,25 @@
-/// Support for doing something awesome.
-///
-/// More dartdocs go here.
-library;
+/// 数据模型
+export 'src/models/song.dart';
+export 'src/models/album.dart';
+export 'src/models/artist.dart';
+export 'src/models/lyrics.dart';
+export 'src/models/playlist.dart';
+export 'src/models/search_result.dart';
+export 'src/models/source_info.dart';
+export 'src/models/play_mode.dart';
+export 'src/models/player_state.dart';
+export 'src/models/source_type.dart';
 
-export 'src/core_base.dart';
+/// 音乐源接口
+export 'src/sources/abstract_music_source.dart';
+export 'src/sources/local_scan_source.dart';
 
-// TODO: Export any libraries intended for clients of this package.
+/// 服务
+export 'src/services/source_manager.dart';
+
+/// 播放器接口
+export 'src/player/player_interface.dart';
+
+/// 数据库
+export 'src/db/database_provider.dart';
+export 'src/db/in_memory_dao.dart';

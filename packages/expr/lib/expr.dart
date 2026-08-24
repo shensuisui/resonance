@@ -1,0 +1,14 @@
+/// 表达式解析与执行抽象层
+export 'src/expression.dart';
+export 'src/parsers/css_parser.dart';
+export 'src/parsers/jsonpath_parser.dart';
+export 'src/parsers/xpath_parser.dart';
+export 'src/parsers/regex_parser.dart';
+export 'src/parsers/parser_factory.dart';
+export 'src/evaluators/evaluator_interface.dart';
+export 'src/evaluators/compound_evaluator.dart';
+export 'src/evaluators/css_evaluator.dart';
+export 'src/evaluators/jsonpath_evaluator.dart';
+export 'src/evaluators/xpath_evaluator.dart';
+export 'src/evaluators/regex_evaluator.dart';
+export 'src/expr_engine.dart';

@@ -1,5 +1,6 @@
 name: ui
 description: "fm music player UI module"
+publish_to: 'none'
 version: 0.0.1
 homepage:
 
@@ -12,6 +13,8 @@ dependencies:
     sdk: flutter
   core:
     path: ../core
+  player:
+    path: ../player
 
 dev_dependencies:
   flutter_test:

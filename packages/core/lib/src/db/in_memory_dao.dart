@@ -1,0 +1,137 @@
+// 歌曲 DAO 内存实现（用于测试）
+// 生产环境使用 sqflite 实现替换
+
+import 'package:core/core.dart';
+
+class InMemorySongDao implements SongDao {
+  final _store = <String, Song>{};
+
+  String _key(String id, String sourceId) => '$sourceId:$id';
+
+  @override
+  Future<void> insertSong(Song song) async {
+    _store[_key(song.id, song.sourceId)] = song;
+  }
+
+  @override
+  Future<Song?> getSong(String id, String sourceId) async {
+    return _store[_key(id, sourceId)];
+  }
+
+  @override
+  Future<List<Song>> searchSongs(String keyword) async {
+    final lower = keyword.toLowerCase();
+    return _store.values
+        .where((s) =>
+            s.title.toLowerCase().contains(lower) ||
+            s.artist.toLowerCase().contains(lower))
+        .toList();
+  }
+
+  @override
+  Future<void> updateSong(Song song) async {
+    _store[_key(song.id, song.sourceId)] = song;
+  }
+
+  @override
+  Future<void> deleteSong(String id, String sourceId) async {
+    _store.remove(_key(id, sourceId));
+  }
+}
+
+class InMemoryPlaylistDao implements PlaylistDao {
+  final _store = <String, Playlist>{};
+
+  @override
+  Future<void> insertPlaylist(Playlist playlist) async {
+    _store[playlist.id] = playlist;
+  }
+
+  @override
+  Future<Playlist?> getPlaylist(String id) async {
+    return _store[id];
+  }
+
+  @override
+  Future<List<Playlist>> getAllPlaylists() async {
+    return _store.values.toList();
+  }
+
+  @override
+  Future<void> updatePlaylist(Playlist playlist) async {
+    _store[playlist.id] = playlist;
+  }
+
+  @override
+  Future<void> deletePlaylist(String id) async {
+    _store.remove(id);
+  }
+}
+
+class InMemoryRecentPlaysDao implements RecentPlaysDao {
+  final _store = <String, int>{};
+
+  @override
+  Future<void> insertOrUpdateRecentPlay(String songKey, int playedAt) async {
+    _store[songKey] = playedAt;
+  }
+
+  @override
+  Future<List<String>> getRecentPlayKeys({int limit = 500}) async {
+    final sorted = _store.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return sorted.take(limit).map((e) => e.key).toList();
+  }
+
+  @override
+  Future<void> cleanOldest(int maxCount) async {
+    if (_store.length <= maxCount) return;
+    final sorted = _store.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final toRemove = sorted.skip(maxCount);
+    for (final entry in toRemove) {
+      _store.remove(entry.key);
+    }
+  }
+}
+
+class InMemoryFavoritesDao implements FavoritesDao {
+  final _store = <String, int>{};
+
+  @override
+  Future<void> addFavorite(String songKey, int time) async {
+    _store[songKey] = time;
+  }
+
+  @override
+  Future<void> removeFavorite(String songKey) async {
+    _store.remove(songKey);
+  }
+
+  @override
+  Future<bool> isFavorite(String songKey) async {
+    return _store.containsKey(songKey);
+  }
+
+  @override
+  Future<List<String>> getAllFavoriteKeys() async {
+    return _store.keys.toList();
+  }
+}
+
+/// 内存数据库提供者（用于测试）
+class InMemoryDatabaseProvider implements DatabaseProvider {
+  @override
+  late final SongDao songDao = InMemorySongDao();
+  @override
+  late final PlaylistDao playlistDao = InMemoryPlaylistDao();
+  @override
+  late final RecentPlaysDao recentPlaysDao = InMemoryRecentPlaysDao();
+  @override
+  late final FavoritesDao favoritesDao = InMemoryFavoritesDao();
+
+  @override
+  Future<void> initialize() async {
+    // 内存实现无需初始化
+  }
+}

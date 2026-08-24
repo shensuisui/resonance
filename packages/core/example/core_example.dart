@@ -1,6 +1,6 @@
 import 'package:core/core.dart';
 
 void main() {
-  var awesome = Awesome();
-  print('awesome: ${awesome.isAwesome}');
+  final song = Song(id: '1', sourceId: 'demo', title: 'Demo Song', artist: 'Demo Artist');
+  print('Song: ${song.globalKey} - ${song.title}');
 }

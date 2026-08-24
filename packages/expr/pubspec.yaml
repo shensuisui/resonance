@@ -1,0 +1,15 @@
+name: expr
+description: Expression parsing and evaluation layer for fm music player
+version: 1.0.0
+
+environment:
+  sdk: ^3.13.1
+
+dependencies:
+  html: ^0.15.5
+  xml: ^6.5.0
+  json_path: ^0.7.4
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6
