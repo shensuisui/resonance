@@ -1,0 +1,20 @@
+
+# FVM - keep config, ignore symlink & cache
+.fvm/flutter_sdk
+.fvm/versions/
+.fvm/release
+.fvm/version
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OpenCode
+.opencode-trace/
+
+# Dart/Flutter
+.dart_tool/
+.packages
+.pub/
+build/
