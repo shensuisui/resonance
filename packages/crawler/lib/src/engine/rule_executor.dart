@@ -28,7 +28,12 @@ class RuleExecutor {
     });
 
     // 2. 发送请求
-    final response = await _httpClient.get(url, headers: searchRule.headers, responseType: searchRule.responseType);
+    late final HttpResponse response;
+    try {
+      response = await _httpClient.get(url, headers: searchRule.headers, responseType: searchRule.responseType);
+    } catch (_) {
+      return SearchResult(songs: [], sourceId: _rule.source.id);
+    }
 
     // 3. 提取列表
     final items = ResponseHandler.extractList(response.data, searchRule.listRule);
@@ -66,11 +71,14 @@ class RuleExecutor {
       'baseUrl': _rule.source.baseUrl ?? '',
     });
 
-    final response = await _httpClient.get(url, headers: detailRule.headers, responseType: detailRule.responseType);
-    final items = ResponseHandler.extractList(response.data, detailRule.listRule);
-
-    if (items.isEmpty) return {};
-    return ResponseHandler.extractItem(items.first, detailRule.itemRules);
+    try {
+      final response = await _httpClient.get(url, headers: detailRule.headers, responseType: detailRule.responseType);
+      final items = ResponseHandler.extractList(response.data, detailRule.listRule);
+      if (items.isEmpty) return {};
+      return ResponseHandler.extractItem(items.first, detailRule.itemRules);
+    } catch (_) {
+      return {};
+    }
   }
 
   /// 获取歌词
@@ -86,18 +94,20 @@ class RuleExecutor {
 
     if (url.isEmpty) return null;
 
-    final response = await _httpClient.get(url, headers: lyricRule.headers, responseType: lyricRule.responseType);
+    try {
+      final response = await _httpClient.get(url, headers: lyricRule.headers, responseType: lyricRule.responseType);
 
-    if (lyricRule.responseType == 'text') {
-      return response.rawData;
-    }
+      if (lyricRule.responseType == 'text') {
+        return response.rawData;
+      }
 
-    // 非 text 响应，用 contentRule 提取
-    if (lyricRule.contentRule != null) {
-      initExprEngine();
-      final result = evaluate(lyricRule.contentRule!, response.data);
-      return result?.toString();
-    }
+      // 非 text 响应，用 contentRule 提取
+      if (lyricRule.contentRule != null) {
+        initExprEngine();
+        final result = evaluate(lyricRule.contentRule!, response.data);
+        return result?.toString();
+      }
+    } catch (_) {}
 
     return null;
   }
@@ -114,21 +124,25 @@ class RuleExecutor {
       'baseUrl': _rule.source.baseUrl ?? '',
     });
 
-    final response = await _httpClient.get(url, headers: playlistRule.headers, responseType: playlistRule.responseType);
-    final items = ResponseHandler.extractList(response.data, playlistRule.listRule);
+    try {
+      final response = await _httpClient.get(url, headers: playlistRule.headers, responseType: playlistRule.responseType);
+      final items = ResponseHandler.extractList(response.data, playlistRule.listRule);
 
-    final songs = <Song>[];
-    for (final item in items) {
-      final fields = ResponseHandler.extractItem(item, playlistRule.itemRules);
-      final song = _fieldsToSong(fields);
-      if (song != null) songs.add(song);
+      final songs = <Song>[];
+      for (final item in items) {
+        final fields = ResponseHandler.extractItem(item, playlistRule.itemRules);
+        final song = _fieldsToSong(fields);
+        if (song != null) songs.add(song);
+      }
+
+      return SearchResult(
+        songs: songs,
+        sourceId: _rule.source.id,
+        hasMore: false,
+      );
+    } catch (_) {
+      return SearchResult(songs: [], sourceId: _rule.source.id);
     }
-
-    return SearchResult(
-      songs: songs,
-      sourceId: _rule.source.id,
-      hasMore: false,
-    );
   }
 
   /// 将提取的字段映射为 Song 对象

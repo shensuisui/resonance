@@ -6,3 +6,5 @@ export 'src/engine/rule_executor.dart';
 export 'src/engine/response_handler.dart';
 export 'src/rule_based_source.dart';
 export 'src/adapters/plugin_manager.dart';
+export 'src/adapters/js_plugin_source.dart';
+export 'src/runtime/js_runtime.dart';

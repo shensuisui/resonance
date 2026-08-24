@@ -4,6 +4,7 @@ import 'package:core/core.dart';
 import '../http/http_client.dart';
 import '../rule_based_source.dart';
 import '../engine/rule_config.dart';
+import 'js_plugin_source.dart';
 
 /// 插件信息
 class PluginInfo {
@@ -58,14 +59,14 @@ class PluginDownloader {
 /// 插件管理器
 class PluginManager {
   /// 从目录加载所有本地插件
-  static List<MusicSource> loadPluginsFromDirectory(String dirPath) {
+  static Future<List<MusicSource>> loadPluginsFromDirectory(String dirPath) async {
     final sources = <MusicSource>[];
     try {
       final dir = Directory(dirPath);
       if (!dir.existsSync()) return sources;
 
       for (final file in dir.listSync().whereType<File>()) {
-        final source = loadPlugin(file.path);
+        final source = await loadPlugin(file.path);
         if (source != null) sources.add(source);
       }
     } catch (_) {}
@@ -73,7 +74,7 @@ class PluginManager {
   }
 
   /// 加载单个插件文件
-  static MusicSource? loadPlugin(String filePath) {
+  static Future<MusicSource?> loadPlugin(String filePath) async {
     try {
       final content = File(filePath).readAsStringSync();
       final ext = filePath.split('.').last.toLowerCase();
@@ -82,7 +83,7 @@ class PluginManager {
         case 'json':
           return MusicFreeAdapter.convertToSource(content);
         case 'js':
-          return LxMusicAdapter.tryCreate(content);
+          return await LxMusicAdapter.tryCreate(content);
         default:
           return null;
       }
@@ -99,7 +100,6 @@ class MusicFreeAdapter {
     try {
       final json = jsonDecode(jsonContent);
       if (json is List) {
-        // 插件列表，取第一个
         if (json.isEmpty) return null;
         return _convertSingle(json.first as Map<String, dynamic>);
       }
@@ -114,12 +114,10 @@ class MusicFreeAdapter {
 
   static MusicSource? _convertSingle(Map<String, dynamic> plugin) {
     try {
-      // MusicFree 插件格式包含：name, url, 等
       final name = plugin['name'] as String? ?? 'Unknown';
       final id = plugin['id'] as String? ?? name.toLowerCase().replaceAll(' ', '_');
       final baseUrl = plugin['url'] as String?;
 
-      // 构建简化的 RuleConfig
       final config = RuleConfig(
         source: SourceRule(id: id, name: name, baseUrl: baseUrl),
         search: _buildSearchRule(plugin),
@@ -133,7 +131,6 @@ class MusicFreeAdapter {
   }
 
   static FlowRule? _buildSearchRule(Map<String, dynamic> plugin) {
-    // MusicFree 搜索接口通常在 plugin 的 search 字段
     final search = plugin['search'] as Map<String, dynamic>?;
     if (search == null) return null;
 
@@ -171,42 +168,38 @@ class MusicFreeAdapter {
   }
 }
 
-/// 落雪音乐插件适配器（当前版本仅检查格式，返回 stub 源）
+/// 落雪音乐插件适配器
 class LxMusicAdapter {
   /// 尝试创建落雪插件源
-  /// 落雪插件为 JS 格式，需要 JS 运行时执行。
-  /// 当前版本无法执行 JS，返回一个提示信息源。
-  static MusicSource? tryCreate(String content) {
-    // 检查是否为有效的 JS 文件
+  /// 使用 JsRuntime 执行插件 JS 代码
+  /// 如果 JS 运行时不可用，返回 stub 源
+  static Future<MusicSource?> tryCreate(String content) async {
     if (content.trim().isEmpty) return null;
 
-    // 尝试提取插件名称
-    final nameMatch = RegExp(r"""name\s*[:=]\s*["']([^"']+)["']""").firstMatch(content);
+    try {
+      // 优先尝试 JS 运行时
+      final source = await JsPluginFactory.create(content);
+      if (source != null) return source;
+    } catch (_) {
+      // JS 运行时不可用，回退到 stub
+    }
+
+    // 回退：返回 stub 源
+    final nameMatch = RegExp(r"""(?:name|platform)\s*[:=]\s*["']([^"']+)["']""").firstMatch(content);
     final name = nameMatch?.group(1) ?? '落雪插件';
-
-    // 返回一个只读的 stub 源，提示 JS 表达式即将支持
-    final config = RuleConfig(
-      source: SourceRule(
-        id: 'lx_${name.toLowerCase().replaceAll(' ', '_')}',
-        name: name,
-      ),
-    );
-
-    return _LxStubSource(config, name);
+    return _LxStubSource(name);
   }
 }
 
-/// 落雪插件 stub 源
-/// 提示用户 JS 表达式即将支持
+/// 落雪插件 stub 源（JS 运行时不可用时使用）
 class _LxStubSource extends MusicSource {
-  final RuleConfig _config;
   final String _name;
 
-  _LxStubSource(this._config, this._name);
+  _LxStubSource(this._name);
 
   @override
   SourceInfo get sourceInfo => SourceInfo(
-        id: _config.source.id,
+        id: 'lx_${_name.toLowerCase().replaceAll(' ', '_')}',
         name: '$_name (JS 待支持)',
         type: SourceType.plugin,
         enabled: true,
@@ -214,17 +207,17 @@ class _LxStubSource extends MusicSource {
 
   @override
   Future<SearchResult> search({required String keyword, int page = 1, int pageSize = 20}) async {
-    throw UnsupportedError('JS 表达式即将支持，落雪插件暂不可用');
+    throw UnsupportedError('JS 运行时不可用，落雪插件暂不可用');
   }
 
   @override
   Future<Song> getSongDetail(String id) async {
-    throw UnsupportedError('JS 表达式即将支持，落雪插件暂不可用');
+    throw UnsupportedError('JS 运行时不可用，落雪插件暂不可用');
   }
 
   @override
   Future<String> getSongUrl(String id) async {
-    throw UnsupportedError('JS 表达式即将支持，落雪插件暂不可用');
+    throw UnsupportedError('JS 运行时不可用，落雪插件暂不可用');
   }
 
   @override

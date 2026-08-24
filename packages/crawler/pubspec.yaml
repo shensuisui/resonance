@@ -7,12 +7,17 @@ environment:
   sdk: ^3.13.1
 
 dependencies:
+  flutter:
+    sdk: flutter
   core:
     path: ../core
   expr:
     path: ../expr
   dio: ^5.4.0
+  flutter_inappwebview: ^6.1.5
 
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
   lints: ^6.0.0
   test: ^1.25.6

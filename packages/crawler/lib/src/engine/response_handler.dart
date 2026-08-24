@@ -18,12 +18,27 @@ class ResponseHandler {
     initExprEngine();
     final fields = <String, dynamic>{};
     for (final entry in itemRules.entries) {
-      final value = evaluate(entry.value, item);
+      // 数据为 Map 时，无前缀的表达式视为 JSONPath（补 $.）
+      final expr = _normalizeExpr(entry.value, item);
+      final value = evaluate(expr, item);
       if (value != null) {
         fields[entry.key] = value;
       }
     }
     return fields;
+  }
+
+  /// 根据数据类型规范化表达式
+  static String _normalizeExpr(String expr, dynamic data) {
+    if (data is! Map && data is! List) return expr;
+    // 无前缀的纯标识符 → 补 $. 作为 JSONPath
+    if (!expr.startsWith('@') &&
+        !expr.startsWith(r'$') &&
+        !expr.startsWith('//') &&
+        !expr.startsWith(':')) {
+      return r'$.' + expr;
+    }
+    return expr;
   }
 
   /// 提取分页信息
