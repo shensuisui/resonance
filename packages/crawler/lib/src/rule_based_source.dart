@@ -1,0 +1,128 @@
+import 'package:core/core.dart';
+import 'engine/rule_config.dart';
+import 'engine/rule_executor.dart';
+
+/// 基于规则配置的音乐源实现
+/// 将一个 JSON 规则文件转换为一个完整的 MusicSource
+class RuleBasedMusicSource extends MusicSource {
+  final RuleConfig _ruleConfig;
+  late final RuleExecutor _executor;
+
+  RuleBasedMusicSource(this._ruleConfig) {
+    _executor = RuleExecutor(_ruleConfig);
+  }
+
+  @override
+  SourceInfo get sourceInfo => SourceInfo(
+        id: _ruleConfig.source.id,
+        name: _ruleConfig.source.name,
+        iconUrl: _ruleConfig.source.icon,
+        type: SourceType.rule,
+        enabled: true,
+      );
+
+  @override
+  Future<SearchResult> search({
+    required String keyword,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    return _executor.executeSearch(keyword, page: page);
+  }
+
+  @override
+  Future<Song> getSongDetail(String id) async {
+    final fields = await _executor.executeSongDetail(id);
+    return Song(
+      id: id,
+      sourceId: _ruleConfig.source.id,
+      title: fields['title']?.toString() ?? '',
+      artist: fields['artist']?.toString() ?? '',
+      album: fields['album']?.toString(),
+      coverUrl: fields['cover']?.toString() ?? fields['coverUrl']?.toString(),
+      duration: _parseInt(fields['duration']),
+      playUrl: fields['playUrl']?.toString() ?? fields['url']?.toString(),
+      lyricUrl: fields['lyricUrl']?.toString(),
+    );
+  }
+
+  @override
+  Future<String> getSongUrl(String id) async {
+    final fields = await _executor.executeSongDetail(id);
+    return fields['playUrl']?.toString() ?? fields['url']?.toString() ?? '';
+  }
+
+  @override
+  Future<Lyrics?> getLyrics(String id) async {
+    final lyric = await _executor.executeLyric(id);
+    if (lyric == null) return null;
+    return Lyrics(
+      songId: id,
+      sourceId: _ruleConfig.source.id,
+      lines: _parseLrc(lyric),
+      isLrc: lyric.contains('['),
+    );
+  }
+
+  @override
+  Future<Album?> getAlbum(String id) async => null;
+
+  @override
+  Future<Artist?> getArtist(String id) async => null;
+
+  @override
+  Future<Playlist?> getPlaylist(String id) async {
+    final result = await _executor.executePlaylist(id);
+    if (result.songs.isEmpty) return null;
+    return Playlist(
+      id: id,
+      name: '${_ruleConfig.source.name} 歌单',
+      songKeys: result.songs.map((s) => s.globalKey).toList(),
+      sourceId: _ruleConfig.source.id,
+      sourcePlaylistId: id,
+      createdTime: DateTime.now(),
+      modifiedTime: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  Future<void> dispose() async {}
+
+  int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  /// 简单解析 LRC 格式歌词
+  List<LyricLine> _parseLrc(String lrc) {
+    if (!lrc.contains('[')) {
+      return [LyricLine(time: Duration.zero, text: lrc)];
+    }
+    final lines = <LyricLine>[];
+    final regex = RegExp(r'\[(\d{2}):(\d{2})\.?(\d{0,3})\](.*)');
+    for (final match in regex.allMatches(lrc)) {
+      final minutes = int.parse(match.group(1)!);
+      final seconds = int.parse(match.group(2)!);
+      final millis = (match.group(3)?.length ?? 0) > 0
+          ? int.parse(match.group(3)!.padRight(3, '0').substring(0, 3))
+          : 0;
+      final text = match.group(4)?.trim() ?? '';
+      if (text.isNotEmpty) {
+        lines.add(LyricLine(
+          time: Duration(
+            minutes: minutes,
+            seconds: seconds,
+            milliseconds: millis,
+          ),
+          text: text,
+        ));
+      }
+    }
+    return lines;
+  }
+}

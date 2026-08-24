@@ -1,0 +1,18 @@
+name: crawler
+description: fm music player remote source implementation
+publish_to: 'none'
+version: 1.0.0
+
+environment:
+  sdk: ^3.13.1
+
+dependencies:
+  core:
+    path: ../core
+  expr:
+    path: ../expr
+  dio: ^5.4.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6

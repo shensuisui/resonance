@@ -13,6 +13,8 @@ export 'src/models/source_type.dart';
 /// 音乐源接口
 export 'src/sources/abstract_music_source.dart';
 export 'src/sources/local_scan_source.dart';
+export 'src/sources/local_custom_source.dart';
+export 'src/sources/favorite_source.dart';
 
 /// 服务
 export 'src/services/source_manager.dart';

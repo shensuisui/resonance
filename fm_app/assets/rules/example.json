@@ -1,0 +1,58 @@
+{
+  "source": {
+    "id": "example_music",
+    "name": "示例音乐源",
+    "baseUrl": "https://api.example.com",
+    "icon": "https://example.com/icon.png"
+  },
+  "search": {
+    "url": "/search?keyword={keyword}&page={page}",
+    "method": "GET",
+    "responseType": "json",
+    "listRule": "$.data.songs",
+    "itemRules": {
+      "id": "id",
+      "title": "name",
+      "artist": "artist.name",
+      "cover": "cover_url",
+      "duration": "duration_seconds",
+      "playUrl": "url",
+      "lyricUrl": "lyric_url"
+    },
+    "pagination": {
+      "type": "cursor",
+      "cursorParam": "cursor",
+      "cursorRule": "$.data.nextCursor"
+    }
+  },
+  "songDetail": {
+    "url": "/song?id={id}",
+    "method": "GET",
+    "responseType": "json",
+    "listRule": "$.data",
+    "itemRules": {
+      "playUrl": "play_url",
+      "cover": "cover_large",
+      "lyricUrl": "lyric_url"
+    }
+  },
+  "lyric": {
+    "url": "{lyricUrl}",
+    "method": "GET",
+    "responseType": "text"
+  },
+  "playlist": {
+    "url": "/playlist?id={id}",
+    "method": "GET",
+    "responseType": "json",
+    "listRule": "$.data.songs",
+    "itemRules": {
+      "id": "id",
+      "title": "name",
+      "artist": "artist",
+      "cover": "cover_url",
+      "duration": "duration",
+      "playUrl": "url"
+    }
+  }
+}
