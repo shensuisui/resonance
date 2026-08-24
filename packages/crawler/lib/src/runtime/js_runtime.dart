@@ -120,29 +120,39 @@ var He = { decode: function(text) {
   return txt.value;
 }};
 
-// 简易 axios 实现（通过 fetch）
-var Axios = {
-  default: Axios,
-  get: function(url, config) {
-    return fetch(url, { method: 'GET', headers: config && config.headers || {} })
-      .then(function(r) { return r.text(); })
-      .then(function(text) {
-        try { return { data: JSON.parse(text) }; }
-        catch(e) { return { data: text }; }
-      });
-  },
-  post: function(url, data, config) {
+// 简易 axios 实现（支持作为函数调用，也支持 .get/.post）
+function AxiosInstance(config) {
+  if (!config) return Promise.resolve({ data: {} });
+  var method = (config.method || 'GET').toLowerCase();
+  var url = config.url || '';
+  var headers = config.headers || {};
+  if (method === 'post' || method === 'put') {
+    var body = typeof config.data === 'string' ? config.data : JSON.stringify(config.data || {});
     return fetch(url, {
-      method: 'POST',
-      headers: Object.assign({'Content-Type': 'application/json'}, config && config.headers || {}),
-      body: typeof data === 'string' ? data : JSON.stringify(data)
+      method: method.toUpperCase(),
+      headers: Object.assign({'Content-Type': 'application/json'}, headers),
+      body: body
     }).then(function(r) { return r.text(); })
       .then(function(text) {
-        try { return { data: JSON.parse(text) }; }
-        catch(e) { return { data: text }; }
+        try { return { data: JSON.parse(text), status: 200 }; }
+        catch(e) { return { data: text, status: 200 }; }
       });
   }
+  return fetch(url, { method: method.toUpperCase(), headers: headers })
+    .then(function(r) { return r.text(); })
+    .then(function(text) {
+      try { return { data: JSON.parse(text), status: 200 }; }
+      catch(e) { return { data: text, status: 200 }; }
+    });
+}
+AxiosInstance.get = function(url, config) {
+  return AxiosInstance(Object.assign({}, config, { url: url, method: 'GET' }));
 };
+AxiosInstance.post = function(url, data, config) {
+  return AxiosInstance(Object.assign({}, config, { url: url, method: 'POST', data: data }));
+};
+AxiosInstance.default = AxiosInstance;
+var Axios = AxiosInstance;
 
 // CryptoJS 简化实现
 var CryptoJS = {
