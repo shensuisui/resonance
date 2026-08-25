@@ -135,6 +135,88 @@ class LyricRuleConfig {
       );
 }
 
+/// 前置流程步骤：在真实请求前执行的一个步骤
+///
+/// 用于人机验证、CSRF token 提取、登录、签名等场景。
+/// 步骤间通过 [extract] 提取变量，注入后续步骤的 URL/body/headers。
+class PreflightStep {
+  /// HTTP 方法：GET 或 POST
+  final String method;
+
+  /// URL 模板，可用 {变量名} 占位（由前面步骤的 extract 结果填充）
+  final String url;
+
+  /// 请求头
+  final Map<String, String> headers;
+
+  /// 响应类型：html / json / text
+  final String responseType;
+
+  /// POST body 模板，可用 {变量名} 占位
+  final String? body;
+
+  /// POST Content-Type
+  final String? contentType;
+
+  /// 从此步响应提取的变量：键为变量名，值为 expr DSL 表达式
+  /// 提取结果注入后续步骤的 URL/body/headers 模板
+  final Map<String, String>? extract;
+
+  const PreflightStep({
+    required this.method,
+    required this.url,
+    this.headers = const {},
+    this.responseType = 'html',
+    this.body,
+    this.contentType,
+    this.extract,
+  });
+
+  factory PreflightStep.fromJson(Map<String, dynamic> json) => PreflightStep(
+        method: (json['method'] as String?) ?? 'GET',
+        url: json['url'] as String,
+        headers: (json['headers'] as Map<String, dynamic>?)
+                ?.map((k, v) => MapEntry(k, v as String)) ??
+            {},
+        responseType: (json['responseType'] as String?) ?? 'html',
+        body: json['body'] as String?,
+        contentType: json['contentType'] as String?,
+        extract: (json['extract'] as Map<String, dynamic>?)
+            ?.map((k, v) => MapEntry(k, v as String)),
+      );
+}
+
+/// 前置流程配置：描述在真实请求前需要执行的一组步骤
+///
+/// 典型场景：
+/// - 6uq.cn 人机验证：GET 取 CSRF token → POST 换 cookie
+/// - 登录态：POST 登录 → 提取 session token → 注入后续请求 header
+/// - 签名：GET 取密钥 → 计算签名 → 注入 URL 参数
+///
+/// 步骤间数据传递：步骤 A 的 [PreflightStep.extract] 提取的变量，
+/// 可在步骤 B 的 url/body/headers 模板中用 {变量名} 引用。
+/// Cookie 自动跨步骤持久化（由 HttpClient 的 cookie interceptor 处理）。
+class PreflightRule {
+  /// 前置步骤，按顺序执行
+  final List<PreflightStep> steps;
+
+  /// 缓存有效期（分钟），过期后重新执行整套步骤
+  /// null 表示只执行一次（整个实例生命周期内有效）
+  final int? cacheMinutes;
+
+  const PreflightRule({
+    required this.steps,
+    this.cacheMinutes,
+  });
+
+  factory PreflightRule.fromJson(Map<String, dynamic> json) => PreflightRule(
+        steps: (json['steps'] as List<dynamic>)
+            .map((e) => PreflightStep.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        cacheMinutes: json['cacheMinutes'] as int?,
+      );
+}
+
 class RuleConfig {
   final SourceRule source;
   final FlowRule? search;
@@ -145,6 +227,8 @@ class RuleConfig {
   final FlowRule? playlistList;
   /// 播放请求头：播放器请求 CDN 地址时需携带的 HTTP 头
   final Map<String, String>? playHeaders;
+  /// 前置流程：在真实请求前执行的认证/验证步骤
+  final PreflightRule? preflight;
 
   const RuleConfig({
     required this.source,
@@ -154,6 +238,7 @@ class RuleConfig {
     this.playlist,
     this.playlistList,
     this.playHeaders,
+    this.preflight,
   });
 
   factory RuleConfig.fromJson(Map<String, dynamic> json) => RuleConfig(
@@ -175,5 +260,8 @@ class RuleConfig {
             : null,
         playHeaders: (json['playHeaders'] as Map<String, dynamic>?)
             ?.map((k, v) => MapEntry(k, v as String)),
+        preflight: json['preflight'] != null
+            ? PreflightRule.fromJson(json['preflight'] as Map<String, dynamic>)
+            : null,
       );
 }

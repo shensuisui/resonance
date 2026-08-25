@@ -16,9 +16,88 @@ class RuleExecutor {
   final RuleConfig _rule;
   final HttpClient _httpClient;
 
+  /// preflight 缓存状态：是否已执行 + 执行时间
+  bool _preflightExecuted = false;
+  DateTime? _preflightTime;
+
   RuleExecutor(this._rule, {HttpClient? httpClient})
       : _httpClient = httpClient ??
             HttpClient(baseUrl: _rule.source.baseUrl);
+
+  /// 确保前置流程已执行（带缓存）
+  ///
+  /// 如果规则配置了 [PreflightRule]，在首次请求和缓存过期时执行前置步骤。
+  /// 步骤间通过 extract 提取变量，注入后续步骤的 URL/body 模板。
+  /// Cookie 由 HttpClient 的 interceptor 自动跨步骤持久化。
+  Future<void> _ensurePreflight() async {
+    final preflight = _rule.preflight;
+    if (preflight == null || preflight.steps.isEmpty) return;
+
+    // 检查缓存是否有效
+    if (_preflightExecuted && _preflightTime != null) {
+      if (preflight.cacheMinutes == null) {
+        // null = 永久缓存，只执行一次
+        return;
+      }
+      final expiry = _preflightTime!
+          .add(Duration(minutes: preflight.cacheMinutes!));
+      if (DateTime.now().isBefore(expiry)) {
+        return; // 缓存未过期
+      }
+      // 缓存过期，清除 cookie 重新认证
+      _httpClient.clearCookies();
+    }
+
+    // 执行前置步骤
+    final vars = <String, String>{
+      'baseUrl': _rule.source.baseUrl ?? '',
+    };
+
+    for (final step in preflight.steps) {
+      // 用已有变量解析 URL 模板
+      final url = HttpClient.resolveUrl(step.url, vars);
+
+      // 解析 body 模板（如果有）
+      String? resolvedBody;
+      if (step.body != null) {
+        resolvedBody = HttpClient.resolveUrl(step.body!, vars);
+      }
+
+      // 发送请求
+      HttpResponse response;
+      if (step.method.toUpperCase() == 'POST') {
+        response = await _httpClient.post(
+          url,
+          headers: step.headers,
+          body: resolvedBody,
+          contentType: step.contentType,
+          responseType: step.responseType,
+        );
+      } else {
+        response = await _httpClient.get(
+          url,
+          headers: step.headers,
+          responseType: step.responseType,
+        );
+      }
+
+      // 从响应提取变量（用 expr DSL）
+      if (step.extract != null && step.extract!.isNotEmpty) {
+        initExprEngine();
+        for (final entry in step.extract!.entries) {
+          final result = evaluate(entry.value, response.data);
+          // 结果是列表时取首元素（CSS 提取后缀返回列表）
+          final value = result is List
+              ? result.first?.toString() ?? ''
+              : result?.toString() ?? '';
+          vars[entry.key] = value;
+        }
+      }
+    }
+
+    _preflightExecuted = true;
+    _preflightTime = DateTime.now();
+  }
 
   /// 解析 URL 模板，支持 params 表达式参数
   /// params 中的表达式对输入变量求值，结果替换 URL 模板中的 {变量名}
@@ -47,6 +126,9 @@ class RuleExecutor {
     if (searchRule == null) {
       return SearchResult(songs: [], sourceId: _rule.source.id);
     }
+
+    // 0. 确保前置流程已执行（人机验证/登录等）
+    await _ensurePreflight();
 
     // 1. 构建 URL
     final url = HttpClient.resolveUrl(searchRule.url, {
@@ -102,6 +184,9 @@ class RuleExecutor {
     final detailRule = _rule.songDetail;
     if (detailRule == null) return {};
 
+    // 0. 确保前置流程已执行
+    await _ensurePreflight();
+
     final url = HttpClient.resolveUrl(detailRule.url, {
       'id': id,
       'baseUrl': _rule.source.baseUrl ?? '',
@@ -137,6 +222,9 @@ class RuleExecutor {
     final lyricRule = _rule.lyric;
     if (lyricRule == null) return null;
 
+    // 0. 确保前置流程已执行
+    await _ensurePreflight();
+
     final url = HttpClient.resolveUrl(lyricRule.url, {
       'id': id,
       'lyricUrl': lyricUrl ?? '',
@@ -170,6 +258,9 @@ class RuleExecutor {
   Future<PlaylistDetailResult?> executePlaylist(String id) async {
     final playlistRule = _rule.playlist;
     if (playlistRule == null) return null;
+
+    // 0. 确保前置流程已执行
+    await _ensurePreflight();
 
     // 用 params 表达式解析 URL（支持从复合 ID 拆分）
     final url = _resolveUrlWithParams(playlistRule.url, {
@@ -231,6 +322,9 @@ class RuleExecutor {
   Future<List<Playlist>> executePlaylistList({int page = 1}) async {
     final listRule = _rule.playlistList;
     if (listRule == null) return [];
+
+    // 0. 确保前置流程已执行
+    await _ensurePreflight();
 
     final url = _resolveUrlWithParams(listRule.url, {
       'page': page.toString(),

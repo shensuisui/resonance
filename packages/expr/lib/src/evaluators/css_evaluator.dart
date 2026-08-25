@@ -28,8 +28,9 @@ class CssEvaluator implements ExpressionEvaluator {
           return elements.map((e) => e.attributes['src'] ?? '').toList();
         case '@href':
           return elements.map((e) => e.attributes['href'] ?? '').toList();
+        case '@value':
+          return elements.map((e) => e.attributes['value'] ?? '').toList();
         case '@attr':
-          // 需要从 selector 中提取属性名
           return elements.map((e) => e.attributes.values.firstOrNull ?? '').toList();
         default:
           return elements.map((e) => e.text.trim()).toList();

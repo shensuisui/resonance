@@ -17,7 +17,7 @@ class CSSParser {
     String? extractSuffix;
 
     // 检查 @text / @html / @attr 后缀
-    final suffixMatch = RegExp(r'@(text|html|attr|src|href)$').firstMatch(trimmed);
+    final suffixMatch = RegExp(r'@(text|html|attr|src|href|value)$').firstMatch(trimmed);
     if (suffixMatch != null) {
       extractSuffix = '@${suffixMatch.group(1)}';
     }

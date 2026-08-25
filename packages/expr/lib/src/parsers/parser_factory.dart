@@ -120,7 +120,7 @@ class ParserFactory {
     if (trimmed.startsWith('@Regex:')) {
       return _regexParser.parse(trimmed);
     }
-    if (trimmed.startsWith(r'$.')) {
+    if (trimmed.startsWith(r'$')) {
       return _jsonPathParser.parse(trimmed);
     }
     if (trimmed.startsWith('//')) {
