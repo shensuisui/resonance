@@ -15,6 +15,10 @@ class DownloadManagerImpl implements DownloadManager {
   final Dio _dio;
   final SongDao _songDao;
 
+  /// 自定义缓存目录（测试用）
+  /// 为 null 时使用 [getTemporaryDirectory]
+  final String? customCacheDir;
+
   /// 下载任务表（按 songKey 索引）
   final _tasks = <String, DownloadTask>{};
 
@@ -24,7 +28,7 @@ class DownloadManagerImpl implements DownloadManager {
   /// 任务状态流控制器
   final _taskController = StreamController<List<DownloadTask>>.broadcast();
 
-  DownloadManagerImpl({Dio? dio, required SongDao songDao})
+  DownloadManagerImpl({Dio? dio, required SongDao songDao, this.customCacheDir})
       : _dio = dio ?? Dio(),
         _songDao = songDao;
 
@@ -85,9 +89,9 @@ class DownloadManagerImpl implements DownloadManager {
 
     try {
       // 获取缓存目录
-      final cacheDir = await getTemporaryDirectory();
+      final cacheDirPath = customCacheDir ?? (await getTemporaryDirectory()).path;
       final fileName = '${key.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.mp3';
-      final savePath = p.join(cacheDir.path, fileName);
+      final savePath = p.join(cacheDirPath, fileName);
 
       // 更新状态为下载中
       _tasks[key] = _tasks[key]!.copyWith(status: DownloadStatus.downloading);

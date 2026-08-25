@@ -41,6 +41,8 @@ class SourceManager {
   MusicSource? getSource(String sourceId) => _sources[sourceId];
 
   /// 聚合搜索：并行搜索所有已启用源
+  ///
+  /// 单源失败不影响其他源——失败的源返回空结果。
   Future<List<SearchResult>> searchAll({
     required String keyword,
     int page = 1,
@@ -52,7 +54,7 @@ class SourceManager {
             keyword: keyword,
             page: page,
             pageSize: pageSize,
-          )),
+          ).catchError((_) => SearchResult(songs: [], sourceId: s.sourceInfo.id))),
       eagerError: false,
     );
     return results;
