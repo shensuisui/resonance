@@ -1,0 +1,154 @@
+/// 歌单列表页 —— 歌单 CRUD
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:core/core.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
+import '../providers/providers.dart';
+import '../widgets/empty_state.dart';
+
+class PlaylistListPage extends ConsumerStatefulWidget {
+  const PlaylistListPage({super.key});
+
+  @override
+  ConsumerState<PlaylistListPage> createState() => _PlaylistListPageState();
+}
+
+class _PlaylistListPageState extends ConsumerState<PlaylistListPage> {
+  List<Playlist> _playlists = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlaylists();
+  }
+
+  Future<void> _loadPlaylists() async {
+    final dao = ref.read(playlistDaoProvider);
+    setState(() => _loading = true);
+    _playlists = await dao.getAllPlaylists();
+    setState(() => _loading = false);
+  }
+
+  Future<void> _createPlaylist() async {
+    final name = await _showCreateDialog();
+    if (name == null || name.trim().isEmpty) return;
+
+    final dao = ref.read(playlistDaoProvider);
+    final now = DateTime.now();
+    final playlist = Playlist(
+      id: 'pl_${now.millisecondsSinceEpoch}',
+      name: name.trim(),
+      createdTime: now,
+      modifiedTime: now,
+    );
+    await dao.insertPlaylist(playlist);
+    await _loadPlaylists();
+  }
+
+  Future<String?> _showCreateDialog() {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('新建歌单'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: '歌单名称'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('歌单'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_rounded),
+            onPressed: _createPlaylist,
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _playlists.isEmpty
+              ? const EmptyState(
+                  icon: Icons.queue_music_rounded,
+                  message: '还没有歌单，点击 + 创建',
+                )
+              : ListView.builder(
+                  itemCount: _playlists.length,
+                  itemBuilder: (context, index) {
+                    final pl = _playlists[index];
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.s16,
+                        vertical: AppSpacing.s4,
+                      ),
+                      leading: Container(
+                        width: 48, height: 48,
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(AppRadius.s8),
+                        ),
+                        child: Icon(Icons.queue_music_rounded,
+                            color: cs.onSurfaceVariant),
+                      ),
+                      title: Text(pl.name, style: tt.bodyLarge),
+                      subtitle: Text('${pl.songKeys.length} 首',
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          )),
+                      onTap: () {
+                        // TODO: 打开歌单详情页
+                      },
+                      onLongPress: () => _showDeleteDialog(pl),
+                    );
+                  },
+                ),
+    );
+  }
+
+  Future<void> _showDeleteDialog(Playlist playlist) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除歌单'),
+        content: Text('确定删除「${playlist.name}」？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(playlistDaoProvider).deletePlaylist(playlist.id);
+      await _loadPlaylists();
+    }
+  }
+}
