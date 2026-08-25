@@ -296,3 +296,53 @@ class SourceEnabledNotifier extends StateNotifier<Map<String, bool>> {
     state = {...state, sourceId: enabled};
   }
 }
+
+// ==================== 本地扫描 ====================
+
+/// 扫描状态
+class ScanState {
+  final bool scanning;
+  final int? foundCount;
+  final String? error;
+
+  const ScanState({this.scanning = false, this.foundCount, this.error});
+}
+
+/// 本地扫描 Notifier
+final scanNotifierProvider =
+    StateNotifierProvider<ScanNotifier, ScanState>((ref) {
+  return ScanNotifier(
+      ref.watch(sourceManagerProvider), ref.watch(settingsDaoProvider));
+});
+
+class ScanNotifier extends StateNotifier<ScanState> {
+  final SourceManager _sourceManager;
+  final SettingsDao _settingsDao;
+
+  ScanNotifier(this._sourceManager, this._settingsDao)
+      : super(const ScanState());
+
+  /// 获取扫描目录
+  Future<String?> getScanDir() => _settingsDao.get('scan_dir');
+
+  /// 设置扫描目录
+  Future<void> setScanDir(String path) async {
+    await _settingsDao.set('scan_dir', path);
+  }
+
+  /// 执行扫描
+  Future<void> scan() async {
+    state = const ScanState(scanning: true);
+    try {
+      final source = _sourceManager.getSource('local_scan');
+      if (source == null || source is! LocalScanSource) {
+        state = const ScanState(error: '本地扫描源未注册');
+        return;
+      }
+      final count = await source.scanFromConfig();
+      state = ScanState(scanning: false, foundCount: count);
+    } catch (e) {
+      state = ScanState(scanning: false, error: e.toString());
+    }
+  }
+}

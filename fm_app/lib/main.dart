@@ -39,9 +39,12 @@ Future<void> main() async {
   // 3. 创建 SourceManager 并注册源
   gSourceManager = SourceManager();
   gSourceManager.registerSource(
+      LocalScanSource(gDatabaseProvider.songDao, gDatabaseProvider.settingsDao));
+  gSourceManager.registerSource(
       LocalCustomSource(gDatabaseProvider.songDao));
   gSourceManager.registerSource(
       FavoriteSource(gDatabaseProvider.favoritesDao, gSourceManager));
+  gSourceManager.setSourceEnabled('local_scan', true);
   gSourceManager.setSourceEnabled('local_custom', true);
   gSourceManager.setSourceEnabled('favorite', true);
 

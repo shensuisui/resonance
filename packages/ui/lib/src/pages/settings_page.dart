@@ -1,17 +1,40 @@
-/// 设置页 —— 主题切换 + 关于
+/// 设置页 —— 主题切换 + 本地扫描目录 + 关于
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_theme.dart';
 import '../providers/providers.dart';
 
-class SettingsPage extends ConsumerWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends ConsumerState<SettingsPage> {
+  final _scanDirController = TextEditingController();
+  bool _scanDirLoaded = false;
+
+  @override
+  void dispose() {
+    _scanDirController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadScanDir() async {
+    if (_scanDirLoaded) return;
+    final dir = await ref.read(scanNotifierProvider.notifier).getScanDir();
+    _scanDirController.text = dir ?? '';
+    _scanDirLoaded = true;
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _loadScanDir();
     final themeMode = ref.watch(themeModeProvider);
+    final scanState = ref.watch(scanNotifierProvider);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
@@ -19,7 +42,7 @@ class SettingsPage extends ConsumerWidget {
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
         children: [
-          // 主题模式
+          // 外观
           Padding(
             padding: const EdgeInsets.all(AppSpacing.s16),
             child: Text('外观', style: tt.titleSmall?.copyWith(color: cs.primary)),
@@ -42,6 +65,79 @@ class SettingsPage extends ConsumerWidget {
             title: const Text('暗色'),
             onChanged: (v) => ref.read(themeModeProvider.notifier).setMode(v!),
           ),
+          const Divider(),
+          // 本地音乐
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.s16),
+            child: Text('本地音乐', style: tt.titleSmall?.copyWith(color: cs.primary)),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
+            child: TextField(
+              controller: _scanDirController,
+              decoration: const InputDecoration(
+                labelText: '扫描目录',
+                hintText: '如 /music 或 C:\\Music',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.s16, vertical: AppSpacing.s8),
+            child: Row(
+              children: [
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.folder_open_rounded),
+                  label: const Text('保存路径'),
+                  onPressed: () async {
+                    await ref.read(scanNotifierProvider.notifier)
+                        .setScanDir(_scanDirController.text.trim());
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('扫描目录已保存')),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(width: AppSpacing.s12),
+                ElevatedButton.icon(
+                  icon: scanState.scanning
+                      ? const SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.search_rounded),
+                  label: const Text('开始扫描'),
+                  onPressed: scanState.scanning
+                      ? null
+                      : () async {
+                          await ref.read(scanNotifierProvider.notifier)
+                              .setScanDir(_scanDirController.text.trim());
+                          await ref.read(scanNotifierProvider.notifier).scan();
+                        },
+                ),
+              ],
+            ),
+          ),
+          if (scanState.foundCount != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.s16, vertical: AppSpacing.s4),
+              child: Text(
+                '扫描完成：新增 ${scanState.foundCount} 首',
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ),
+          if (scanState.error != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.s16, vertical: AppSpacing.s4),
+              child: Text(
+                '错误：${scanState.error}',
+                style: tt.bodySmall?.copyWith(color: cs.error),
+              ),
+            ),
           const Divider(),
           // 关于
           Padding(

@@ -56,7 +56,7 @@ void main() {
       source = FavoriteSource(db.favoritesDao, sourceManager);
 
       // 注册一个测试源
-      scanSource = LocalScanSource();
+      scanSource = LocalScanSource(db.songDao);
       sourceManager.registerSource(scanSource);
     });
 
