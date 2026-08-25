@@ -8,6 +8,7 @@ abstract class DatabaseProvider {
   PlaylistDao get playlistDao;
   RecentPlaysDao get recentPlaysDao;
   FavoritesDao get favoritesDao;
+  SettingsDao get settingsDao;
 }
 
 /// 歌曲 DAO 接口
@@ -41,4 +42,12 @@ abstract class FavoritesDao {
   Future<void> removeFavorite(String songKey);
   Future<bool> isFavorite(String songKey);
   Future<List<String>> getAllFavoriteKeys();
+}
+
+/// 设置 DAO 接口（key-value 存储，支持多设备同步预留）
+abstract class SettingsDao {
+  Future<String?> get(String key);
+  Future<void> set(String key, String value);
+  Future<Map<String, String>> getAll();
+  Future<void> delete(String key);
 }

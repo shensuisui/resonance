@@ -119,6 +119,28 @@ class InMemoryFavoritesDao implements FavoritesDao {
   }
 }
 
+/// 设置 DAO 内存实现
+class InMemorySettingsDao implements SettingsDao {
+  final _store = <String, String>{};
+
+  @override
+  Future<String?> get(String key) async => _store[key];
+
+  @override
+  Future<void> set(String key, String value) async {
+    _store[key] = value;
+  }
+
+  @override
+  Future<Map<String, String>> getAll() async =>
+      Map<String, String>.from(_store);
+
+  @override
+  Future<void> delete(String key) async {
+    _store.remove(key);
+  }
+}
+
 /// 内存数据库提供者（用于测试）
 class InMemoryDatabaseProvider implements DatabaseProvider {
   @override
@@ -129,6 +151,8 @@ class InMemoryDatabaseProvider implements DatabaseProvider {
   late final RecentPlaysDao recentPlaysDao = InMemoryRecentPlaysDao();
   @override
   late final FavoritesDao favoritesDao = InMemoryFavoritesDao();
+  @override
+  late final SettingsDao settingsDao = InMemorySettingsDao();
 
   @override
   Future<void> initialize() async {

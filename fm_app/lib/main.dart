@@ -1,121 +1,121 @@
-import 'package:flutter/material.dart';
+/// fm 音乐播放器 — 壳工程入口
+///
+/// 职责：
+/// 1. 初始化 SQLite 数据库（SqfliteDatabaseProvider）
+/// 2. 从 assets/rules/ 加载规则源
+/// 3. 注册本地源 + 规则源到 SourceManager
+/// 4. 启动 UI（S2 阶段替换为 Riverpod + 完整页面）
+///
+/// 壳工程不写业务逻辑，只做组装。
 
-void main() {
-  runApp(const MyApp());
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:core/core.dart';
+import 'package:crawler/crawler.dart';
+import 'package:db/db.dart';
+
+late DatabaseProvider gDatabaseProvider;
+late SourceManager gSourceManager;
+late RecentPlaysService gRecentPlaysService;
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 1. 初始化 SQLite 数据库
+  gDatabaseProvider = SqfliteDatabaseProvider();
+  await gDatabaseProvider.initialize();
+
+  // 2. 初始化最近播放服务
+  gRecentPlaysService =
+      RecentPlaysService(gDatabaseProvider.recentPlaysDao);
+
+  // 3. 创建 SourceManager
+  gSourceManager = SourceManager();
+
+  // 4. 注册本地源
+  gSourceManager.registerSource(LocalCustomSource(gDatabaseProvider.songDao));
+  gSourceManager.registerSource(
+      FavoriteSource(gDatabaseProvider.favoritesDao, gSourceManager));
+  gSourceManager.setSourceEnabled('local_custom', true);
+  gSourceManager.setSourceEnabled('favorite', true);
+
+  // 5. 从 assets/rules/ 加载规则源
+  await _loadRuleSources();
+
+  runApp(const FmApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+/// 从 assets/rules/ 加载所有 .json 规则文件
+Future<void> _loadRuleSources() async {
+  try {
+    final manifestContent = await rootBundle.loadString('AssetManifest.json');
+    final manifest = jsonDecode(manifestContent) as Map<String, dynamic>;
+    final ruleFiles = manifest.keys
+        .where((key) => key.startsWith('assets/rules/') && key.endsWith('.json'))
+        .toList();
 
-  // This widget is the root of your application.
+    for (final path in ruleFiles) {
+      try {
+        final jsonStr = await rootBundle.loadString(path);
+        final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+        final config = RuleConfig.fromJson(json);
+        final source = RuleBasedMusicSource(config);
+        gSourceManager.registerSource(source);
+        gSourceManager.setSourceEnabled(config.source.id, true);
+      } catch (e) {
+        debugPrint('加载规则源失败: $path — $e');
+      }
+    }
+  } catch (e) {
+    debugPrint('加载规则源目录失败: $e');
+  }
+}
+
+/// 应用根 Widget（S2 阶段替换为 Riverpod + 完整 UI）
+class FmApp extends StatelessWidget {
+  const FmApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'FM 音乐',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      home: const _PlaceholderPage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+/// 占位页面（S2 替换为搜索页）
+class _PlaceholderPage extends StatelessWidget {
+  const _PlaceholderPage();
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    final sources = gSourceManager.getAllSources();
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
+      appBar: AppBar(title: const Text('FM 音乐')),
       body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
+            const Text('数据库已初始化 ✅'),
+            const SizedBox(height: 16),
+            Text('已注册源: ${sources.length} 个'),
+            const SizedBox(height: 16),
+            ...sources.map((s) => Text('• ${s.sourceInfo.name} (${s.sourceInfo.id})')),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }
