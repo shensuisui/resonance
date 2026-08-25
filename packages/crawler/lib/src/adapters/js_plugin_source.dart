@@ -9,6 +9,10 @@ class JsPluginSource extends MusicSource {
   final String _name;
   final String _id;
 
+  /// 缓存搜索结果中的原始 musicItem（id → JSON 字符串）
+  /// 避免获取播放 URL 时重新搜索导致 songmid 不一致
+  final Map<String, String> _itemCache = {};
+
   JsPluginSource(this._runtime, this._name, {String? id})
       : _id = id ?? _name.toLowerCase().replaceAll(' ', '_');
 
@@ -29,6 +33,23 @@ class JsPluginSource extends MusicSource {
     final result = await _runtime.callPluginFunction(
       "search('${_escapeJs(keyword)}', $page, 'music')",
     );
+    // 缓存原始 musicItem，供 getSongUrl / getLyrics 使用
+    if (result != null) {
+      try {
+        final json = jsonDecode(result) as Map<String, dynamic>;
+        final data = json['data'] as List?;
+        if (data != null) {
+          for (final item in data) {
+            if (item is Map<String, dynamic>) {
+              final id = item['id']?.toString();
+              if (id != null) {
+                _itemCache[id] = jsonEncode(item);
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
     return _parseSearchResult(result);
   }
 
@@ -47,18 +68,19 @@ class JsPluginSource extends MusicSource {
 
   @override
   Future<String> getSongUrl(String id) async {
-    // 调用 getMediaSource 获取播放 URL
-    // 需要先获取 songmid（插件的音乐项标识符）
+    // 优先使用缓存的原始 musicItem（避免重新搜索导致 songmid 不一致）
+    final cachedItem = _itemCache[id];
+    final itemJson = cachedItem != null
+        ? cachedItem
+        : jsonEncode({'id': id});
+
     final result = await _runtime.callPluginFunction(
       '''
       (async function() {
-        const searchResult = await window.__plugin.search("${_escapeJs(id)}", 1, "music");
-        if (searchResult.data && searchResult.data.length > 0) {
-          const item = searchResult.data[0];
-          if (typeof window.__plugin.getMediaSource === "function") {
-            const media = await window.__plugin.getMediaSource(item, "standard");
-            return JSON.stringify({url: media.url});
-          }
+        var item = $itemJson;
+        if (typeof window.__plugin.getMediaSource === "function") {
+          var media = await window.__plugin.getMediaSource(item, "standard");
+          return JSON.stringify({url: media ? (media.url || "") : ""});
         }
         return JSON.stringify({url: ""});
       })()
@@ -75,16 +97,19 @@ class JsPluginSource extends MusicSource {
 
   @override
   Future<Lyrics?> getLyrics(String id) async {
+    // 优先使用缓存的原始 musicItem
+    final cachedItem = _itemCache[id];
+    final itemJson = cachedItem != null
+        ? cachedItem
+        : jsonEncode({'id': id});
+
     final result = await _runtime.callPluginFunction(
       '''
       (async function() {
-        const searchResult = await window.__plugin.search("${_escapeJs(id)}", 1, "music");
-        if (searchResult.data && searchResult.data.length > 0) {
-          const item = searchResult.data[0];
-          if (typeof window.__plugin.getLyric === "function") {
-            const lyric = await window.__plugin.getLyric(item);
-            return JSON.stringify({lrc: lyric.rawLrc || "", trans: lyric.translation || ""});
-          }
+        var item = $itemJson;
+        if (typeof window.__plugin.getLyric === "function") {
+          var lyric = await window.__plugin.getLyric(item);
+          return JSON.stringify({lrc: lyric.rawLrc || "", trans: lyric.translation || ""});
         }
         return JSON.stringify({lrc: "", trans: ""});
       })()

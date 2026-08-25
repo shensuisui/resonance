@@ -73,17 +73,18 @@ class RuleBasedMusicSource extends MusicSource {
   @override
   Future<Playlist?> getPlaylist(String id) async {
     final result = await _executor.executePlaylist(id);
-    if (result.songs.isEmpty) return null;
-    return Playlist(
-      id: id,
-      name: '${_ruleConfig.source.name} 歌单',
-      songKeys: result.songs.map((s) => s.globalKey).toList(),
-      sourceId: _ruleConfig.source.id,
-      sourcePlaylistId: id,
-      createdTime: DateTime.now(),
-      modifiedTime: DateTime.now(),
-    );
+    if (result == null || result.songs.isEmpty) return null;
+    return result.playlist;
   }
+
+  /// 获取推荐歌单列表（歌单发现页）
+  Future<List<Playlist>> getPlaylistList({int page = 1}) async {
+    return _executor.executePlaylistList(page: page);
+  }
+
+  /// 播放请求头：播放器请求 CDN 地址时需携带的 HTTP 头
+  /// 从规则配置的 playHeaders 字段读取
+  Map<String, String> get playHeaders => _ruleConfig.playHeaders ?? {};
 
   @override
   Future<void> init() async {}

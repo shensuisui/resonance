@@ -6,12 +6,15 @@ class HttpResponse {
   final String rawData;
   final int statusCode;
   final String responseType;
+  /// 重定向 URL（当 followRedirects=false 且返回 302 时有值）
+  final String? redirectUrl;
 
   const HttpResponse({
     required this.data,
     required this.rawData,
     required this.statusCode,
     this.responseType = 'json',
+    this.redirectUrl,
   });
 }
 
@@ -25,18 +28,30 @@ class HttpClient {
         _dio = dio.Dio(dio.BaseOptions(
           connectTimeout: timeout ?? const Duration(seconds: 15),
           receiveTimeout: timeout ?? const Duration(seconds: 15),
+          validateStatus: (status) => status != null && status < 400,
         ));
 
   /// 发送 GET 请求
+  /// [followRedirects] 为 false 时，302 响应不跟随，返回 redirectUrl
   Future<HttpResponse> get(
     String url, {
     Map<String, String>? headers,
     String responseType = 'json',
+    bool followRedirects = true,
   }) async {
     final fullUrl = _baseUrl != null ? '$_baseUrl$url' : url;
     final options = dio.Options(
       headers: headers,
       responseType: _mapResponseType(responseType),
+      followRedirects: followRedirects,
+      maxRedirects: followRedirects ? 5 : 0,
+      validateStatus: (status) {
+        // 重定向时不跟随时，3xx 也视为成功
+        if (!followRedirects && status != null && status >= 300 && status < 400) {
+          return true;
+        }
+        return status != null && status < 400;
+      },
     );
     final response = await _dio.get(fullUrl, options: options);
     return _buildResponse(response, responseType);
@@ -71,11 +86,21 @@ class HttpClient {
 
   HttpResponse _buildResponse(dio.Response response, String responseType) {
     final rawData = response.data is String ? response.data : response.toString();
+    // 捕获重定向 URL（302/301 响应的 Location header）
+    String? redirectUrl;
+    final statusCode = response.statusCode ?? 0;
+    if (statusCode >= 300 && statusCode < 400) {
+      final location = response.headers.value('location');
+      if (location != null) {
+        redirectUrl = location;
+      }
+    }
     return HttpResponse(
       data: response.data,
       rawData: rawData,
-      statusCode: response.statusCode ?? 0,
+      statusCode: statusCode,
       responseType: responseType,
+      redirectUrl: redirectUrl,
     );
   }
 

@@ -172,69 +172,9 @@ class MusicFreeAdapter {
 class LxMusicAdapter {
   /// 尝试创建落雪插件源
   /// 使用 JsRuntime 执行插件 JS 代码
-  /// 如果 JS 运行时不可用，返回 stub 源
+  /// JS 运行时不可用时返回 null
   static Future<MusicSource?> tryCreate(String content) async {
     if (content.trim().isEmpty) return null;
-
-    try {
-      // 优先尝试 JS 运行时
-      final source = await JsPluginFactory.create(content);
-      if (source != null) return source;
-    } catch (_) {
-      // JS 运行时不可用，回退到 stub
-    }
-
-    // 回退：返回 stub 源
-    final nameMatch = RegExp(r"""(?:name|platform)\s*[:=]\s*["']([^"']+)["']""").firstMatch(content);
-    final name = nameMatch?.group(1) ?? '落雪插件';
-    return _LxStubSource(name);
+    return JsPluginFactory.create(content);
   }
-}
-
-/// 落雪插件 stub 源（JS 运行时不可用时使用）
-class _LxStubSource extends MusicSource {
-  final String _name;
-
-  _LxStubSource(this._name);
-
-  @override
-  SourceInfo get sourceInfo => SourceInfo(
-        id: 'lx_${_name.toLowerCase().replaceAll(' ', '_')}',
-        name: '$_name (JS 待支持)',
-        type: SourceType.plugin,
-        enabled: true,
-      );
-
-  @override
-  Future<SearchResult> search({required String keyword, int page = 1, int pageSize = 20}) async {
-    throw UnsupportedError('JS 运行时不可用，落雪插件暂不可用');
-  }
-
-  @override
-  Future<Song> getSongDetail(String id) async {
-    throw UnsupportedError('JS 运行时不可用，落雪插件暂不可用');
-  }
-
-  @override
-  Future<String> getSongUrl(String id) async {
-    throw UnsupportedError('JS 运行时不可用，落雪插件暂不可用');
-  }
-
-  @override
-  Future<Lyrics?> getLyrics(String id) async => null;
-
-  @override
-  Future<Album?> getAlbum(String id) async => null;
-
-  @override
-  Future<Artist?> getArtist(String id) async => null;
-
-  @override
-  Future<Playlist?> getPlaylist(String id) async => null;
-
-  @override
-  Future<void> init() async {}
-
-  @override
-  Future<void> dispose() async {}
 }

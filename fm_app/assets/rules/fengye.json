@@ -1,0 +1,98 @@
+{
+  "source": {
+    "id": "fengye",
+    "name": "枫叶音乐",
+    "baseUrl": "https://fy-musicbox-api.mu-jie.cc",
+    "icon": "https://mu-jie.cc/favicon.ico"
+  },
+  "search": {
+    "url": "/netease/search/song/?keywords={keyword}&pn={page}&limit=20",
+    "method": "GET",
+    "headers": {
+      "Origin": "https://mu-jie.cc",
+      "Referer": "https://mu-jie.cc/",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    },
+    "responseType": "json",
+    "listRule": "$",
+    "itemRules": {
+      "id": "id",
+      "title": "name",
+      "artist": "artist",
+      "coverUrl": "pic",
+      "playUrl": "url",
+      "lyricUrl": "lrc"
+    },
+    "pagination": {
+      "type": "size",
+      "limitValue": 20
+    }
+  },
+  "songDetail": {
+    "url": "/meting/?server=netease&type=url&id={id}",
+    "method": "GET",
+    "headers": {
+      "Origin": "https://mu-jie.cc",
+      "Referer": "https://mu-jie.cc/"
+    },
+    "responseType": "redirect",
+    "listRule": "$",
+    "itemRules": {
+      "playUrl": "redirect_url"
+    }
+  },
+  "lyric": {
+    "url": "/meting/?server=netease&type=lrc&id={id}",
+    "method": "GET",
+    "headers": {
+      "Origin": "https://mu-jie.cc",
+      "Referer": "https://mu-jie.cc/"
+    },
+    "responseType": "text"
+  },
+  "playlistList": {
+    "url": "/netease/playlist/recommend?limit=30",
+    "method": "GET",
+    "headers": {
+      "Origin": "https://mu-jie.cc",
+      "Referer": "https://mu-jie.cc/",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    },
+    "responseType": "json",
+    "listRule": "$",
+    "itemRules": {
+      "id": "${$.server}-${$.id}",
+      "title": "name",
+      "coverUrl": "coverImgUrl"
+    }
+  },
+  "playlist": {
+    "url": "/meting/?server={server}&type=playlist&id={playlistId}",
+    "method": "GET",
+    "headers": {
+      "Origin": "https://mu-jie.cc",
+      "Referer": "https://mu-jie.cc/"
+    },
+    "responseType": "json",
+    "listRule": "$.tracks",
+    "itemRules": {
+      "id": "id",
+      "title": "name",
+      "artist": "artist",
+      "coverUrl": "pic",
+      "playUrl": "url",
+      "lyricUrl": "lrc"
+    },
+    "params": {
+      "server": "$.id && @Regex:^[^-]+",
+      "playlistId": "$.id && @Regex:[^-]+$"
+    },
+    "playlistInfo": {
+      "title": "name",
+      "coverUrl": "coverImgUrl"
+    }
+  },
+  "playHeaders": {
+    "referer": "https://mu-jie.cc/"
+  }
+}

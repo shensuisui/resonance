@@ -4,6 +4,13 @@ import '../http/http_client.dart';
 import 'rule_config.dart';
 import 'response_handler.dart';
 
+/// 歌单详情结果：包含歌单元数据和曲目列表
+class PlaylistDetailResult {
+  final Playlist playlist;
+  final List<Song> songs;
+  PlaylistDetailResult(this.playlist, this.songs);
+}
+
 /// 规则执行引擎：执行搜索、详情、歌词、歌单等流程
 class RuleExecutor {
   final RuleConfig _rule;
@@ -12,6 +19,27 @@ class RuleExecutor {
   RuleExecutor(this._rule, {HttpClient? httpClient})
       : _httpClient = httpClient ??
             HttpClient(baseUrl: _rule.source.baseUrl);
+
+  /// 解析 URL 模板，支持 params 表达式参数
+  /// params 中的表达式对输入变量求值，结果替换 URL 模板中的 {变量名}
+  /// 用于从复合 ID 拆分出 server/id 等场景
+  String _resolveUrlWithParams(
+    String template,
+    Map<String, String> vars,
+    Map<String, String>? params,
+  ) {
+    if (params == null || params.isEmpty) {
+      return HttpClient.resolveUrl(template, vars);
+    }
+    // 初始化表达式引擎
+    initExprEngine();
+    final resolvedVars = Map<String, String>.from(vars);
+    for (final entry in params.entries) {
+      final result = evaluate(entry.value, vars);
+      resolvedVars[entry.key] = result?.toString() ?? '';
+    }
+    return HttpClient.resolveUrl(template, resolvedVars);
+  }
 
   /// 执行搜索
   Future<SearchResult> executeSearch(String keyword, {int page = 1}) async {
@@ -47,7 +75,12 @@ class RuleExecutor {
     }
 
     // 5. 提取分页
-    final pagination = ResponseHandler.extractPagination(response.data, searchRule.pagination);
+    final pagination = ResponseHandler.extractPagination(
+      response.data,
+      searchRule.pagination,
+      resultCount: songs.length,
+      currentPage: page,
+    );
 
     return SearchResult(
       songs: songs,
@@ -62,6 +95,9 @@ class RuleExecutor {
   }
 
   /// 获取歌曲详情
+  ///
+  /// 支持 responseType: 'redirect' — 用于获取重定向 URL（如枫叶音乐的播放地址）
+  /// 当 responseType 为 redirect 时，调用 URL 不跟随重定向，提取 Location header
   Future<Map<String, dynamic>> executeSongDetail(String id) async {
     final detailRule = _rule.songDetail;
     if (detailRule == null) return {};
@@ -72,6 +108,21 @@ class RuleExecutor {
     });
 
     try {
+      // 重定向类型：不跟随 302，提取 Location header
+      if (detailRule.responseType == 'redirect') {
+        final response = await _httpClient.get(
+          url,
+          headers: detailRule.headers,
+          responseType: 'text',
+          followRedirects: false,
+        );
+        if (response.redirectUrl != null) {
+          return {'playUrl': response.redirectUrl};
+        }
+        return {};
+      }
+
+      // 常规 JSON/HTML 类型
       final response = await _httpClient.get(url, headers: detailRule.headers, responseType: detailRule.responseType);
       final items = ResponseHandler.extractList(response.data, detailRule.listRule);
       if (items.isEmpty) return {};
@@ -112,22 +163,42 @@ class RuleExecutor {
     return null;
   }
 
-  /// 获取歌单
-  Future<SearchResult> executePlaylist(String id) async {
+  /// 获取歌单详情（含曲目列表）
+  ///
+  /// 支持 params 表达式参数：从复合 ID 拆分出 server/id 等
+  /// 支持 playlistInfo：从响应根对象提取歌单名称、封面等元数据
+  Future<PlaylistDetailResult?> executePlaylist(String id) async {
     final playlistRule = _rule.playlist;
-    if (playlistRule == null) {
-      return SearchResult(songs: [], sourceId: _rule.source.id);
-    }
+    if (playlistRule == null) return null;
 
-    final url = HttpClient.resolveUrl(playlistRule.url, {
+    // 用 params 表达式解析 URL（支持从复合 ID 拆分）
+    final url = _resolveUrlWithParams(playlistRule.url, {
       'id': id,
       'baseUrl': _rule.source.baseUrl ?? '',
-    });
+    }, playlistRule.params);
 
     try {
-      final response = await _httpClient.get(url, headers: playlistRule.headers, responseType: playlistRule.responseType);
-      final items = ResponseHandler.extractList(response.data, playlistRule.listRule);
+      final response = await _httpClient.get(
+        url,
+        headers: playlistRule.headers,
+        responseType: playlistRule.responseType,
+      );
 
+      // 提取歌单元数据（从响应根对象）
+      String playlistName = id;
+      String? coverUrl;
+      if (playlistRule.playlistInfo != null) {
+        final infoFields = ResponseHandler.extractItem(
+          response.data,
+          playlistRule.playlistInfo!,
+        );
+        playlistName = infoFields['title']?.toString() ?? id;
+        coverUrl = infoFields['coverUrl']?.toString() ??
+            infoFields['cover']?.toString();
+      }
+
+      // 提取曲目列表
+      final items = ResponseHandler.extractList(response.data, playlistRule.listRule);
       final songs = <Song>[];
       for (final item in items) {
         final fields = ResponseHandler.extractItem(item, playlistRule.itemRules);
@@ -135,13 +206,68 @@ class RuleExecutor {
         if (song != null) songs.add(song);
       }
 
-      return SearchResult(
-        songs: songs,
+      final now = DateTime.now();
+      final playlist = Playlist(
+        id: id,
+        name: playlistName,
+        songKeys: songs.map((s) => '${s.sourceId}:${s.id}').toList(),
         sourceId: _rule.source.id,
-        hasMore: false,
+        sourcePlaylistId: id,
+        coverUrl: coverUrl,
+        createdTime: now,
+        modifiedTime: now,
       );
+
+      return PlaylistDetailResult(playlist, songs);
     } catch (_) {
-      return SearchResult(songs: [], sourceId: _rule.source.id);
+      return null;
+    }
+  }
+
+  /// 获取推荐歌单列表
+  ///
+  /// 返回歌单列表（不含曲目），用于歌单发现页
+  /// 注意：一个源可能有多个平台的歌单，itemRules 应生成复合 ID 以便后续详情查询
+  Future<List<Playlist>> executePlaylistList({int page = 1}) async {
+    final listRule = _rule.playlistList;
+    if (listRule == null) return [];
+
+    final url = _resolveUrlWithParams(listRule.url, {
+      'page': page.toString(),
+      'baseUrl': _rule.source.baseUrl ?? '',
+    }, listRule.params);
+
+    try {
+      final response = await _httpClient.get(
+        url,
+        headers: listRule.headers,
+        responseType: listRule.responseType,
+      );
+
+      final items = ResponseHandler.extractList(response.data, listRule.listRule);
+      final now = DateTime.now();
+      final playlists = <Playlist>[];
+      for (final item in items) {
+        final fields = ResponseHandler.extractItem(item, listRule.itemRules);
+        final pid = fields['id']?.toString();
+        final pname = fields['title']?.toString() ?? fields['name']?.toString();
+        if (pid == null || pname == null) continue;
+
+        playlists.add(Playlist(
+          id: pid,
+          name: pname,
+          sourceId: _rule.source.id,
+          sourcePlaylistId: pid,
+          coverUrl: fields['coverUrl']?.toString() ??
+              fields['cover']?.toString(),
+          createdTime: now,
+          modifiedTime: now,
+        ));
+      }
+
+      return playlists;
+    } catch (_) {
+      return [];
     }
   }
 

@@ -5,9 +5,6 @@ import 'package:crawler/crawler.dart';
 import 'package:core/core.dart';
 import 'package:test/test.dart';
 
-/// 标记是否在 Flutter 环境中运行（JS 运行时需要 Flutter）
-bool get _hasFlutter => false;
-
 void main() {
   late Directory tempDir;
 
@@ -174,16 +171,10 @@ void main() {
       expect(source, isNull);
     });
 
-    test('extracts name from JS source', () async {
-      final source = await LxMusicAdapter.tryCreate('const name = "Netease";');
-      expect(source, isNotNull);
-      expect(source!.sourceInfo.name, contains('Netease'));
-    });
-
-    test('extracts platform name from JS', () async {
+    test('returns null when JS runtime unavailable', () async {
+      // dart 单元测试环境无 WebView，tryCreate 应返回 null
       final source = await LxMusicAdapter.tryCreate('platform: "小秋音乐"');
-      expect(source, isNotNull);
-      expect(source!.sourceInfo.name, contains('小秋音乐'));
+      expect(source, isNull);
     });
   });
 
@@ -417,71 +408,6 @@ void main() {
     });
   });
 
-  group('JS 插件运行时测试', () {
-    test('下载并加载插件到 JsRuntime，执行搜索和获取播放 URL', () async {
-      final downloader = PluginDownloader();
-
-      // 下载小秋音乐插件
-      final jsPath = '${tempDir.path}/xiaoqiu.js';
-      await downloader.downloadPlugin(
-        'https://fastly.jsdelivr.net/gh/Huibq/keep-alive/Music_Free/xiaoqiu.js',
-        jsPath,
-      );
-      downloader.dispose();
-
-      final jsContent = File(jsPath).readAsStringSync();
-
-      // 尝试初始化 JS 运行时
-      late JsRuntime runtime;
-      try {
-        runtime = JsRuntime();
-        await runtime.init();
-      } catch (e) {
-        // WebView 不可用（如 CI 环境），降级验证插件结构
-        final source = await LxMusicAdapter.tryCreate(jsContent);
-        expect(source, isNotNull, reason: '插件无法被 LxMusicAdapter 识别');
-        expect(source!.sourceInfo.name, contains('小秋音乐'));
-        return;
-      }
-
-      try {
-        // 加载插件
-        await runtime.loadPlugin(jsContent);
-        final loaded = await runtime.isPluginLoaded();
-        expect(loaded, isTrue, reason: '插件加载失败');
-        expect(await runtime.hasFunction('search'), isTrue);
-        expect(await runtime.hasFunction('getMediaSource'), isTrue);
-
-        // 执行搜索
-        final searchResult = await runtime.callPluginFunction("search('周杰伦', 1, 'music')");
-        expect(searchResult, isNotNull);
-        expect(searchResult, isNot(contains('"error"')), reason: '搜索出错');
-
-        // 解析搜索结果
-        final searchJson = jsonDecode(searchResult!) as Map<String, dynamic>;
-        final data = searchJson['data'] as List?;
-        expect(data, isNotEmpty, reason: '搜索无结果');
-
-        // 获取第一首歌的播放 URL
-        if (data!.isNotEmpty) {
-          final firstSong = data.first as Map<String, dynamic>;
-          final songId = firstSong['id']?.toString() ?? firstSong['songmid']?.toString() ?? '';
-          expect(songId.isNotEmpty, isTrue, reason: '歌曲 ID 为空');
-
-          // 获取播放 URL
-          final urlResult = await runtime.callPluginFunction(
-            "(async function() { const item = (await window.__plugin.search('周杰伦', 1, 'music')).data[0]; const media = await window.__plugin.getMediaSource(item, 'standard'); return JSON.stringify(media); })()",
-          );
-          expect(urlResult, isNotNull);
-          expect(urlResult, isNot(contains('"error"')), reason: '获取播放 URL 出错');
-
-          final urlJson = jsonDecode(urlResult!) as Map<String, dynamic>;
-          final playUrl = urlJson['url'] as String?;
-          expect(playUrl, isNotEmpty, reason: '播放 URL 为空');
-        }
-      } finally {
-        await runtime.dispose();
-      }
-    });
-  });
+  // JS 插件运行时测试已移至集成测试（integration_test/）
+  // dart 单元测试环境无法初始化 WebView，真实测试在 fm_app/integration_test/ 下运行
 }

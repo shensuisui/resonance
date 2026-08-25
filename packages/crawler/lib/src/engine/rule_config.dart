@@ -66,6 +66,13 @@ class FlowRule {
   final String listRule;
   final Map<String, String> itemRules;
   final PaginationRule? pagination;
+  /// URL 参数表达式：键为模板变量名，值为 expr DSL 表达式
+  /// 表达式对输入参数求值，结果替换 URL 中的 {变量名}
+  /// 用于从复合 ID 拆分出 server/id 等场景
+  final Map<String, String>? params;
+  /// 歌单元数据提取规则：键为 Playlist 字段名，值为 expr DSL 表达式
+  /// 从响应根对象提取歌单名称、封面等（区别于 itemRules 从列表项提取）
+  final Map<String, String>? playlistInfo;
 
   const FlowRule({
     required this.url,
@@ -75,6 +82,8 @@ class FlowRule {
     required this.listRule,
     required this.itemRules,
     this.pagination,
+    this.params,
+    this.playlistInfo,
   });
 
   factory FlowRule.fromJson(Map<String, dynamic> json) => FlowRule(
@@ -90,6 +99,10 @@ class FlowRule {
         pagination: json['pagination'] != null
             ? PaginationRule.fromJson(json['pagination'] as Map<String, dynamic>)
             : null,
+        params: (json['params'] as Map<String, dynamic>?)
+            ?.map((k, v) => MapEntry(k, v as String)),
+        playlistInfo: (json['playlistInfo'] as Map<String, dynamic>?)
+            ?.map((k, v) => MapEntry(k, v as String)),
       );
 }
 
@@ -128,6 +141,10 @@ class RuleConfig {
   final FlowRule? songDetail;
   final LyricRuleConfig? lyric;
   final FlowRule? playlist;
+  /// 推荐歌单列表流程：获取歌单列表（可能来自多个平台）
+  final FlowRule? playlistList;
+  /// 播放请求头：播放器请求 CDN 地址时需携带的 HTTP 头
+  final Map<String, String>? playHeaders;
 
   const RuleConfig({
     required this.source,
@@ -135,6 +152,8 @@ class RuleConfig {
     this.songDetail,
     this.lyric,
     this.playlist,
+    this.playlistList,
+    this.playHeaders,
   });
 
   factory RuleConfig.fromJson(Map<String, dynamic> json) => RuleConfig(
@@ -151,5 +170,10 @@ class RuleConfig {
         playlist: json['playlist'] != null
             ? FlowRule.fromJson(json['playlist'] as Map<String, dynamic>)
             : null,
+        playlistList: json['playlistList'] != null
+            ? FlowRule.fromJson(json['playlistList'] as Map<String, dynamic>)
+            : null,
+        playHeaders: (json['playHeaders'] as Map<String, dynamic>?)
+            ?.map((k, v) => MapEntry(k, v as String)),
       );
 }
