@@ -1,0 +1,66 @@
+{
+  "source": {
+    "id": "6uq",
+    "name": "6U音乐",
+    "baseUrl": "http://www.6uq.cn",
+    "icon": "http://www.6uq.cn/favicon.ico"
+  },
+  "preflight": {
+    "cacheMinutes": 50,
+    "steps": [
+      {
+        "method": "GET",
+        "url": "/",
+        "responseType": "html",
+        "extract": {
+          "csrf_token": "@CSS:input[name='csrf_token']@value"
+        }
+      },
+      {
+        "method": "POST",
+        "url": "/",
+        "body": "csrf_token={csrf_token}&human_check=on",
+        "contentType": "application/x-www-form-urlencoded"
+      }
+    ]
+  },
+  "search": {
+    "url": "/so/{keyword}.html",
+    "method": "GET",
+    "headers": {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    },
+    "responseType": "html",
+    "listRule": "@CSS:ul li@html",
+    "itemRules": {
+      "id": "@CSS:div.name a@href && @Regex:/play/([^.]+)",
+      "title": "@CSS:div.name a@text && @Regex:《([^》]+)》",
+      "artist": "@CSS:div.name a@text && @Regex:^[^《]+"
+    },
+    "pagination": {
+      "type": "size",
+      "limitValue": 20
+    }
+  },
+  "songDetail": {
+    "url": "/plug/down.php?ac=music&id={id}&k=320kmp3",
+    "method": "GET",
+    "headers": {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    },
+    "responseType": "redirect",
+    "listRule": "$",
+    "itemRules": {
+      "playUrl": "redirect_url"
+    }
+  },
+  "lyric": {
+    "url": "/plug/lrcgc.php?id={id}",
+    "method": "GET",
+    "headers": {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    },
+    "responseType": "json",
+    "contentRule": "$.lrc"
+  }
+}

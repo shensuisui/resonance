@@ -40,6 +40,10 @@ class CompoundEvaluator {
   static dynamic _evaluateChain(List<ParseResult> parts, dynamic data) {
     dynamic current = data;
     for (final part in parts) {
+      // CSS 提取后缀返回列表，链式传递时若只有一个元素则展开为单值
+      if (current is List && current.length == 1) {
+        current = current.first;
+      }
       current = EvaluatorFactory.evaluate(part, current);
       if (current == null) return null;
     }
