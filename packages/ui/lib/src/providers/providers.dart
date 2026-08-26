@@ -312,6 +312,53 @@ class SearchState {
   }
 }
 
+/// 搜索历史（持久化，新→旧，去重移顶，上限 [SearchHistory._maxEntries]）
+@Riverpod(keepAlive: true)
+class SearchHistory extends _$SearchHistory {
+  static const int _maxEntries = 20;
+  static const String _key = 'search_history';
+
+  @override
+  List<String> build() {
+    load();
+    return const [];
+  }
+
+  SettingsDao get _settingsDao => ref.read(settingsDaoProvider);
+
+  Future<void> load() async {
+    try {
+      final raw = await _settingsDao.get(_key);
+      if (raw == null || raw.isEmpty) return;
+      final list = (jsonDecode(raw) as List<dynamic>).cast<String>();
+      state = list;
+    } catch (_) {
+      state = const [];
+    }
+  }
+
+  /// 记录一次搜索：去重移顶 + 上限截断 + 持久化
+  Future<void> add(String keyword) async {
+    final k = keyword.trim();
+    if (k.isEmpty) return;
+    final updated = [k, ...state.where((e) => e != k)];
+    final capped = updated.take(_maxEntries).toList();
+    state = capped;
+    await _settingsDao.set(_key, jsonEncode(capped));
+  }
+
+  Future<void> remove(String keyword) async {
+    final updated = state.where((e) => e != keyword).toList();
+    state = updated;
+    await _settingsDao.set(_key, jsonEncode(updated));
+  }
+
+  Future<void> clear() async {
+    state = const [];
+    await _settingsDao.set(_key, '[]');
+  }
+}
+
 /// 搜索 Notifier
 @Riverpod(keepAlive: true)
 class SearchNotifier extends _$SearchNotifier {
@@ -322,6 +369,8 @@ class SearchNotifier extends _$SearchNotifier {
 
   /// 执行聚合搜索
   Future<void> search(String keyword) async {
+    // 记录搜索历史（去重移顶 + 上限）
+    ref.read(searchHistoryProvider.notifier).add(keyword);
     state = SearchState(keyword: keyword, loading: true);
     try {
       final results = await _sourceManager.searchAll(keyword: keyword);

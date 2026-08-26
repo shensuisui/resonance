@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
 import '../providers/providers.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/download_button.dart';
 import 'artist_page.dart';
+import 'discover_page.dart';
 
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
@@ -120,6 +122,132 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     }
   }
 
+  /// 空闲态：搜索历史 + 热门推荐
+  Widget _buildIdle(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final history = ref.watch(searchHistoryProvider);
+    final discover = ref.watch(discoverProvider);
+    final sections = <Widget>[];
+
+    // 搜索历史
+    if (history.isNotEmpty) {
+      sections.add(Padding(
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.s16, AppSpacing.s16, AppSpacing.s8, AppSpacing.s4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text('搜索历史',
+                  style: tt.titleSmall?.copyWith(color: cs.primary)),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_rounded, size: 20),
+              tooltip: '清空历史',
+              onPressed: () => ref.read(searchHistoryProvider.notifier).clear(),
+            ),
+          ],
+        ),
+      ));
+      sections.add(Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
+        child: Wrap(
+          spacing: AppSpacing.s8,
+          runSpacing: AppSpacing.s8,
+          children: history
+              .map((keyword) => InputChip(
+                    label: Text(keyword),
+                    onPressed: () {
+                      _controller.text = keyword;
+                      ref.read(searchProvider.notifier).search(keyword);
+                    },
+                    onDeleted: () => ref
+                        .read(searchHistoryProvider.notifier)
+                        .remove(keyword),
+                  ))
+              .toList(),
+        ),
+      ));
+    }
+
+    // 热门推荐（复用发现页数据源：各源 getPlaylistList）
+    if (discover.playlists.isNotEmpty) {
+      sections.add(Padding(
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.s16, AppSpacing.s24, AppSpacing.s16, AppSpacing.s8),
+        child: Text('热门推荐',
+            style: tt.titleSmall?.copyWith(color: cs.primary)),
+      ));
+      sections.add(SizedBox(
+        height: 180,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
+          scrollDirection: Axis.horizontal,
+          itemCount: discover.playlists.length,
+          separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.s12),
+          itemBuilder: (context, index) {
+            final pl = discover.playlists[index];
+            return _buildHotPlaylist(pl, cs, tt);
+          },
+        ),
+      ));
+    }
+
+    if (sections.isEmpty) {
+      return const EmptyState(message: '搜索你喜欢的音乐');
+    }
+    return ListView(children: sections);
+  }
+
+  /// 热门推荐歌单卡片
+  Widget _buildHotPlaylist(Playlist pl, ColorScheme cs, TextTheme tt) {
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => DiscoverPlaylistPage(playlist: pl)),
+      ),
+      borderRadius: BorderRadius.circular(AppRadius.s12),
+      child: SizedBox(
+        width: 120,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.s12),
+              child: _buildHotCover(pl, cs),
+            ),
+            const SizedBox(height: AppSpacing.s8),
+            Text(pl.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: tt.bodySmall),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHotCover(Playlist pl, ColorScheme cs) {
+    final url = pl.coverUrl;
+    if (url != null && url.isNotEmpty) {
+      return Image.network(url,
+          width: 120, height: 120, fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _defaultHotCover(cs));
+    }
+    return _defaultHotCover(cs);
+  }
+
+  Widget _defaultHotCover(ColorScheme cs) {
+    return Container(
+      width: 120, height: 120,
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppRadius.s12),
+      ),
+      child:
+          Icon(Icons.queue_music_rounded, color: cs.onSurfaceVariant, size: 32),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(searchProvider);
@@ -145,11 +273,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       body: state.loading
           ? const Center(child: CircularProgressIndicator())
           : state.results.isEmpty
-              ? EmptyState(
-                  message: state.keyword.isEmpty
-                      ? '搜索你喜欢的音乐'
-                      : '没有找到 "${state.keyword}" 的结果',
-                )
+              ? (state.keyword.isEmpty
+                  ? _buildIdle(context)
+                  : EmptyState(
+                      message: '没有找到 "${state.keyword}" 的结果',
+                    ))
               : ListView.builder(
                   itemCount: state.results.length,
                   itemBuilder: (context, index) {

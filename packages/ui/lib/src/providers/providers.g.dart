@@ -1074,6 +1074,64 @@ abstract class _$ThemeModeNotifier extends $Notifier<ThemeMode> {
   }
 }
 
+/// 搜索历史（持久化，新→旧，去重移顶，上限 [SearchHistory._maxEntries]）
+
+@ProviderFor(SearchHistory)
+final searchHistoryProvider = SearchHistoryProvider._();
+
+/// 搜索历史（持久化，新→旧，去重移顶，上限 [SearchHistory._maxEntries]）
+final class SearchHistoryProvider
+    extends $NotifierProvider<SearchHistory, List<String>> {
+  /// 搜索历史（持久化，新→旧，去重移顶，上限 [SearchHistory._maxEntries]）
+  SearchHistoryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'searchHistoryProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$searchHistoryHash();
+
+  @$internal
+  @override
+  SearchHistory create() => SearchHistory();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(List<String> value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<List<String>>(value),
+    );
+  }
+}
+
+String _$searchHistoryHash() => r'd5a31085bc2dd40960b8f2e3cf5dc1fbc844862d';
+
+/// 搜索历史（持久化，新→旧，去重移顶，上限 [SearchHistory._maxEntries]）
+
+abstract class _$SearchHistory extends $Notifier<List<String>> {
+  List<String> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<List<String>, List<String>>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<List<String>, List<String>>,
+              List<String>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
 /// 搜索 Notifier
 
 @ProviderFor(SearchNotifier)
@@ -1110,7 +1168,7 @@ final class SearchNotifierProvider
   }
 }
 
-String _$searchNotifierHash() => r'efc1e71d1e6081fb3714e8d731239a78e24b6315';
+String _$searchNotifierHash() => r'bb503abdf1b35b1ade541b06f297e8e113d8c205';
 
 /// 搜索 Notifier
 
