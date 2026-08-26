@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_spacing.dart';
 import '../providers/providers.dart';
+import 'download_queue_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -138,6 +139,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 style: tt.bodySmall?.copyWith(color: cs.error),
               ),
             ),
+          const Divider(),
+          // 下载
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.s16),
+            child: Text('下载', style: tt.titleSmall?.copyWith(color: cs.primary)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.download_for_offline_rounded),
+            title: const Text('下载管理'),
+            subtitle: const Text('查看下载任务，取消或删除缓存'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const DownloadQueuePage(),
+              ),
+            ),
+          ),
           const Divider(),
           // 关于
           Padding(

@@ -18,6 +18,7 @@ export 'src/services/playlist_io.dart';
 export 'src/widgets/song_tile.dart';
 export 'src/widgets/empty_state.dart';
 export 'src/widgets/mini_player.dart';
+export 'src/widgets/download_button.dart';
 
 // 页面
 export 'src/pages/app_shell.dart';
@@ -28,3 +29,4 @@ export 'src/pages/playlist_list_page.dart';
 export 'src/pages/playlist_detail_page.dart';
 export 'src/pages/source_management_page.dart';
 export 'src/pages/settings_page.dart';
+export 'src/pages/download_queue_page.dart';

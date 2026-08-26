@@ -7,6 +7,7 @@ import '../theme/app_spacing.dart';
 import '../providers/providers.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/download_button.dart';
 
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
@@ -167,10 +168,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                     return SongTile(
                       song: song,
                       onTap: () => _onPlaySong(song),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.playlist_add_rounded),
-                        tooltip: '加入歌单',
-                        onPressed: () => _addToPlaylist(song),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          DownloadButton(song: song),
+                          IconButton(
+                            icon: const Icon(Icons.playlist_add_rounded),
+                            tooltip: '加入歌单',
+                            onPressed: () => _addToPlaylist(song),
+                          ),
+                        ],
                       ),
                     );
                   },

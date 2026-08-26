@@ -29,6 +29,17 @@ final playerProvider = Provider<Player>((ref) {
   throw UnimplementedError('playerProvider must be overridden');
 });
 
+/// 下载管理器（fm_app override 为 DownloadManagerImpl）
+final downloadManagerProvider = Provider<DownloadManager>((ref) {
+  throw UnimplementedError('downloadManagerProvider must be overridden');
+});
+
+/// 下载任务列表（监听 taskStream 实时更新）
+final downloadTasksProvider = StreamProvider<List<DownloadTask>>((ref) {
+  final manager = ref.watch(downloadManagerProvider);
+  return manager.taskStream;
+});
+
 // ==================== 播放状态 ====================
 
 /// 当前播放歌曲

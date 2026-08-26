@@ -23,6 +23,7 @@ late DatabaseProvider gDatabaseProvider;
 late SourceManager gSourceManager;
 late RecentPlaysService gRecentPlaysService;
 late Player gPlayer;
+late DownloadManager gDownloadManager;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,10 +32,11 @@ Future<void> main() async {
   gDatabaseProvider = SqfliteDatabaseProvider();
   await gDatabaseProvider.initialize();
 
-  // 2. 创建播放器和最近播放服务
+  // 2. 创建播放器、最近播放服务和下载管理器
   gPlayer = PlayerImpl();
   gRecentPlaysService =
       RecentPlaysService(gDatabaseProvider.recentPlaysDao);
+  gDownloadManager = DownloadManagerImpl(songDao: gDatabaseProvider.songDao);
 
   // 3. 创建 SourceManager 并注册源
   gSourceManager = SourceManager();
@@ -58,6 +60,7 @@ Future<void> main() async {
       sourceManagerProvider.overrideWithValue(gSourceManager),
       recentPlaysServiceProvider.overrideWithValue(gRecentPlaysService),
       playerProvider.overrideWithValue(gPlayer),
+      downloadManagerProvider.overrideWithValue(gDownloadManager),
     ],
     child: const FmApp(),
   ));
