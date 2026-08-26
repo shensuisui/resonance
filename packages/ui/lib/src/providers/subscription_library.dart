@@ -65,6 +65,9 @@ extension SubscriptionTypeLabel on SubscriptionType {
 class Subscription {
   final String url;
   final SubscriptionType type;
+
+  /// 别名（可选，用户命名，便于识别）
+  final String? name;
   final DateTime addedAt;
   final DateTime? lastCheckedAt;
 
@@ -72,12 +75,14 @@ class Subscription {
     required this.url,
     required this.type,
     required this.addedAt,
+    this.name,
     this.lastCheckedAt,
   });
 
   Subscription copyWith({DateTime? lastCheckedAt}) => Subscription(
         url: url,
         type: type,
+        name: name,
         addedAt: addedAt,
         lastCheckedAt: lastCheckedAt ?? this.lastCheckedAt,
       );
@@ -85,6 +90,7 @@ class Subscription {
   Map<String, dynamic> toJson() => {
         'url': url,
         'type': type.toJson(),
+        if (name != null) 'name': name,
         'addedAt': addedAt.millisecondsSinceEpoch,
         if (lastCheckedAt != null)
           'lastCheckedAt': lastCheckedAt!.millisecondsSinceEpoch,
@@ -93,6 +99,7 @@ class Subscription {
   static Subscription fromJson(Map<String, dynamic> json) => Subscription(
         url: json['url'] as String,
         type: SubscriptionTypeLabel.fromJson(json['type'] as String),
+        name: json['name'] as String?,
         addedAt:
             DateTime.fromMillisecondsSinceEpoch(json['addedAt'] as int),
         lastCheckedAt: json['lastCheckedAt'] == null
@@ -228,14 +235,20 @@ class SubscriptionLibrary extends _$SubscriptionLibrary {
   }
 
   /// 添加订阅：拉取 → 展开 → 落盘 → 注册
-  Future<bool> addSubscription(String url, SubscriptionType type) async {
+  ///
+  /// [name] 为可选的订阅别名，便于识别。
+  Future<bool> addSubscription(String url, SubscriptionType type,
+      {String? name}) async {
     final subs = await _readIndex();
     if (subs.any((s) => s.url == url)) {
       state = _withMessage('该地址已存在');
       return false;
     }
     final sub = Subscription(
-        url: url, type: type, addedAt: DateTime.now());
+        url: url,
+        type: type,
+        name: (name == null || name.trim().isEmpty) ? null : name.trim(),
+        addedAt: DateTime.now());
     final ok = await _fetchAndSync(sub, isFirstAdd: true);
     if (!ok) return false;
     final updated = await _readIndex();
@@ -325,16 +338,18 @@ class SubscriptionLibrary extends _$SubscriptionLibrary {
     var ok = 0;
     final defaults = [
       (
+        '落雪音乐',
         'https://fastly.jsdelivr.net/gh/Huibq/keep-alive/render_api.js',
         SubscriptionType.singlePlugin
       ),
       (
+        'MusicFree 官方源',
         'https://fastly.jsdelivr.net/gh/Huibq/keep-alive/Music_Free/myPlugins.json',
         SubscriptionType.mfGroup
       ),
     ];
-    for (final (url, type) in defaults) {
-      if (await addSubscription(url, type)) {
+    for (final (name, url, type) in defaults) {
+      if (await addSubscription(url, type, name: name)) {
         ok++;
       }
     }

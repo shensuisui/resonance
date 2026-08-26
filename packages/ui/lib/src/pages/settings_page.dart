@@ -39,11 +39,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  /// 添加订阅对话框（URL + 手动指定类型）
-  Future<(String, SubscriptionType)?> _showAddSubscriptionDialog() async {
-    final controller = TextEditingController();
+  /// 添加订阅对话框（别名 + URL + 手动指定类型）
+  Future<(String, SubscriptionType, String)?> _showAddSubscriptionDialog() async {
+    final nameController = TextEditingController();
+    final urlController = TextEditingController();
     var type = SubscriptionType.singleRule;
-    return showDialog<(String, SubscriptionType)>(
+    return showDialog<(String, SubscriptionType, String)>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
@@ -52,7 +53,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: controller,
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: '别名（可选）',
+                  hintText: '如：枫叶音乐、My Music',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.s12),
+              TextField(
+                controller: urlController,
                 autofocus: true,
                 decoration: const InputDecoration(
                   labelText: '订阅地址',
@@ -60,7 +70,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: AppSpacing.s16),
+              const SizedBox(height: AppSpacing.s12),
               DropdownButtonFormField<SubscriptionType>(
                 initialValue: type,
                 decoration: const InputDecoration(
@@ -83,8 +93,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               child: const Text('取消'),
             ),
             FilledButton(
-              onPressed: () =>
-                  Navigator.pop(context, (controller.text.trim(), type)),
+              onPressed: () => Navigator.pop(
+                  context,
+                  (urlController.text.trim(), type, nameController.text.trim())),
               child: const Text('添加'),
             ),
           ],
@@ -243,10 +254,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       sub.type == SubscriptionType.singlePlugin
                   ? Icons.extension_rounded
                   : Icons.description_rounded),
-              title: Text('${sub.type.label} · ${sub.url}',
+              title: Text(sub.name ?? sub.type.label,
                   maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text(
-                '${subState.sourceCounts[sub.url] ?? 0} 源 · 上次检查 ${_formatTime(sub.lastCheckedAt)}',
+                '${sub.type.label} · ${sub.url}\n${subState.sourceCounts[sub.url] ?? 0} 源 · 上次检查 ${_formatTime(sub.lastCheckedAt)}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -291,11 +304,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             onTap: () async {
               final result = await _showAddSubscriptionDialog();
               if (result == null) return;
-              final (url, type) = result;
+              final (url, type, name) = result;
               if (url.isEmpty) return;
               await ref
                   .read(subscriptionLibraryProvider.notifier)
-                  .addSubscription(url, type);
+                  .addSubscription(url, type, name: name);
               _showMessage(ref.read(subscriptionLibraryProvider).message);
             },
           ),
