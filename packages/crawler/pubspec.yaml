@@ -14,6 +14,7 @@ dependencies:
   expr:
     path: ../expr
   dio: ^5.4.0
+  path: ^1.9.0
   flutter_inappwebview: ^6.1.5
 
 dev_dependencies:

@@ -4,7 +4,9 @@ export 'src/engine/rule_config.dart';
 export 'src/engine/rule_loader.dart';
 export 'src/engine/rule_executor.dart';
 export 'src/engine/response_handler.dart';
+export 'src/file_service.dart';
 export 'src/rule_based_source.dart';
 export 'src/adapters/plugin_manager.dart';
 export 'src/adapters/js_plugin_source.dart';
-export 'src/runtime/js_runtime.dart';
+export 'src/runtime/js_runtime.dart'
+    if (dart.library.html) 'src/runtime/js_runtime_web.dart';

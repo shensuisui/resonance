@@ -1,8 +1,12 @@
+/// 规则加载器：从 JSON 字符串或文件加载规则配置
+///
+/// 文件操作通过 [file_service] 条件导入实现，
+/// Web 平台上文件方法返回空/null。
+
 import 'dart:convert';
-import 'dart:io';
+import '../file_service.dart';
 import 'rule_config.dart';
 
-/// 规则加载器：从 JSON 字符串或文件加载规则配置
 class RuleLoader {
   /// 从 JSON 字符串加载规则配置
   static RuleConfig? loadFromJson(String jsonString) {
@@ -15,29 +19,24 @@ class RuleLoader {
   }
 
   /// 从文件加载规则配置
-  static RuleConfig? loadFromFile(String filePath) {
+  static Future<RuleConfig?> loadFromFile(String filePath) async {
     try {
-      final file = File(filePath);
-      final content = file.readAsStringSync();
+      final content = await readFileAsString(filePath);
       return loadFromJson(content);
     } catch (e) {
       return null;
     }
   }
 
-  /// 从目录加载所有规则配置
-  static List<RuleConfig> loadAllFromDirectory(String dirPath) {
+  /// 从目录加载所有 .json 规则配置
+  static Future<List<RuleConfig>> loadAllFromDirectory(String dirPath) async {
     final configs = <RuleConfig>[];
     try {
-      final dir = Directory(dirPath);
-      if (!dir.existsSync()) return configs;
-
-      for (final file in dir.listSync().whereType<File>()) {
-        if (file.path.endsWith('.json')) {
-          final config = loadFromFile(file.path);
-          if (config != null) {
-            configs.add(config);
-          }
+      final files = await listFiles(dirPath, extension: '.json');
+      for (final file in files) {
+        final config = await loadFromFile(file);
+        if (config != null) {
+          configs.add(config);
         }
       }
     } catch (_) {}

@@ -1,7 +1,13 @@
+/// 插件管理器 + 适配器
+///
+/// 文件操作通过 [file_service] 条件导入实现，
+/// Web 平台上文件加载方法返回空。
+
 import 'dart:convert';
-import 'dart:io';
 import 'package:core/core.dart';
+import 'package:path/path.dart' as p;
 import '../http/http_client.dart';
+import '../file_service.dart';
 import '../rule_based_source.dart';
 import '../engine/rule_config.dart';
 import 'js_plugin_source.dart';
@@ -26,9 +32,11 @@ class PluginDownloader {
   Future<String?> downloadPlugin(String url, String savePath) async {
     try {
       final response = await _httpClient.get(url, responseType: 'text');
-      final file = File(savePath);
-      await file.parent.create(recursive: true);
-      await file.writeAsString(response.rawData);
+      // 创建父目录
+      final parentDir = p.dirname(savePath);
+      await createDirectory(parentDir);
+      // 写入文件
+      await writeFileAsString(savePath, response.rawData);
       return savePath;
     } catch (e) {
       return null;
@@ -62,11 +70,12 @@ class PluginManager {
   static Future<List<MusicSource>> loadPluginsFromDirectory(String dirPath) async {
     final sources = <MusicSource>[];
     try {
-      final dir = Directory(dirPath);
-      if (!dir.existsSync()) return sources;
+      final dirExists = await isDirectory(dirPath);
+      if (!dirExists) return sources;
 
-      for (final file in dir.listSync().whereType<File>()) {
-        final source = await loadPlugin(file.path);
+      final files = await listFiles(dirPath);
+      for (final file in files) {
+        final source = await loadPlugin(file);
         if (source != null) sources.add(source);
       }
     } catch (_) {}
@@ -76,13 +85,13 @@ class PluginManager {
   /// 加载单个插件文件
   static Future<MusicSource?> loadPlugin(String filePath) async {
     try {
-      final content = File(filePath).readAsStringSync();
-      final ext = filePath.split('.').last.toLowerCase();
+      final content = await readFileAsString(filePath);
+      final ext = p.extension(filePath).toLowerCase();
 
       switch (ext) {
-        case 'json':
+        case '.json':
           return MusicFreeAdapter.convertToSource(content);
-        case 'js':
+        case '.js':
           return await LxMusicAdapter.tryCreate(content);
         default:
           return null;

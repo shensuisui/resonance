@@ -9,7 +9,6 @@ import 'dart:convert';
 import 'package:core/core.dart';
 import 'package:db/db.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// 测试用 HTTP 服务器——提供文件下载
 Future<HttpServer> _startTestServer() async {
@@ -40,11 +39,8 @@ Future<HttpServer> _startTestServer() async {
 }
 
 DatabaseHelper _newInMemoryHelper() {
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  }
-  return DatabaseHelper(customDbPath: inMemoryDatabasePath);
+  initSqfliteForPlatform();
+  return DatabaseHelper(customDbPath: getInMemoryDatabasePath());
 }
 
 /// 轮询等待下载完成（或失败/取消），最多等 5 秒

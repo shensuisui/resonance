@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:core/core.dart';
-import '../runtime/js_runtime.dart';
+import '../runtime/js_runtime.dart'
+    if (dart.library.html) '../runtime/js_runtime_web.dart';
 
 /// 基于 JS 运行时的插件源
 /// 通过 JsRuntime 执行 MusicFree 插件 JS 代码

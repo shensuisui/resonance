@@ -6,6 +6,7 @@
 library db;
 
 export 'src/database_helper.dart';
+export 'src/sqflite_init.dart';
 export 'src/sqflite_song_dao.dart';
 export 'src/sqflite_playlist_dao.dart';
 export 'src/sqflite_recent_plays_dao.dart';

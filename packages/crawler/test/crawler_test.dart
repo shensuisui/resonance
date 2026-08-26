@@ -223,7 +223,7 @@ void main() {
   });
 
   group('RuleLoader - real files', () {
-    test('loadFromFile loads from file path', () {
+    test('loadFromFile loads from file path', () async {
       final file = File('${tempDir.path}/rule.json');
       file.writeAsStringSync(r'''{
         "source": {"id": "file_rule", "name": "File Rule"},
@@ -234,19 +234,19 @@ void main() {
           "itemRules": {"id": "id", "title": "title"}
         }
       }''');
-      final config = RuleLoader.loadFromFile(file.path);
+      final config = await RuleLoader.loadFromFile(file.path);
       expect(config, isNotNull);
       expect(config!.source.id, 'file_rule');
     });
 
-    test('loadAllFromDirectory loads all rules', () {
+    test('loadAllFromDirectory loads all rules', () async {
       File('${tempDir.path}/r1.json').writeAsStringSync(r'''{
         "source": {"id": "r1", "name": "Rule 1"}
       }''');
       File('${tempDir.path}/r2.json').writeAsStringSync(r'''{
         "source": {"id": "r2", "name": "Rule 2"}
       }''');
-      final configs = RuleLoader.loadAllFromDirectory(tempDir.path);
+      final configs = await RuleLoader.loadAllFromDirectory(tempDir.path);
       expect(configs.length, 2);
     });
   });

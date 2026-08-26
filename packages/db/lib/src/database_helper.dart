@@ -4,13 +4,12 @@
 /// 桌面端 Windows/macOS/Linux 用 FFI），创建数据库文件，
 /// 执行建表 SQL 和版本迁移。
 
-import 'dart:io';
 import 'dart:convert';
 import 'package:core/core.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'sqflite_init.dart';
 
 /// 数据库版本
 const int kDbVersion = 1;
@@ -114,11 +113,8 @@ class DatabaseHelper {
   Future<Database> getDatabase() async {
     if (_database != null) return _database!;
 
-    // 桌面端初始化 FFI
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfi;
-    }
+    // 跨平台初始化（移动端 sqflite / 桌面端 FFI / Web FFI-Web）
+    initSqfliteForPlatform();
 
     // 获取数据库文件路径
     final dbPath = customDbPath ?? await _getDefaultPath();

@@ -15,20 +15,13 @@ import 'dart:io';
 import 'package:core/core.dart';
 import 'package:db/db.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// 测试用数据库助手工厂
 ///
-/// 使用 sqflite_common_ffi 的内存数据库路径，
-/// 每个测试独立实例，互不干扰。
+/// 使用条件导入的初始化函数，跨平台兼容。
 DatabaseHelper _newInMemoryHelper() {
-  // FFI 初始化（桌面端测试环境）
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  }
-  // inMemoryDatabasePath 是 sqflite_common_ffi 提供的特殊路径
-  return DatabaseHelper(customDbPath: inMemoryDatabasePath);
+  initSqfliteForPlatform();
+  return DatabaseHelper(customDbPath: getInMemoryDatabasePath());
 }
 
 void main() {
