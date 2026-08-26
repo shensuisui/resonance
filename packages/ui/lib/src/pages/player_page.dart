@@ -7,6 +7,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../providers/providers.dart';
 import '../widgets/lyrics_view.dart';
+import 'artist_page.dart';
 
 class PlayerPage extends ConsumerStatefulWidget {
   const PlayerPage({super.key});
@@ -90,10 +91,17 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: AppSpacing.s8),
-          Text(
-            song.artist,
-            style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
-            textAlign: TextAlign.center,
+          GestureDetector(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ArtistPage(artistName: song.artist),
+              ),
+            ),
+            child: Text(
+              song.artist,
+              style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
           ),
         ],
       ),

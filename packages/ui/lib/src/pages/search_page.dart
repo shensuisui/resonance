@@ -8,6 +8,7 @@ import '../providers/providers.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/download_button.dart';
+import 'artist_page.dart';
 
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
@@ -168,6 +169,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                     return SongTile(
                       song: song,
                       onTap: () => _onPlaySong(song),
+                      onArtistTap: (artist) => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ArtistPage(artistName: artist),
+                        ),
+                      ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [

@@ -13,11 +13,15 @@ class SongTile extends StatelessWidget {
   final VoidCallback? onTap;
   final Widget? trailing;
 
+  /// 歌手名点击回调（传入歌手名），null 则不可点
+  final ValueChanged<String>? onArtistTap;
+
   const SongTile({
     super.key,
     required this.song,
     this.onTap,
     this.trailing,
+    this.onArtistTap,
   });
 
   @override
@@ -38,15 +42,41 @@ class SongTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: theme.textTheme.bodyLarge,
       ),
-      subtitle: Text(
-        '${song.artist} · ${song.sourceId}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: cs.onSurfaceVariant,
-        ),
-      ),
+      subtitle: _buildSubtitle(theme.textTheme, cs),
       trailing: trailing,
+    );
+  }
+
+  /// 副标题：歌手（可点击跳转歌手页）· 来源
+  Widget _buildSubtitle(TextTheme theme, ColorScheme cs) {
+    final baseStyle = theme.bodySmall?.copyWith(
+      color: cs.onSurfaceVariant,
+    );
+    final artistStyle = onArtistTap != null
+        ? baseStyle?.copyWith(color: cs.primary)
+        : baseStyle;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: GestureDetector(
+            onTap: onArtistTap != null ? () => onArtistTap!(song.artist) : null,
+            child: Text(
+              song.artist,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: artistStyle,
+            ),
+          ),
+        ),
+        Text(
+          ' · ${song.sourceId}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: baseStyle,
+        ),
+      ],
     );
   }
 
