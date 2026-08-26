@@ -81,7 +81,13 @@ class DownloadManagerImpl implements DownloadManager {
     return null;
   }
 
-  /// 实际执行下载
+  /// 实际执行下载（支持断点续传）
+  ///
+  /// dio 5.x 的 download() 无 append 参数，故用 ResponseType.stream 手动实现：
+  /// 1. 检测本地已有部分文件大小
+  /// 2. 发送 Range: bytes=<已有大小>- 请求
+  /// 3. 服务器返回 206（支持 Range）→ 追加写入；
+  ///    返回 200（忽略 Range）→ 从头覆写
   Future<void> _executeDownload(Song song, String url) async {
     final key = song.globalKey;
     final cancelToken = CancelToken();
@@ -97,19 +103,48 @@ class DownloadManagerImpl implements DownloadManager {
       _tasks[key] = _tasks[key]!.copyWith(status: DownloadStatus.downloading);
       _notify();
 
-      // 下载文件
-      await _dio.download(
+      // 已有部分文件大小（断点续传起点）
+      final file = File(savePath);
+      var existingSize = 0;
+      if (await file.exists()) {
+        existingSize = await file.length();
+      }
+
+      // 发送请求，带 Range header（已有部分时）
+      final response = await _dio.get<ResponseBody>(
         url,
-        savePath,
+        options: Options(
+          responseType: ResponseType.stream,
+          followRedirects: true,
+          headers: {
+            if (existingSize > 0) 'range': 'bytes=$existingSize-',
+          },
+        ),
         cancelToken: cancelToken,
-        onReceiveProgress: (received, total) {
-          if (total > 0) {
-            final progress = received / total;
-            _tasks[key] = _tasks[key]!.copyWith(progress: progress);
+      );
+
+      // 206 → 服务器支持 Range，追加写入；200 → 从头覆写
+      final append = response.statusCode == HttpStatus.partialContent;
+      final base = append ? existingSize : 0;
+      final totalSize = base + (response.data?.contentLength ?? 0);
+
+      // 流式写入文件
+      final raf = await file.open(mode: append ? FileMode.append : FileMode.write);
+      var received = 0;
+      try {
+        await for (final chunk in response.data!.stream) {
+          await raf.writeFrom(chunk);
+          received += chunk.length;
+          if (totalSize > 0) {
+            final progress = (base + received) / totalSize;
+            _tasks[key] =
+                _tasks[key]!.copyWith(progress: progress.clamp(0.0, 1.0));
             _notify();
           }
-        },
-      );
+        }
+      } finally {
+        await raf.close();
+      }
 
       // 下载完成，更新 Song.localPath
       _tasks[key] = _tasks[key]!.copyWith(

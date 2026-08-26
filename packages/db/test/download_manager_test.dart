@@ -23,6 +23,34 @@ Future<HttpServer> _startTestServer() async {
         ..contentLength = bytes.length
         ..add(bytes)
         ..close();
+    } else if (uri.path == '/resume.mp3') {
+      // 支持 Range 断点续传的端点
+      final bytes = utf8.encode('0123456789abcdefghijklmnopqrstuvwxyz');
+      final rangeHeader = request.headers.value('range');
+      if (rangeHeader != null && rangeHeader.startsWith('bytes=')) {
+        final startStr = rangeHeader.substring(6).split('-').first;
+        final start = int.tryParse(startStr) ?? 0;
+        if (start > 0 && start < bytes.length) {
+          // 返回 206 Partial Content + 剩余字节
+          final remaining = bytes.sublist(start);
+          request.response
+            ..statusCode = HttpStatus.partialContent
+            ..headers.contentType = ContentType.binary
+            ..headers.set(
+                HttpHeaders.contentRangeHeader,
+                'bytes $start-${bytes.length - 1}/${bytes.length}')
+            ..contentLength = remaining.length
+            ..add(remaining)
+            ..close();
+          return;
+        }
+      }
+      request.response
+        ..statusCode = 200
+        ..headers.contentType = ContentType.binary
+        ..contentLength = bytes.length
+        ..add(bytes)
+        ..close();
     } else if (uri.path == '/notfound') {
       request.response
         ..statusCode = 404
@@ -251,6 +279,37 @@ void main() {
 
       final path = await downloadManager.getLocalPath(song.globalKey);
       expect(path, '/cached/path.mp3');
+    });
+
+    test('断点续传：已有部分文件时从断点继续下载', () async {
+      const fullContent = '0123456789abcdefghijklmnopqrstuvwxyz';
+      final song = Song(
+        id: '8',
+        sourceId: 's',
+        title: '续传',
+        artist: '测试',
+        playUrl: 'http://localhost:${server.port}/resume.mp3',
+      );
+      await provider.songDao.insertSong(song);
+
+      // 计算保存路径（与 DownloadManagerImpl 相同的命名规则）
+      final cacheDir = tempCacheDir.path;
+      final fileName =
+          '${song.globalKey.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.mp3';
+      final savePath = '$cacheDir${Platform.pathSeparator}$fileName';
+
+      // 预置部分文件（模拟下载到一半被取消，已有前 10 个字节）
+      await File(savePath).writeAsString(fullContent.substring(0, 10));
+
+      // 下载 → 应通过 Range 从第 10 字节续传，最终文件内容完整
+      await downloadManager.download(song);
+      final task = await _waitForComplete(downloadManager, song.globalKey);
+      expect(task?.status, DownloadStatus.completed,
+          reason: '下载应从断点续传并完成');
+
+      // 验证最终文件内容完整（前 10 字节 + 续传的剩余部分）
+      final content = await File(savePath).readAsString();
+      expect(content, fullContent, reason: '断点续传后文件内容应完整');
     });
   });
 }
