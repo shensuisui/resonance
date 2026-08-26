@@ -1,12 +1,13 @@
 /// 本地扫描源
 ///
-/// 扫描指定目录下的音频文件，提取元数据（文件名解析），
-/// 持久化到 SQLite（通过 SongDao），支持增量更新。
+/// 扫描指定目录下的音频文件，提取元数据，持久化到 SQLite（通过 SongDao），
+/// 支持增量更新。
 ///
-/// 元数据提取策略：
-/// 1. 文件名格式 "Artist - Title.mp3" → 解析出歌手和标题
-/// 2. 文件名格式 "Title.mp3" → 标题=文件名，歌手=父目录名
-/// 3. 不依赖第三方库，纯 dart:io 实现
+/// 元数据提取策略（优先级从高到低）：
+/// 1. 若注入 AudioMetadataReader（如 audiotags），读取文件内嵌标签
+///    （标题/歌手/专辑/时长），读取失败时退回文件名解析
+/// 2. 文件名格式 "Artist - Title.mp3" → 解析出歌手和标题
+/// 3. 文件名格式 "Title.mp3" → 标题=文件名，歌手=父目录名
 
 import 'dart:io';
 import 'package:core/core.dart';
@@ -19,12 +20,13 @@ const Set<String> _audioExtensions = {
 class LocalScanSource extends MusicSource {
   final SongDao _songDao;
   final SettingsDao? _settingsDao;
+  final AudioMetadataReader? _metadataReader;
 
   /// 内存缓存（从数据库加载后缓存，搜索时用）
   List<Song> _cache = [];
   bool _initialized = false;
 
-  LocalScanSource(this._songDao, [this._settingsDao]);
+  LocalScanSource(this._songDao, [this._settingsDao, this._metadataReader]);
 
   @override
   final SourceInfo sourceInfo = const SourceInfo(
@@ -80,17 +82,42 @@ class LocalScanSource extends MusicSource {
       // 增量更新：跳过已扫描的文件
       if (existingPaths.contains(path)) continue;
 
-      // 解析元数据
+      // 解析元数据：优先读文件内嵌标签，失败退回文件名解析
       final fileName = path.substring(path.lastIndexOf(Platform.pathSeparator) + 1);
       final nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
       final parsed = _parseFileName(nameWithoutExt, dirPath, path);
+
+      var title = parsed.title;
+      var artist = parsed.artist;
+      String? album;
+      int? durationMs;
+
+      if (_metadataReader != null) {
+        try {
+          final meta = await _metadataReader!.read(path);
+          if (meta != null) {
+            if (meta.title != null && meta.title!.isNotEmpty) {
+              title = meta.title!;
+            }
+            if (meta.artist != null && meta.artist!.isNotEmpty) {
+              artist = meta.artist!;
+            }
+            album = meta.album;
+            durationMs = meta.durationMs;
+          }
+        } catch (_) {
+          // 元数据读取失败时退回文件名解析结果
+        }
+      }
 
       // 创建 Song
       final song = Song(
         id: 'ls_${path.hashCode.toUnsigned(32).toString()}',
         sourceId: 'local_scan',
-        title: parsed.title,
-        artist: parsed.artist,
+        title: title,
+        artist: artist,
+        album: album,
+        duration: durationMs,
         localPath: path,
         extra: {'extension': ext, 'file_name': fileName},
       );

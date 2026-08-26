@@ -38,8 +38,8 @@ Future<void> main() async {
 
   // 3. 创建 SourceManager 并注册源
   gSourceManager = SourceManager();
-  gSourceManager.registerSource(
-      LocalScanSource(gDatabaseProvider.songDao, gDatabaseProvider.settingsDao));
+  gSourceManager.registerSource(LocalScanSource(gDatabaseProvider.songDao,
+      gDatabaseProvider.settingsDao, const AudiotagsMetadataReader()));
   gSourceManager.registerSource(
       LocalCustomSource(gDatabaseProvider.songDao));
   gSourceManager.registerSource(
