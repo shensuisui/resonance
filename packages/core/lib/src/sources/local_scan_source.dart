@@ -94,7 +94,7 @@ class LocalScanSource extends MusicSource {
 
       if (_metadataReader != null) {
         try {
-          final meta = await _metadataReader!.read(path);
+          final meta = await _metadataReader.read(path);
           if (meta != null) {
             if (meta.title != null && meta.title!.isNotEmpty) {
               title = meta.title!;

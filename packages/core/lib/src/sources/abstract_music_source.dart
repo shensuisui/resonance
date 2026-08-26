@@ -30,6 +30,11 @@ abstract class MusicSource {
   /// 获取歌单
   Future<Playlist?> getPlaylist(String id);
 
+  /// 获取歌单列表（推荐歌单等）
+  ///
+  /// 默认实现返回空列表（无歌单列表能力的源不需要覆盖）。
+  Future<List<Playlist>> getPlaylistList({int page = 1}) async => const [];
+
   /// 初始化源（如加载配置、建立连接）
   Future<void> init();
 

@@ -8,6 +8,7 @@ import 'recent_plays_page.dart';
 import 'playlist_list_page.dart';
 import 'source_management_page.dart';
 import 'settings_page.dart';
+import 'discover_page.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -21,6 +22,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   final _pages = const [
     SearchPage(),
+    DiscoverPage(),
     RecentPlaysPage(),
     PlaylistListPage(),
     SourceManagementPage(),
@@ -45,6 +47,10 @@ class _AppShellState extends ConsumerState<AppShell> {
               NavigationDestination(
                 icon: Icon(Icons.search_rounded),
                 label: '搜索',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.explore_rounded),
+                label: '发现',
               ),
               NavigationDestination(
                 icon: Icon(Icons.history_rounded),

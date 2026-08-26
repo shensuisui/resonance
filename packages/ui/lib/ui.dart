@@ -24,6 +24,7 @@ export 'src/widgets/lyrics_view.dart';
 // 页面
 export 'src/pages/app_shell.dart';
 export 'src/pages/search_page.dart';
+export 'src/pages/discover_page.dart';
 export 'src/pages/player_page.dart';
 export 'src/pages/recent_plays_page.dart';
 export 'src/pages/playlist_list_page.dart';

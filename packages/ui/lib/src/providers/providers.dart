@@ -386,6 +386,53 @@ class FavoritesNotifier extends Notifier<List<Song>> {
   }
 }
 
+// ==================== 发现页 ====================
+
+/// 发现页状态
+class DiscoverState {
+  final List<Playlist> playlists;
+  final bool loading;
+  final String? error;
+
+  const DiscoverState({
+    this.playlists = const [],
+    this.loading = false,
+    this.error,
+  });
+}
+
+/// 发现页 Notifier —— 聚合各源的推荐歌单
+final discoverNotifierProvider =
+    NotifierProvider<DiscoverNotifier, DiscoverState>(DiscoverNotifier.new);
+
+class DiscoverNotifier extends Notifier<DiscoverState> {
+  @override
+  DiscoverState build() {
+    load();
+    return const DiscoverState(loading: true);
+  }
+
+  SourceManager get _sourceManager => ref.read(sourceManagerProvider);
+
+  Future<void> load() async {
+    state = const DiscoverState(loading: true);
+    final all = <Playlist>[];
+    try {
+      for (final source in _sourceManager.getEnabledSources()) {
+        try {
+          final playlists = await source.getPlaylistList();
+          all.addAll(playlists);
+        } catch (_) {
+          // 单源失败跳过，不影响其他源
+        }
+      }
+      state = DiscoverState(playlists: all, loading: false);
+    } catch (e) {
+      state = DiscoverState(loading: false, error: e.toString());
+    }
+  }
+}
+
 // ==================== 源列表 ====================
 
 /// 已注册源列表
