@@ -15,6 +15,7 @@ import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../providers/providers.dart';
+import '../services/playlist_io.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/empty_state.dart';
 
@@ -181,6 +182,61 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     }
   }
 
+  /// 导出歌单（M3U/PLS/JSON）
+  Future<void> _export() async {
+    final pl = _playlist;
+    if (pl == null) return;
+    final songs = _songs.whereType<Song>().toList();
+    if (songs.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('歌单还没有歌曲，无法导出')),
+        );
+      }
+      return;
+    }
+
+    // 选择格式
+    final cs = Theme.of(context).colorScheme;
+    final format = await showModalBottomSheet<PlaylistFormat>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.s16),
+              child: Text('导出歌单', style: Theme.of(context).textTheme.titleMedium),
+            ),
+            const Divider(height: 1),
+            for (final f in PlaylistFormat.values)
+              ListTile(
+                leading: Icon(_formatIcon(f), color: cs.onSurfaceVariant),
+                title: Text(f.label),
+                onTap: () => Navigator.pop(context, f),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (format == null) return;
+
+    final ok = await PlaylistIo.exportPlaylist(pl.name, songs, format);
+    if (ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已导出为 ${format.extension.toUpperCase()} 格式')),
+      );
+    }
+  }
+
+  IconData _formatIcon(PlaylistFormat f) {
+    return switch (f) {
+      PlaylistFormat.m3u => Icons.format_list_bulleted_rounded,
+      PlaylistFormat.pls => Icons.playlist_play_rounded,
+      PlaylistFormat.json => Icons.data_object_rounded,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final pl = _playlist;
@@ -191,15 +247,44 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       appBar: AppBar(
         title: Text(pl?.name ?? '歌单'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.drive_file_rename_outline_rounded),
-            tooltip: '重命名',
-            onPressed: _rename,
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded),
-            tooltip: '删除歌单',
-            onPressed: _deletePlaylist,
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded),
+            onSelected: (value) {
+              switch (value) {
+                case 'export':
+                  _export();
+                case 'rename':
+                  _rename();
+                case 'delete':
+                  _deletePlaylist();
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'export',
+                child: ListTile(
+                  leading: Icon(Icons.ios_share_rounded),
+                  title: Text('导出歌单'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: 'rename',
+                child: ListTile(
+                  leading: Icon(Icons.drive_file_rename_outline_rounded),
+                  title: Text('重命名'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                child: ListTile(
+                  leading: Icon(Icons.delete_outline_rounded),
+                  title: Text('删除歌单'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
         ],
       ),

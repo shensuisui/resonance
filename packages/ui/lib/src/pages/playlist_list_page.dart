@@ -6,6 +6,7 @@ import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../providers/providers.dart';
+import '../services/playlist_io.dart';
 import '../widgets/empty_state.dart';
 import 'playlist_detail_page.dart';
 
@@ -74,6 +75,57 @@ class _PlaylistListPageState extends ConsumerState<PlaylistListPage> {
     );
   }
 
+  /// 导入歌单（M3U/PLS/JSON）
+  Future<void> _importPlaylist() async {
+    final result = await PlaylistIo.importPlaylist();
+    if (result == null || result.entries.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('导入取消或文件无效')),
+        );
+      }
+      return;
+    }
+
+    // 将条目转为 Song 并写入 DB
+    final songs = PlaylistIo.entriesToSongs(result.entries);
+    if (songs.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('文件中没有可导入的歌曲')),
+        );
+      }
+      return;
+    }
+
+    final dao = ref.read(playlistDaoProvider);
+    final songDao = ref.read(songDaoProvider);
+    final now = DateTime.now();
+    final name = result.name?.trim().isNotEmpty == true
+        ? result.name!.trim()
+        : '导入歌单';
+
+    for (final song in songs) {
+      await songDao.insertSong(song);
+    }
+
+    final playlist = Playlist(
+      id: 'pl_${now.millisecondsSinceEpoch}',
+      name: name,
+      songKeys: songs.map((s) => s.globalKey).toList(),
+      createdTime: now,
+      modifiedTime: now,
+    );
+    await dao.insertPlaylist(playlist);
+    await _loadPlaylists();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已导入歌单「$name」，${songs.length} 首歌曲')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -83,6 +135,11 @@ class _PlaylistListPageState extends ConsumerState<PlaylistListPage> {
       appBar: AppBar(
         title: const Text('歌单'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.file_download_outlined),
+            tooltip: '导入歌单',
+            onPressed: _importPlaylist,
+          ),
           IconButton(
             icon: const Icon(Icons.add_rounded),
             onPressed: _createPlaylist,

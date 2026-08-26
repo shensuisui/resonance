@@ -11,6 +11,9 @@ export 'src/theme/app_theme.dart';
 // 状态管理
 export 'src/providers/providers.dart';
 
+// 服务
+export 'src/services/playlist_io.dart';
+
 // 组件
 export 'src/widgets/song_tile.dart';
 export 'src/widgets/empty_state.dart';
