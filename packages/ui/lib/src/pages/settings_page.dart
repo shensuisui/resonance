@@ -39,39 +39,68 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  /// 从 URL 添加插件对话框
-  Future<void> _showAddUrlDialog() async {
+  /// 添加订阅对话框（URL + 手动指定类型）
+  Future<(String, SubscriptionType)?> _showAddSubscriptionDialog() async {
     final controller = TextEditingController();
-    final url = await showDialog<String>(
+    var type = SubscriptionType.singleRule;
+    return showDialog<(String, SubscriptionType)>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('从 URL 添加插件'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '插件地址',
-            hintText: 'https://.../plugin.js 或 .json',
-            border: OutlineInputBorder(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('添加订阅'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: '订阅地址',
+                  hintText: 'https://...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.s16),
+              DropdownButtonFormField<SubscriptionType>(
+                initialValue: type,
+                decoration: const InputDecoration(
+                  labelText: '类型',
+                  border: OutlineInputBorder(),
+                ),
+                items: SubscriptionType.values
+                    .map((t) => DropdownMenuItem(
+                          value: t,
+                          child: Text(t.label),
+                        ))
+                    .toList(),
+                onChanged: (v) => setDialogState(() => type = v!),
+              ),
+            ],
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.pop(context, (controller.text.trim(), type)),
+              child: const Text('添加'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('添加'),
-          ),
-        ],
       ),
     );
-    if (url == null || url.isEmpty) return;
-    final ok =
-        await ref.read(pluginLibraryProvider.notifier).addFromUrl(url);
-    _showMessage(ref.read(pluginLibraryProvider).message ??
-        (ok ? '添加成功' : null));
+  }
+
+  /// 格式化上次检查时间
+  String _formatTime(DateTime? time) {
+    if (time == null) return '从未检查';
+    final m = time.month.toString().padLeft(2, '0');
+    final day = time.day.toString().padLeft(2, '0');
+    final hh = time.hour.toString().padLeft(2, '0');
+    final mm = time.minute.toString().padLeft(2, '0');
+    return '$m-$day $hh:$mm';
   }
 
   @override
@@ -80,6 +109,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final themeMode = ref.watch(themeModeProvider);
     final scanState = ref.watch(scanProvider);
     final pluginState = ref.watch(pluginLibraryProvider);
+    final subState = ref.watch(subscriptionLibraryProvider);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
@@ -201,6 +231,102 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
           ),
           const Divider(),
+          // 订阅
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.s16),
+            child: Text('订阅', style: tt.titleSmall?.copyWith(color: cs.primary)),
+          ),
+          // 订阅列表
+          for (final sub in subState.subscriptions)
+            ListTile(
+              leading: Icon(sub.type == SubscriptionType.mfGroup ||
+                      sub.type == SubscriptionType.singlePlugin
+                  ? Icons.extension_rounded
+                  : Icons.description_rounded),
+              title: Text('${sub.type.label} · ${sub.url}',
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: Text(
+                '${subState.sourceCounts[sub.url] ?? 0} 源 · 上次检查 ${_formatTime(sub.lastCheckedAt)}',
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.refresh_rounded),
+                    tooltip: '检查更新',
+                    onPressed: () async {
+                      await ref
+                          .read(subscriptionLibraryProvider.notifier)
+                          .updateSubscription(sub.url);
+                      _showMessage(
+                          ref.read(subscriptionLibraryProvider).message);
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    tooltip: '删除订阅',
+                    onPressed: () async {
+                      await ref
+                          .read(subscriptionLibraryProvider.notifier)
+                          .removeSubscription(sub.url);
+                      _showMessage(
+                          ref.read(subscriptionLibraryProvider).message);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          if (subState.subscriptions.isEmpty && !subState.loading)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
+              child: Text(
+                '暂无订阅，可添加远程规则或插件订阅',
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ),
+          ListTile(
+            leading: const Icon(Icons.add_circle_outline_rounded),
+            title: const Text('添加订阅'),
+            subtitle: const Text('规则 / 规则组 / MusicFree 组 / 单插件'),
+            onTap: () async {
+              final result = await _showAddSubscriptionDialog();
+              if (result == null) return;
+              final (url, type) = result;
+              if (url.isEmpty) return;
+              await ref
+                  .read(subscriptionLibraryProvider.notifier)
+                  .addSubscription(url, type);
+              _showMessage(ref.read(subscriptionLibraryProvider).message);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.sync_rounded),
+            title: const Text('全部检查更新'),
+            onTap: () async {
+              final (ok, fail) = await ref
+                  .read(subscriptionLibraryProvider.notifier)
+                  .updateAll();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('更新完成：成功 $ok，失败 $fail')),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.cloud_download_rounded),
+            title: const Text('添加默认订阅'),
+            subtitle: const Text('落雪音乐 + MusicFree 官方地址'),
+            onTap: () async {
+              final count = await ref
+                  .read(subscriptionLibraryProvider.notifier)
+                  .addDefaultSubscriptions();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(count > 0 ? '已登记 $count 个默认订阅' : '默认订阅已存在或登记失败')),
+              );
+            },
+          ),
+          const Divider(),
           // 插件
           Padding(
             padding: const EdgeInsets.all(AppSpacing.s16),
@@ -230,25 +356,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             onTap: () async {
               await ref.read(pluginLibraryProvider.notifier).importFromFile();
               _showMessage(ref.read(pluginLibraryProvider).message);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.link_rounded),
-            title: const Text('从 URL 添加插件'),
-            onTap: _showAddUrlDialog,
-          ),
-          ListTile(
-            leading: const Icon(Icons.cloud_download_rounded),
-            title: const Text('加载默认插件源'),
-            subtitle: const Text('落雪音乐 + MusicFree 官方地址'),
-            onTap: () async {
-              final count = await ref
-                  .read(pluginLibraryProvider.notifier)
-                  .loadDefaults();
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(count > 0 ? '已加载 $count 个默认插件' : '默认插件源加载失败')),
-              );
             },
           ),
           const Divider(),

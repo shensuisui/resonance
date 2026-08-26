@@ -34,8 +34,9 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget build(BuildContext context) {
     // 保持播放器状态流绑定存活（进度条/歌词同步/播放按钮状态依赖此绑定）
     ref.watch(playerStreamBindingProvider);
-    // 应用启动即加载本地插件
+    // 应用启动即加载本地插件与订阅（仅本地恢复，不访问网络）
     ref.watch(pluginLibraryProvider);
+    ref.watch(subscriptionLibraryProvider);
 
     return Scaffold(
       body: IndexedStack(

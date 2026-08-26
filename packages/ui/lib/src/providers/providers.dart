@@ -18,6 +18,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:core/core.dart';
 
+export 'subscription_library.dart';
+
 part 'providers.g.dart';
 
 // ==================== 服务 Provider（fm_app override） ====================
@@ -640,25 +642,6 @@ class PluginLibrary extends _$PluginLibrary {
     }
   }
 
-  /// 从 URL 下载插件并加载
-  Future<bool> addFromUrl(String url) async {
-    final downloader = PluginDownloader();
-    try {
-      final dir = await _pluginDir;
-      final ext = url.toLowerCase().endsWith('.json') ? '.json' : '.js';
-      final savePath =
-          p.join(dir, 'remote_${DateTime.now().millisecondsSinceEpoch}$ext');
-      final saved = await downloader.downloadPlugin(url, savePath);
-      if (saved == null) {
-        state = _withMessage('下载失败，请检查地址');
-        return false;
-      }
-      return await _registerFile(saved);
-    } finally {
-      downloader.dispose();
-    }
-  }
-
   /// 从本地文件导入插件（文件选择器）
   Future<bool> importFromFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -685,35 +668,6 @@ class PluginLibrary extends _$PluginLibrary {
     final dest = p.join(dir, file.name);
     await writeFileAsString(dest, content);
     return await _registerFile(dest);
-  }
-
-  /// 加载 PRD 默认远程插件源（落雪 + MusicFree）
-  ///
-  /// 返回成功加载数量。
-  Future<int> loadDefaults() async {
-    final downloader = PluginDownloader();
-    var ok = 0;
-    try {
-      final dir = await _pluginDir;
-      final defaults = [
-        ...PluginDownloader.defaultLxPlugins,
-        ...PluginDownloader.defaultMusicFreePlugins,
-      ];
-      for (final info in defaults) {
-        final ext = info.type == 'mf' ? '.json' : '.js';
-        final savePath = p.join(dir, 'default_${info.type}$ext');
-        final saved = await downloader.downloadPlugin(info.url, savePath);
-        if (saved != null && await _registerFile(saved)) {
-          ok++;
-        }
-      }
-      if (ok == 0) {
-        state = _withMessage('默认插件源均加载失败（网络或地址不可用）');
-      }
-      return ok;
-    } finally {
-      downloader.dispose();
-    }
   }
 
   /// 解析插件文件并注册为音乐源
