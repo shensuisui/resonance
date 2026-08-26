@@ -1,4 +1,4 @@
-/// 全屏播放页 —— 封面 + 进度 + 控制
+/// 全屏播放页 —— 封面/歌词 + 进度 + 控制
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,12 +6,21 @@ import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../providers/providers.dart';
+import '../widgets/lyrics_view.dart';
 
-class PlayerPage extends ConsumerWidget {
+class PlayerPage extends ConsumerStatefulWidget {
   const PlayerPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PlayerPage> createState() => _PlayerPageState();
+}
+
+class _PlayerPageState extends ConsumerState<PlayerPage> {
+  /// 是否显示歌词（false 显示封面）
+  bool _showLyrics = false;
+
+  @override
+  Widget build(BuildContext context) {
     final song = ref.watch(currentSongProvider);
     final isPlaying = ref.watch(isPlayingProvider);
     final position = ref.watch(positionProvider);
@@ -26,11 +35,21 @@ class PlayerPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('正在播放'),
+        title: Text(_showLyrics ? '歌词' : song?.title ?? '正在播放'),
         leading: IconButton(
           icon: const Icon(Icons.keyboard_arrow_down_rounded),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          // 封面/歌词切换
+          IconButton(
+            icon: Icon(_showLyrics
+                ? Icons.album_rounded
+                : Icons.lyrics_outlined),
+            tooltip: _showLyrics ? '显示封面' : '显示歌词',
+            onPressed: () => setState(() => _showLyrics = !_showLyrics),
+          ),
+        ],
       ),
       body: song == null
           ? Center(child: Text('暂无播放', style: tt.bodyLarge))
@@ -38,34 +57,46 @@ class PlayerPage extends ConsumerWidget {
               padding: const EdgeInsets.all(AppSpacing.s24),
               child: Column(
                 children: [
-                  const Spacer(),
-                  // 封面
-                  _buildCover(song, cs),
-                  const SizedBox(height: AppSpacing.s32),
-                  // 标题 + 歌手
-                  Text(
-                    song.title,
-                    style: tt.headlineSmall,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: AppSpacing.s8),
-                  Text(
-                    song.artist,
-                    style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
-                    textAlign: TextAlign.center,
-                  ),
-                  const Spacer(),
+                  // 上部：封面或歌词
+                  _showLyrics
+                      ? const Expanded(child: LyricsView())
+                      : _buildCoverSection(song, cs, tt),
+                  const SizedBox(height: AppSpacing.s16),
                   // 进度条
                   _buildProgress(position, duration, progress, cs, ref),
-                  const SizedBox(height: AppSpacing.s24),
+                  const SizedBox(height: AppSpacing.s16),
                   // 控制按钮
                   _buildControls(isPlaying, playMode, ref, cs),
-                  const SizedBox(height: AppSpacing.s32),
+                  const SizedBox(height: AppSpacing.s24),
                 ],
               ),
             ),
+    );
+  }
+
+  /// 封面 + 标题/歌手（非歌词模式）
+  Widget _buildCoverSection(Song song, ColorScheme cs, TextTheme tt) {
+    return Expanded(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _buildCover(song, cs),
+          const SizedBox(height: AppSpacing.s32),
+          Text(
+            song.title,
+            style: tt.headlineSmall,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: AppSpacing.s8),
+          Text(
+            song.artist,
+            style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 

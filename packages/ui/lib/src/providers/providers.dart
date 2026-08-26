@@ -97,6 +97,38 @@ class DurationNotifier extends Notifier<Duration> {
   void setDuration(Duration duration) => state = duration;
 }
 
+/// 当前歌曲歌词（随 currentSong 变化自动加载）
+final lyricsNotifierProvider = NotifierProvider<LyricsNotifier, Lyrics?>(
+    LyricsNotifier.new);
+
+class LyricsNotifier extends Notifier<Lyrics?> {
+  @override
+  Lyrics? build() {
+    final song = ref.watch(currentSongProvider);
+    if (song != null) {
+      _load(song);
+    }
+    return null;
+  }
+
+  SourceManager get _sourceManager => ref.read(sourceManagerProvider);
+
+  Future<void> _load(Song song) async {
+    try {
+      final lyrics = await _sourceManager.getLyrics(song.sourceId, song.id);
+      // 避免歌曲已切换后旧歌词覆盖新歌词
+      final current = ref.read(currentSongProvider);
+      final sameSong = current != null &&
+          current.sourceId == song.sourceId &&
+          current.id == song.id;
+      if (!sameSong) return;
+      state = (lyrics != null && lyrics.lines.isNotEmpty) ? lyrics : null;
+    } catch (_) {
+      state = null;
+    }
+  }
+}
+
 /// 播放模式（持久化）
 final playModeProvider = NotifierProvider<PlayModeNotifier, PlayMode>(
     PlayModeNotifier.new);

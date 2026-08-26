@@ -19,6 +19,7 @@ export 'src/widgets/song_tile.dart';
 export 'src/widgets/empty_state.dart';
 export 'src/widgets/mini_player.dart';
 export 'src/widgets/download_button.dart';
+export 'src/widgets/lyrics_view.dart';
 
 // 页面
 export 'src/pages/app_shell.dart';
