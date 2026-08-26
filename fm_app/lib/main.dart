@@ -56,11 +56,11 @@ Future<void> main() async {
   // 5. 启动应用，通过 ProviderScope 注入服务
   runApp(ProviderScope(
     overrides: [
-      databaseProvider.overrideWithValue(gDatabaseProvider),
-      sourceManagerProvider.overrideWithValue(gSourceManager),
-      recentPlaysServiceProvider.overrideWithValue(gRecentPlaysService),
-      playerProvider.overrideWithValue(gPlayer),
-      downloadManagerProvider.overrideWithValue(gDownloadManager),
+      appDatabaseProvider.overrideWith((ref) => gDatabaseProvider),
+      sourceManagerProvider.overrideWith((ref) => gSourceManager),
+      recentPlaysServiceProvider.overrideWith((ref) => gRecentPlaysService),
+      playerProvider.overrideWith((ref) => gPlayer),
+      downloadManagerProvider.overrideWith((ref) => gDownloadManager),
     ],
     child: const FmApp(),
   ));

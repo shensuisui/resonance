@@ -20,8 +20,8 @@ class MiniPlayer extends ConsumerWidget {
     if (song == null) return const SizedBox.shrink();
 
     final isPlaying = ref.watch(isPlayingProvider);
-    final position = ref.watch(positionProvider);
-    final duration = ref.watch(durationProvider);
+    final position = ref.watch(playbackPositionProvider);
+    final duration = ref.watch(playbackDurationProvider);
     final cs = Theme.of(context).colorScheme;
 
     final progress = duration.inMilliseconds > 0

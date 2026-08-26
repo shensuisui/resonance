@@ -11,7 +11,8 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_riverpod: ^3.4.2
-  file_picker: ^8.1.2
+  riverpod_annotation: ^4.0.6
+  file_picker: ^10.0.0
   core:
     path: ../core
   crawler:
@@ -25,5 +26,12 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  build_runner: ^2.4.13
+  riverpod_generator: ^4.0.8
+
+# audiotags 锁 freezed_annotation ^2.4.1 与 riverpod_generator ≥4.0.7（需 ^3）冲突，
+# 经用户确认覆写为 ^3：audiotags 生成代码为包内预生成，不兼容会在编译期暴露。
+dependency_overrides:
+  freezed_annotation: ^3.0.0
 
 flutter:

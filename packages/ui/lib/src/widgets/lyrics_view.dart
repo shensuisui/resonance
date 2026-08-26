@@ -42,8 +42,8 @@ class _LyricsViewState extends ConsumerState<LyricsView> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final lyrics = ref.watch(lyricsNotifierProvider);
-    final position = ref.watch(positionProvider);
+    final lyrics = ref.watch(lyricsProvider);
+    final position = ref.watch(playbackPositionProvider);
 
     if (lyrics == null) {
       return Center(

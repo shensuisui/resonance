@@ -17,12 +17,12 @@ class DiscoverPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final state = ref.watch(discoverNotifierProvider);
+    final state = ref.watch(discoverProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('发现')),
       body: RefreshIndicator(
-        onRefresh: () => ref.read(discoverNotifierProvider.notifier).load(),
+        onRefresh: () => ref.read(discoverProvider.notifier).load(),
         child: _buildBody(context, ref, state, cs, tt),
       ),
     );

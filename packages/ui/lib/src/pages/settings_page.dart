@@ -25,7 +25,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _loadScanDir() async {
     if (_scanDirLoaded) return;
-    final dir = await ref.read(scanNotifierProvider.notifier).getScanDir();
+    final dir = await ref.read(scanProvider.notifier).getScanDir();
     _scanDirController.text = dir ?? '';
     _scanDirLoaded = true;
     if (mounted) setState(() {});
@@ -35,7 +35,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget build(BuildContext context) {
     _loadScanDir();
     final themeMode = ref.watch(themeModeProvider);
-    final scanState = ref.watch(scanNotifierProvider);
+    final scanState = ref.watch(scanProvider);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
@@ -92,7 +92,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   icon: const Icon(Icons.folder_open_rounded),
                   label: const Text('保存路径'),
                   onPressed: () async {
-                    await ref.read(scanNotifierProvider.notifier)
+                    await ref.read(scanProvider.notifier)
                         .setScanDir(_scanDirController.text.trim());
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -113,9 +113,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   onPressed: scanState.scanning
                       ? null
                       : () async {
-                          await ref.read(scanNotifierProvider.notifier)
+                          await ref.read(scanProvider.notifier)
                               .setScanDir(_scanDirController.text.trim());
-                          await ref.read(scanNotifierProvider.notifier).scan();
+                          await ref.read(scanProvider.notifier).scan();
                         },
                 ),
               ],

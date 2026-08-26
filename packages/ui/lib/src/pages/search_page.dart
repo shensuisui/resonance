@@ -28,7 +28,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   void _onSearch() {
     final keyword = _controller.text.trim();
     if (keyword.isNotEmpty) {
-      ref.read(searchNotifierProvider.notifier).search(keyword);
+      ref.read(searchProvider.notifier).search(keyword);
     }
   }
 
@@ -46,7 +46,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
       // 记录最近播放
       ref.read(recentPlaysServiceProvider).recordPlay(song);
-      ref.read(recentPlaysNotifierProvider.notifier).load();
+      ref.read(recentPlaysProvider.notifier).load();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -133,7 +133,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(searchNotifierProvider);
+    final state = ref.watch(searchProvider);
 
     return Scaffold(
       appBar: AppBar(

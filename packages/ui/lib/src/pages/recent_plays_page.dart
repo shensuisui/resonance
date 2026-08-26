@@ -20,7 +20,7 @@ class _RecentPlaysPageState extends ConsumerState<RecentPlaysPage> {
     super.initState();
     // 加载最近播放列表
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(recentPlaysNotifierProvider.notifier).load();
+      ref.read(recentPlaysProvider.notifier).load();
     });
   }
 
@@ -33,7 +33,7 @@ class _RecentPlaysPageState extends ConsumerState<RecentPlaysPage> {
       ref.read(currentSongProvider.notifier).setSong(song);
       ref.read(isPlayingProvider.notifier).setPlaying(true);
       ref.read(recentPlaysServiceProvider).recordPlay(song);
-      ref.read(recentPlaysNotifierProvider.notifier).load();
+      ref.read(recentPlaysProvider.notifier).load();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -45,7 +45,7 @@ class _RecentPlaysPageState extends ConsumerState<RecentPlaysPage> {
 
   @override
   Widget build(BuildContext context) {
-    final songs = ref.watch(recentPlaysNotifierProvider);
+    final songs = ref.watch(recentPlaysProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('最近播放')),

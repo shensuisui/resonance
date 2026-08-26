@@ -23,8 +23,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   Widget build(BuildContext context) {
     final song = ref.watch(currentSongProvider);
     final isPlaying = ref.watch(isPlayingProvider);
-    final position = ref.watch(positionProvider);
-    final duration = ref.watch(durationProvider);
+    final position = ref.watch(playbackPositionProvider);
+    final duration = ref.watch(playbackDurationProvider);
     final playMode = ref.watch(playModeProvider);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
