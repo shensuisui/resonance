@@ -34,20 +34,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   void _onPlaySong(Song song) async {
-    // 获取播放 URL
-    final manager = ref.read(sourceManagerProvider);
     try {
-      final url = await manager.getSongUrl(song.sourceId, song.id);
-      final player = ref.read(playerProvider);
-      await player.play(song.copyWith(playUrl: url));
-
-      // 更新播放状态
-      ref.read(currentSongProvider.notifier).setSong(song);
-      ref.read(isPlayingProvider.notifier).setPlaying(true);
-
-      // 记录最近播放
-      ref.read(recentPlaysServiceProvider).recordPlay(song);
-      ref.read(recentPlaysProvider.notifier).load();
+      await ref.read(playbackControllerProvider.notifier).playSong(song);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

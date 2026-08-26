@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/providers.dart';
 import '../widgets/mini_player.dart';
 import 'search_page.dart';
 import 'recent_plays_page.dart';
@@ -31,6 +32,11 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    // 保持播放器状态流绑定存活（进度条/歌词同步/播放按钮状态依赖此绑定）
+    ref.watch(playerStreamBindingProvider);
+    // 应用启动即加载本地插件
+    ref.watch(pluginLibraryProvider);
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,

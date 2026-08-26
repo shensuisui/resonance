@@ -8,6 +8,7 @@ import '../theme/app_radius.dart';
 import '../providers/providers.dart';
 import '../widgets/lyrics_view.dart';
 import 'artist_page.dart';
+import 'queue_page.dart';
 
 class PlayerPage extends ConsumerStatefulWidget {
   const PlayerPage({super.key});
@@ -42,6 +43,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // 播放队列
+          IconButton(
+            icon: const Icon(Icons.queue_music_rounded),
+            tooltip: '播放队列',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const QueuePage()),
+            ),
+          ),
           // 封面/歌词切换
           IconButton(
             icon: Icon(_showLyrics
@@ -67,7 +76,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                   _buildProgress(position, duration, progress, cs, ref),
                   const SizedBox(height: AppSpacing.s16),
                   // 控制按钮
-                  _buildControls(isPlaying, playMode, ref, cs),
+                  _buildControls(isPlaying, playMode, ref, cs,
+                      song.globalKey),
                   const SizedBox(height: AppSpacing.s24),
                 ],
               ),
@@ -167,7 +177,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   }
 
   Widget _buildControls(bool isPlaying, PlayMode playMode,
-      WidgetRef ref, ColorScheme cs) {
+      WidgetRef ref, ColorScheme cs, String? songKey) {
     final player = ref.read(playerProvider);
 
     return Row(
@@ -220,12 +230,23 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           iconSize: 48,
           onPressed: () => player.next(),
         ),
-        // 收藏占位
+        // 收藏
         IconButton(
-          icon: const Icon(Icons.favorite_border_rounded),
+          icon: Icon(
+            (songKey != null &&
+                    ref.watch(isFavoriteProvider(songKey)).value == true)
+                ? Icons.favorite_rounded
+                : Icons.favorite_border_rounded,
+          ),
           iconSize: 32,
           color: cs.onSurfaceVariant,
-          onPressed: () {},
+          onPressed: () async {
+            final key = songKey;
+            final current = ref.read(currentSongProvider);
+            if (key == null || current == null) return;
+            await ref.read(favoritesProvider.notifier).toggle(current);
+            ref.invalidate(isFavoriteProvider(key));
+          },
         ),
       ],
     );

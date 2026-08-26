@@ -1,4 +1,4 @@
-/// 设置页 —— 主题切换 + 本地扫描目录 + 关于
+/// 设置页 —— 主题切换 + 本地扫描目录 + 插件管理 + 下载 + 关于
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,11 +31,55 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     if (mounted) setState(() {});
   }
 
+  /// 显示操作结果提示
+  void _showMessage(String? message) {
+    if (message == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  /// 从 URL 添加插件对话框
+  Future<void> _showAddUrlDialog() async {
+    final controller = TextEditingController();
+    final url = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('从 URL 添加插件'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '插件地址',
+            hintText: 'https://.../plugin.js 或 .json',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('添加'),
+          ),
+        ],
+      ),
+    );
+    if (url == null || url.isEmpty) return;
+    final ok =
+        await ref.read(pluginLibraryProvider.notifier).addFromUrl(url);
+    _showMessage(ref.read(pluginLibraryProvider).message ??
+        (ok ? '添加成功' : null));
+  }
+
   @override
   Widget build(BuildContext context) {
     _loadScanDir();
     final themeMode = ref.watch(themeModeProvider);
     final scanState = ref.watch(scanProvider);
+    final pluginState = ref.watch(pluginLibraryProvider);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
@@ -155,6 +199,57 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 builder: (_) => const DownloadQueuePage(),
               ),
             ),
+          ),
+          const Divider(),
+          // 插件
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.s16),
+            child: Text('插件', style: tt.titleSmall?.copyWith(color: cs.primary)),
+          ),
+          // 已加载插件列表
+          for (final plugin in pluginState.plugins)
+            ListTile(
+              leading: const Icon(Icons.extension_rounded),
+              title: Text(plugin.sourceInfo.name, maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+              subtitle: Text(plugin.sourceInfo.id, maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+            ),
+          if (pluginState.plugins.isEmpty && !pluginState.loading)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
+              child: Text(
+                '暂无插件，可从下方导入或加载默认源',
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ),
+          ListTile(
+            leading: const Icon(Icons.upload_file_rounded),
+            title: const Text('导入插件文件'),
+            subtitle: const Text('支持 .js / .json（落雪、MusicFree）'),
+            onTap: () async {
+              await ref.read(pluginLibraryProvider.notifier).importFromFile();
+              _showMessage(ref.read(pluginLibraryProvider).message);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.link_rounded),
+            title: const Text('从 URL 添加插件'),
+            onTap: _showAddUrlDialog,
+          ),
+          ListTile(
+            leading: const Icon(Icons.cloud_download_rounded),
+            title: const Text('加载默认插件源'),
+            subtitle: const Text('落雪音乐 + MusicFree 官方地址'),
+            onTap: () async {
+              final count = await ref
+                  .read(pluginLibraryProvider.notifier)
+                  .loadDefaults();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(count > 0 ? '已加载 $count 个默认插件' : '默认插件源加载失败')),
+              );
+            },
           ),
           const Divider(),
           // 关于

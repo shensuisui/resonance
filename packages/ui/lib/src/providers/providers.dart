@@ -6,8 +6,15 @@
 /// 注意：代码生成默认 autoDispose，本文件所有 Provider 均为应用级生命周期，
 /// 统一标注 keepAlive: true。
 
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:crawler/crawler.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:core/core.dart';
 
@@ -61,6 +68,83 @@ FavoritesDao favoritesDao(Ref ref) =>
 @Riverpod(keepAlive: true)
 Stream<List<DownloadTask>> downloadTasks(Ref ref) {
   return ref.watch(downloadManagerProvider).taskStream;
+}
+
+/// 歌曲是否已收藏
+@Riverpod(keepAlive: true)
+Future<bool> isFavorite(Ref ref, String songKey) {
+  return ref.watch(favoritesDaoProvider).isFavorite(songKey);
+}
+
+// ==================== 播放控制 ====================
+
+/// 播放控制器 —— 统一播放入口
+///
+/// 取播放 URL → 播放 → 同步 UI 状态 → 记录最近播放。
+/// 所有页面通过此入口播放，避免重复逻辑、保证队列状态一致。
+@Riverpod(keepAlive: true)
+class PlaybackController extends _$PlaybackController {
+  @override
+  void build() {}
+
+  SourceManager get _sourceManager => ref.read(sourceManagerProvider);
+  Player get _player => ref.read(playerProvider);
+
+  /// 播放一首歌（自动解析播放地址）
+  Future<void> playSong(Song song) async {
+    try {
+      final url = await _sourceManager.getSongUrl(song.sourceId, song.id);
+      final playable = song.copyWith(playUrl: url);
+      await _player.play(playable);
+      ref.read(currentSongProvider.notifier).setSong(playable);
+      ref.read(isPlayingProvider.notifier).setPlaying(true);
+      ref.read(playQueueProvider.notifier).setQueue(_player.queue);
+      // 异步记录最近播放，不阻塞播放
+      unawaited(ref.read(recentPlaysProvider.notifier).recordPlay(song));
+    } catch (_) {
+      ref.read(isPlayingProvider.notifier).setPlaying(false);
+    }
+  }
+
+  /// 跳转到队列指定曲目并播放
+  Future<void> jumpTo(int index) async {
+    await _player.jumpToIndex(index);
+    final queue = _player.queue;
+    if (index >= 0 && index < queue.length) {
+      ref.read(currentSongProvider.notifier).setSong(queue[index]);
+      ref.read(isPlayingProvider.notifier).setPlaying(true);
+    }
+  }
+}
+
+/// 播放器状态流绑定 —— 底层播放器流同步到 UI 状态 Provider
+///
+/// 在 AppShell 中 watch 一次即可保持应用生命周期内生效：
+/// 进度条、歌词同步、播放/暂停按钮状态都依赖此绑定。
+@Riverpod(keepAlive: true)
+void playerStreamBinding(Ref ref) {
+  final player = ref.watch(playerProvider);
+  final subs = <StreamSubscription<dynamic>>[];
+
+  subs.add(player.stateStream.listen((s) {
+    ref.read(isPlayingProvider.notifier).setPlaying(s == PlayerState.playing);
+  }));
+  subs.add(player.positionStream.listen((ms) {
+    ref
+        .read(playbackPositionProvider.notifier)
+        .setPosition(Duration(milliseconds: ms));
+  }));
+  subs.add(player.durationStream.listen((ms) {
+    ref
+        .read(playbackDurationProvider.notifier)
+        .setDuration(Duration(milliseconds: ms));
+  }));
+
+  ref.onDispose(() {
+    for (final sub in subs) {
+      sub.cancel();
+    }
+  });
 }
 
 // ==================== 播放状态 ====================
@@ -494,4 +578,160 @@ class LyricsNotifier extends _$LyricsNotifier {
       state = null;
     }
   }
+}
+
+// ==================== 插件管理 ====================
+
+/// 插件库状态
+class PluginLibraryState {
+  /// 已加载的插件源
+  final List<MusicSource> plugins;
+  final bool loading;
+
+  /// 最近一次操作结果提示（成功/失败原因）
+  final String? message;
+
+  const PluginLibraryState({
+    this.plugins = const [],
+    this.loading = false,
+    this.message,
+  });
+}
+
+/// 插件库 Notifier —— 插件的加载/导入/下载与持久化
+///
+/// 插件文件统一存放在应用支持目录的 plugins/ 子目录，
+/// 启动时自动加载（AppShell watch 触发），支持：
+/// - 本地目录批量加载
+/// - 从 URL 下载
+/// - 从文件导入
+/// - 加载 PRD 默认远程插件源（落雪 / MusicFree）
+@Riverpod(keepAlive: true)
+class PluginLibrary extends _$PluginLibrary {
+  @override
+  PluginLibraryState build() {
+    loadLocal();
+    return const PluginLibraryState(loading: true);
+  }
+
+  SourceManager get _sourceManager => ref.read(sourceManagerProvider);
+
+  /// 插件持久化目录（应用支持目录/plugins）
+  Future<String> get _pluginDir async {
+    final support = await getApplicationSupportDirectory();
+    return p.join(support.path, 'plugins');
+  }
+
+  /// 启动加载：扫描本地插件目录并注册为音乐源
+  Future<void> loadLocal() async {
+    try {
+      final dir = await _pluginDir;
+      final sources = await PluginManager.loadPluginsFromDirectory(dir);
+      for (final source in sources) {
+        _sourceManager.registerSource(source);
+      }
+      if (sources.isNotEmpty) {
+        ref.invalidate(sourceListProvider);
+      }
+      state = PluginLibraryState(plugins: sources);
+    } catch (e) {
+      // Web 等无文件系统平台静默降级
+      state = PluginLibraryState(message: '本地插件加载失败: $e');
+    }
+  }
+
+  /// 从 URL 下载插件并加载
+  Future<bool> addFromUrl(String url) async {
+    final downloader = PluginDownloader();
+    try {
+      final dir = await _pluginDir;
+      final ext = url.toLowerCase().endsWith('.json') ? '.json' : '.js';
+      final savePath =
+          p.join(dir, 'remote_${DateTime.now().millisecondsSinceEpoch}$ext');
+      final saved = await downloader.downloadPlugin(url, savePath);
+      if (saved == null) {
+        state = _withMessage('下载失败，请检查地址');
+        return false;
+      }
+      return await _registerFile(saved);
+    } finally {
+      downloader.dispose();
+    }
+  }
+
+  /// 从本地文件导入插件（文件选择器）
+  Future<bool> importFromFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['js', 'json', 'lx', 'mf', 'txt'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return false;
+    final file = result.files.single;
+
+    // 内容获取：Web 用 bytes，原生用 file_service 读路径
+    String content;
+    if (file.bytes != null) {
+      content = utf8.decode(file.bytes!);
+    } else if (file.path != null) {
+      content = await readFileAsString(file.path!);
+    } else {
+      state = _withMessage('无法读取所选文件');
+      return false;
+    }
+
+    // 复制进插件目录持久化，再解析注册
+    final dir = await _pluginDir;
+    final dest = p.join(dir, file.name);
+    await writeFileAsString(dest, content);
+    return await _registerFile(dest);
+  }
+
+  /// 加载 PRD 默认远程插件源（落雪 + MusicFree）
+  ///
+  /// 返回成功加载数量。
+  Future<int> loadDefaults() async {
+    final downloader = PluginDownloader();
+    var ok = 0;
+    try {
+      final dir = await _pluginDir;
+      final defaults = [
+        ...PluginDownloader.defaultLxPlugins,
+        ...PluginDownloader.defaultMusicFreePlugins,
+      ];
+      for (final info in defaults) {
+        final ext = info.type == 'mf' ? '.json' : '.js';
+        final savePath = p.join(dir, 'default_${info.type}$ext');
+        final saved = await downloader.downloadPlugin(info.url, savePath);
+        if (saved != null && await _registerFile(saved)) {
+          ok++;
+        }
+      }
+      if (ok == 0) {
+        state = _withMessage('默认插件源均加载失败（网络或地址不可用）');
+      }
+      return ok;
+    } finally {
+      downloader.dispose();
+    }
+  }
+
+  /// 解析插件文件并注册为音乐源
+  Future<bool> _registerFile(String filePath) async {
+    final source = await PluginManager.loadPlugin(filePath);
+    if (source == null) {
+      state = _withMessage('插件解析失败：$filePath');
+      return false;
+    }
+    _sourceManager.registerSource(source);
+    ref.invalidate(sourceListProvider);
+    state = PluginLibraryState(
+      plugins: [...state.plugins, source],
+      message: '已加载插件：${source.sourceInfo.name}',
+    );
+    return true;
+  }
+
+  PluginLibraryState _withMessage(String msg) =>
+      PluginLibraryState(plugins: state.plugins, message: msg);
 }

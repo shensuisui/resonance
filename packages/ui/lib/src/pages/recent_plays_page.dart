@@ -25,15 +25,8 @@ class _RecentPlaysPageState extends ConsumerState<RecentPlaysPage> {
   }
 
   void _onPlaySong(Song song) async {
-    final manager = ref.read(sourceManagerProvider);
     try {
-      final url = await manager.getSongUrl(song.sourceId, song.id);
-      final player = ref.read(playerProvider);
-      await player.play(song.copyWith(playUrl: url));
-      ref.read(currentSongProvider.notifier).setSong(song);
-      ref.read(isPlayingProvider.notifier).setPlaying(true);
-      ref.read(recentPlaysServiceProvider).recordPlay(song);
-      ref.read(recentPlaysProvider.notifier).load();
+      await ref.read(playbackControllerProvider.notifier).playSong(song);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

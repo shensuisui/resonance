@@ -466,6 +466,211 @@ final class DownloadTasksProvider
 
 String _$downloadTasksHash() => r'2629cc1ccfaab032417fd20ea7731db0e5f4864d';
 
+/// 歌曲是否已收藏
+
+@ProviderFor(isFavorite)
+final isFavoriteProvider = IsFavoriteFamily._();
+
+/// 歌曲是否已收藏
+
+final class IsFavoriteProvider
+    extends $FunctionalProvider<AsyncValue<bool>, bool, FutureOr<bool>>
+    with $FutureModifier<bool>, $FutureProvider<bool> {
+  /// 歌曲是否已收藏
+  IsFavoriteProvider._({
+    required IsFavoriteFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'isFavoriteProvider',
+         isAutoDispose: false,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$isFavoriteHash();
+
+  @override
+  String toString() {
+    return r'isFavoriteProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<bool> create(Ref ref) {
+    final argument = this.argument as String;
+    return isFavorite(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is IsFavoriteProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$isFavoriteHash() => r'696441ff0c52e30e8dfa3737463862941d93d73b';
+
+/// 歌曲是否已收藏
+
+final class IsFavoriteFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<bool>, String> {
+  IsFavoriteFamily._()
+    : super(
+        retry: null,
+        name: r'isFavoriteProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: false,
+      );
+
+  /// 歌曲是否已收藏
+
+  IsFavoriteProvider call(String songKey) =>
+      IsFavoriteProvider._(argument: songKey, from: this);
+
+  @override
+  String toString() => r'isFavoriteProvider';
+}
+
+/// 播放控制器 —— 统一播放入口
+///
+/// 取播放 URL → 播放 → 同步 UI 状态 → 记录最近播放。
+/// 所有页面通过此入口播放，避免重复逻辑、保证队列状态一致。
+
+@ProviderFor(PlaybackController)
+final playbackControllerProvider = PlaybackControllerProvider._();
+
+/// 播放控制器 —— 统一播放入口
+///
+/// 取播放 URL → 播放 → 同步 UI 状态 → 记录最近播放。
+/// 所有页面通过此入口播放，避免重复逻辑、保证队列状态一致。
+final class PlaybackControllerProvider
+    extends $NotifierProvider<PlaybackController, void> {
+  /// 播放控制器 —— 统一播放入口
+  ///
+  /// 取播放 URL → 播放 → 同步 UI 状态 → 记录最近播放。
+  /// 所有页面通过此入口播放，避免重复逻辑、保证队列状态一致。
+  PlaybackControllerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'playbackControllerProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$playbackControllerHash();
+
+  @$internal
+  @override
+  PlaybackController create() => PlaybackController();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(void value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<void>(value),
+    );
+  }
+}
+
+String _$playbackControllerHash() =>
+    r'bb12054caa08a5f623a8577192aad86c8f633d35';
+
+/// 播放控制器 —— 统一播放入口
+///
+/// 取播放 URL → 播放 → 同步 UI 状态 → 记录最近播放。
+/// 所有页面通过此入口播放，避免重复逻辑、保证队列状态一致。
+
+abstract class _$PlaybackController extends $Notifier<void> {
+  void build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<void, void>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<void, void>,
+              void,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// 播放器状态流绑定 —— 底层播放器流同步到 UI 状态 Provider
+///
+/// 在 AppShell 中 watch 一次即可保持应用生命周期内生效：
+/// 进度条、歌词同步、播放/暂停按钮状态都依赖此绑定。
+
+@ProviderFor(playerStreamBinding)
+final playerStreamBindingProvider = PlayerStreamBindingProvider._();
+
+/// 播放器状态流绑定 —— 底层播放器流同步到 UI 状态 Provider
+///
+/// 在 AppShell 中 watch 一次即可保持应用生命周期内生效：
+/// 进度条、歌词同步、播放/暂停按钮状态都依赖此绑定。
+
+final class PlayerStreamBindingProvider
+    extends $FunctionalProvider<void, void, void>
+    with $Provider<void> {
+  /// 播放器状态流绑定 —— 底层播放器流同步到 UI 状态 Provider
+  ///
+  /// 在 AppShell 中 watch 一次即可保持应用生命周期内生效：
+  /// 进度条、歌词同步、播放/暂停按钮状态都依赖此绑定。
+  PlayerStreamBindingProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'playerStreamBindingProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$playerStreamBindingHash();
+
+  @$internal
+  @override
+  $ProviderElement<void> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  void create(Ref ref) {
+    return playerStreamBinding(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(void value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<void>(value),
+    );
+  }
+}
+
+String _$playerStreamBindingHash() =>
+    r'd1908f391eb22244956351116355dd98ce04297f';
+
 /// 当前播放歌曲
 
 @ProviderFor(CurrentSong)
@@ -1315,6 +1520,92 @@ abstract class _$LyricsNotifier extends $Notifier<Lyrics?> {
             as $ClassProviderElement<
               AnyNotifier<Lyrics?, Lyrics?>,
               Lyrics?,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// 插件库 Notifier —— 插件的加载/导入/下载与持久化
+///
+/// 插件文件统一存放在应用支持目录的 plugins/ 子目录，
+/// 启动时自动加载（AppShell watch 触发），支持：
+/// - 本地目录批量加载
+/// - 从 URL 下载
+/// - 从文件导入
+/// - 加载 PRD 默认远程插件源（落雪 / MusicFree）
+
+@ProviderFor(PluginLibrary)
+final pluginLibraryProvider = PluginLibraryProvider._();
+
+/// 插件库 Notifier —— 插件的加载/导入/下载与持久化
+///
+/// 插件文件统一存放在应用支持目录的 plugins/ 子目录，
+/// 启动时自动加载（AppShell watch 触发），支持：
+/// - 本地目录批量加载
+/// - 从 URL 下载
+/// - 从文件导入
+/// - 加载 PRD 默认远程插件源（落雪 / MusicFree）
+final class PluginLibraryProvider
+    extends $NotifierProvider<PluginLibrary, PluginLibraryState> {
+  /// 插件库 Notifier —— 插件的加载/导入/下载与持久化
+  ///
+  /// 插件文件统一存放在应用支持目录的 plugins/ 子目录，
+  /// 启动时自动加载（AppShell watch 触发），支持：
+  /// - 本地目录批量加载
+  /// - 从 URL 下载
+  /// - 从文件导入
+  /// - 加载 PRD 默认远程插件源（落雪 / MusicFree）
+  PluginLibraryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'pluginLibraryProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$pluginLibraryHash();
+
+  @$internal
+  @override
+  PluginLibrary create() => PluginLibrary();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(PluginLibraryState value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<PluginLibraryState>(value),
+    );
+  }
+}
+
+String _$pluginLibraryHash() => r'90b48a5b1c9847793decb1d48a03f462c992b9ee';
+
+/// 插件库 Notifier —— 插件的加载/导入/下载与持久化
+///
+/// 插件文件统一存放在应用支持目录的 plugins/ 子目录，
+/// 启动时自动加载（AppShell watch 触发），支持：
+/// - 本地目录批量加载
+/// - 从 URL 下载
+/// - 从文件导入
+/// - 加载 PRD 默认远程插件源（落雪 / MusicFree）
+
+abstract class _$PluginLibrary extends $Notifier<PluginLibraryState> {
+  PluginLibraryState build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<PluginLibraryState, PluginLibraryState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<PluginLibraryState, PluginLibraryState>,
+              PluginLibraryState,
               Object?,
               Object?
             >;
