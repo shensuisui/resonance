@@ -2,7 +2,6 @@
 // 从 MusicFree 插件列表下载所有插件，逐个测试搜索流程
 import 'dart:convert';
 
-import 'package:core/core.dart';
 import 'package:crawler/crawler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';

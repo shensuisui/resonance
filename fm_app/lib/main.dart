@@ -67,11 +67,14 @@ Future<void> main() async {
 }
 
 /// 从 assets/rules/ 加载所有 .json 规则文件
+///
+/// 注意：Flutter ≥3.16 不再生成 AssetManifest.json（改为二进制格式），
+/// 必须用官方 AssetManifest API 发现资产，否则一条规则都加载不到。
 Future<void> _loadRuleSources() async {
   try {
-    final manifestContent = await rootBundle.loadString('AssetManifest.json');
-    final manifest = jsonDecode(manifestContent) as Map<String, dynamic>;
-    final ruleFiles = manifest.keys
+    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+    final ruleFiles = manifest
+        .listAssets()
         .where((key) =>
             key.startsWith('assets/rules/') && key.endsWith('.json'))
         .toList();

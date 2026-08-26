@@ -1,9 +1,6 @@
 // 真实 WebView 集成测试
 // 使用 integration_test 在真实 Windows 窗口中运行 HeadlessInAppWebView
 // 验证 MusicFree JS 插件从下载到搜索到获取播放 URL 的完整流程
-import 'dart:io';
-
-import 'package:core/core.dart';
 import 'package:crawler/crawler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -84,8 +81,9 @@ void main() {
       final rawResult = await runtime.callPluginFunction(
         "search('周杰伦', 1, 'music')",
       ).timeout(const Duration(seconds: 30));
-      print('   原始结果长度: ${rawResult?.length ?? 0}');
-      print('   原始结果前200字符: ${rawResult?.substring(0, (rawResult?.length ?? 0).clamp(0, 200))}');
+      final raw = rawResult ?? '';
+      print('   原始结果长度: ${raw.length}');
+      print('   原始结果前200字符: ${raw.substring(0, raw.length.clamp(0, 200))}');
 
       // 5. 通过 JsPluginSource 解析结果
       final source = JsPluginSource(runtime, pluginName);
