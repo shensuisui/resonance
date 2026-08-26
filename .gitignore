@@ -17,4 +17,4 @@
 .dart_tool/
 .packages
 .pub/
-build/
+build/.cortexkit/

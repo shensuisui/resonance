@@ -32,5 +32,6 @@ export 'src/pages/playlist_detail_page.dart';
 export 'src/pages/source_management_page.dart';
 export 'src/pages/settings_page.dart';
 export 'src/pages/download_queue_page.dart';
+export 'src/pages/queue_page.dart';
 export 'src/pages/artist_page.dart';
 export 'src/pages/album_page.dart';

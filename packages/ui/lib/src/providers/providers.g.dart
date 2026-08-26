@@ -1584,7 +1584,7 @@ final class PluginLibraryProvider
   }
 }
 
-String _$pluginLibraryHash() => r'90b48a5b1c9847793decb1d48a03f462c992b9ee';
+String _$pluginLibraryHash() => r'bb144aeaf783a58669cb87b3c2fd1f35746f1321';
 
 /// 插件库 Notifier —— 插件的加载/导入/下载与持久化
 ///
