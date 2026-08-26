@@ -109,7 +109,7 @@ class LocalScanSource extends MusicSource {
     if (_settingsDao == null) {
       throw StateError('SettingsDao 未注入，无法读取扫描目录配置');
     }
-    final dirPath = await _settingsDao!.get('scan_dir');
+    final dirPath = await _settingsDao.get('scan_dir');
     if (dirPath == null || dirPath.isEmpty) {
       throw StateError('未配置扫描目录，请在设置中添加');
     }
@@ -196,8 +196,28 @@ class LocalScanSource extends MusicSource {
 
   @override
   Future<Lyrics?> getLyrics(String id) async {
-    // 本地歌词暂不支持（未来可解析 .lrc 同名文件）
-    return null;
+    // 查找同名 .lrc 文件解析（如 /music/晴天.mp3 → /music/晴天.lrc）
+    final song = _cache.where((s) => s.id == id).firstOrNull;
+    if (song == null || song.localPath == null) return null;
+
+    final lrcPath = _replaceExtension(song.localPath!, '.lrc');
+    try {
+      final file = File(lrcPath);
+      if (!await file.exists()) return null;
+      final content = await file.readAsString();
+      final lines = LrcParser.parse(content);
+      if (lines.isEmpty) return null;
+      return Lyrics(songId: song.id, sourceId: song.sourceId, lines: lines);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 替换文件扩展名
+  static String _replaceExtension(String path, String newExt) {
+    final dot = path.lastIndexOf('.');
+    if (dot < 0) return '$path$newExt';
+    return '${path.substring(0, dot)}$newExt';
   }
 
   @override

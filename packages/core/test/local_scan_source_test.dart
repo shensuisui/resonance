@@ -242,5 +242,53 @@ void main() {
 
       await tempDir.delete(recursive: true);
     });
+
+    test('getLyrics 读取同名 .lrc 文件', () async {
+      final tempDir = await Directory.systemTemp.createTemp('fm_lrc_');
+      // 创建音频 + 同名 lrc
+      final audioPath = '${tempDir.path}/周杰伦 - 晴天.mp3';
+      await File(audioPath).writeAsBytes([0x00]);
+      await File('${tempDir.path}/周杰伦 - 晴天.lrc').writeAsString('''
+[ti:晴天]
+[ar:周杰伦]
+[00:12.00]故事的小黄花
+[00:16.00]从出生那年就飘着
+''');
+
+      await source.init();
+      await source.scanDirectory(tempDir.path);
+
+      final songs = source.getScannedSongs();
+      final lyrics = await source.getLyrics(songs.first.id);
+
+      expect(lyrics, isNotNull);
+      expect(lyrics!.songId, songs.first.id);
+      expect(lyrics.sourceId, 'local_scan');
+      expect(lyrics.lines.length, 2);
+      expect(lyrics.lines.first.text, '故事的小黄花');
+      expect(lyrics.lines.first.time, const Duration(seconds: 12));
+
+      await tempDir.delete(recursive: true);
+    });
+
+    test('getLyrics 无 .lrc 文件返回 null', () async {
+      final tempDir = await Directory.systemTemp.createTemp('fm_nolrc_');
+      await File('${tempDir.path}/周杰伦 - 晴天.mp3').writeAsBytes([0x00]);
+
+      await source.init();
+      await source.scanDirectory(tempDir.path);
+
+      final songs = source.getScannedSongs();
+      final lyrics = await source.getLyrics(songs.first.id);
+      expect(lyrics, isNull);
+
+      await tempDir.delete(recursive: true);
+    });
+
+    test('getLyrics 不存在的歌曲返回 null', () async {
+      await source.init();
+      final lyrics = await source.getLyrics('nonexistent');
+      expect(lyrics, isNull);
+    });
   });
 }
