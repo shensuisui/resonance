@@ -1,7 +1,10 @@
-/// 源管理页 —— 源列表 + 启用/禁用开关
+/// 源管理页 —— 源列表 + 类型/来源归属 + 启用/禁用开关
+///
+/// 颜色用 Theme.colorScheme，间距用 AppSpacing。
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
 import '../providers/providers.dart';
 
@@ -12,6 +15,8 @@ class SourceManagementPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sourcesAsync = ref.watch(sourceListProvider);
     final enabledMap = ref.watch(sourceEnabledProvider);
+    // 来源归属：sourceId → 订阅 url（远程源显示来源）
+    final originMap = ref.watch(subscriptionLibraryProvider).sourceOrigin;
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
@@ -34,6 +39,7 @@ class SourceManagementPage extends ConsumerWidget {
               final source = sources[index];
               final info = source.sourceInfo;
               final isEnabled = enabledMap[info.id] ?? false;
+              final origin = originMap[info.id];
 
               return ListTile(
                 contentPadding: const EdgeInsets.symmetric(
@@ -46,12 +52,15 @@ class SourceManagementPage extends ConsumerWidget {
                     color: cs.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Icon(Icons.cloud_rounded, color: cs.onSurfaceVariant),
+                  child: Icon(_typeIcon(info.type), color: cs.onSurfaceVariant),
                 ),
                 title: Text(info.name, style: tt.bodyLarge),
-                subtitle: Text(info.id, style: tt.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                )),
+                subtitle: Text(
+                  _subtitle(info, origin),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
                 trailing: Switch(
                   value: isEnabled,
                   onChanged: (v) {
@@ -64,5 +73,29 @@ class SourceManagementPage extends ConsumerWidget {
         },
       ),
     );
+  }
+
+  /// 类型图标
+  IconData _typeIcon(SourceType type) => switch (type) {
+        SourceType.local => Icons.folder_rounded,
+        SourceType.rule => Icons.description_rounded,
+        SourceType.plugin => Icons.extension_rounded,
+      };
+
+  /// 类型标签
+  String _typeLabel(SourceType type) => switch (type) {
+        SourceType.local => '本地',
+        SourceType.rule => '规则',
+        SourceType.plugin => '插件',
+      };
+
+  /// 副标题：id · 类型[ · 来源]
+  String _subtitle(SourceInfo info, String? origin) {
+    final parts = [info.id, _typeLabel(info.type)];
+    if (origin != null && origin.isNotEmpty) {
+      final host = Uri.tryParse(origin)?.host;
+      parts.add('来自 ${host?.isNotEmpty == true ? host : origin}');
+    }
+    return parts.join(' · ');
   }
 }
