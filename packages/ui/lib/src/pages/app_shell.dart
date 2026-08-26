@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_spacing.dart';
 import '../widgets/mini_player.dart';
 import 'search_page.dart';
 import 'recent_plays_page.dart';

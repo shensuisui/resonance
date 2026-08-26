@@ -55,6 +55,81 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     }
   }
 
+  /// 将歌曲加入歌单
+  Future<void> _addToPlaylist(Song song) async {
+    final dao = ref.read(playlistDaoProvider);
+    final playlists = await dao.getAllPlaylists();
+
+    if (playlists.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('还没有歌单，请先在歌单页创建')),
+        );
+      }
+      return;
+    }
+
+    // 弹出歌单选择器
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) {
+        final cs = Theme.of(context).colorScheme;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.s16),
+                child: Text('加入歌单', style: Theme.of(context).textTheme.titleMedium),
+              ),
+              const Divider(height: 1),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: playlists.length,
+                  itemBuilder: (context, index) {
+                    final pl = playlists[index];
+                    final alreadyHas = pl.songKeys.contains(song.globalKey);
+                    return ListTile(
+                      leading: Icon(Icons.queue_music_rounded,
+                          color: cs.onSurfaceVariant),
+                      title: Text(pl.name),
+                      subtitle: Text('${pl.songKeys.length} 首'),
+                      trailing: alreadyHas
+                          ? Icon(Icons.check_rounded, color: cs.primary)
+                          : null,
+                      onTap: () => Navigator.pop(context, pl.id),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (selected == null) return;
+    final pl = playlists.firstWhere((p) => p.id == selected);
+    final alreadyHas = pl.songKeys.contains(song.globalKey);
+
+    if (!alreadyHas) {
+      await dao.updatePlaylist(
+        pl.copyWith(songKeys: [...pl.songKeys, song.globalKey]),
+      );
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(alreadyHas
+              ? '已在该歌单中'
+              : '已加入「${pl.name}」'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(searchNotifierProvider);
@@ -88,9 +163,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               : ListView.builder(
                   itemCount: state.results.length,
                   itemBuilder: (context, index) {
+                    final song = state.results[index];
                     return SongTile(
-                      song: state.results[index],
-                      onTap: () => _onPlaySong(state.results[index]),
+                      song: song,
+                      onTap: () => _onPlaySong(song),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.playlist_add_rounded),
+                        tooltip: '加入歌单',
+                        onPressed: () => _addToPlaylist(song),
+                      ),
                     );
                   },
                 ),

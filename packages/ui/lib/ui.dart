@@ -22,5 +22,6 @@ export 'src/pages/search_page.dart';
 export 'src/pages/player_page.dart';
 export 'src/pages/recent_plays_page.dart';
 export 'src/pages/playlist_list_page.dart';
+export 'src/pages/playlist_detail_page.dart';
 export 'src/pages/source_management_page.dart';
 export 'src/pages/settings_page.dart';

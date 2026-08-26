@@ -7,6 +7,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../providers/providers.dart';
 import '../widgets/empty_state.dart';
+import 'playlist_detail_page.dart';
 
 class PlaylistListPage extends ConsumerStatefulWidget {
   const PlaylistListPage({super.key});
@@ -119,7 +120,13 @@ class _PlaylistListPageState extends ConsumerState<PlaylistListPage> {
                             color: cs.onSurfaceVariant,
                           )),
                       onTap: () {
-                        // TODO: 打开歌单详情页
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                PlaylistDetailPage(playlistId: pl.id),
+                          ),
+                        );
                       },
                       onLongPress: () => _showDeleteDialog(pl),
                     );
