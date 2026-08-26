@@ -30,8 +30,8 @@ class _RecentPlaysPageState extends ConsumerState<RecentPlaysPage> {
       final url = await manager.getSongUrl(song.sourceId, song.id);
       final player = ref.read(playerProvider);
       await player.play(song.copyWith(playUrl: url));
-      ref.read(currentSongProvider.notifier).state = song;
-      ref.read(isPlayingProvider.notifier).state = true;
+      ref.read(currentSongProvider.notifier).setSong(song);
+      ref.read(isPlayingProvider.notifier).setPlaying(true);
       ref.read(recentPlaysServiceProvider).recordPlay(song);
       ref.read(recentPlaysNotifierProvider.notifier).load();
     } catch (e) {

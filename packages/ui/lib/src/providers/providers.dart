@@ -1,7 +1,7 @@
 /// Riverpod Providers —— 全局服务与状态管理
 ///
 /// 服务类 Provider 在 fm_app 的 main() 中通过 ProviderScope.overrides 注入。
-/// 状态类 Provider 由 UI 层直接使用。
+/// 状态类 Provider 由 UI 层直接使用（Riverpod 3.x Notifier 风格）。
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,22 +32,107 @@ final playerProvider = Provider<Player>((ref) {
 // ==================== 播放状态 ====================
 
 /// 当前播放歌曲
-final currentSongProvider = StateProvider<Song?>((ref) => null);
+final currentSongProvider = NotifierProvider<CurrentSongNotifier, Song?>(
+    CurrentSongNotifier.new);
+
+class CurrentSongNotifier extends Notifier<Song?> {
+  @override
+  Song? build() => null;
+
+  void setSong(Song? song) => state = song;
+}
 
 /// 播放队列
-final playQueueProvider = StateProvider<List<Song>>((ref) => []);
+final playQueueProvider = NotifierProvider<PlayQueueNotifier, List<Song>>(
+    PlayQueueNotifier.new);
+
+class PlayQueueNotifier extends Notifier<List<Song>> {
+  @override
+  List<Song> build() => const [];
+
+  void setQueue(List<Song> queue) => state = List.from(queue);
+}
 
 /// 是否正在播放
-final isPlayingProvider = StateProvider<bool>((ref) => false);
+final isPlayingProvider = NotifierProvider<IsPlayingNotifier, bool>(
+    IsPlayingNotifier.new);
 
-/// 当前播放进度（秒）
-final positionProvider = StateProvider<Duration>((ref) => Duration.zero);
+class IsPlayingNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void setPlaying(bool playing) => state = playing;
+}
+
+/// 当前播放进度
+final positionProvider = NotifierProvider<PositionNotifier, Duration>(
+    PositionNotifier.new);
+
+class PositionNotifier extends Notifier<Duration> {
+  @override
+  Duration build() => Duration.zero;
+
+  void setPosition(Duration position) => state = position;
+}
 
 /// 总时长
-final durationProvider = StateProvider<Duration>((ref) => Duration.zero);
+final durationProvider = NotifierProvider<DurationNotifier, Duration>(
+    DurationNotifier.new);
 
-/// 播放模式
-final playModeProvider = StateProvider<PlayMode>((ref) => PlayMode.listLoop);
+class DurationNotifier extends Notifier<Duration> {
+  @override
+  Duration build() => Duration.zero;
+
+  void setDuration(Duration duration) => state = duration;
+}
+
+/// 播放模式（持久化）
+final playModeProvider = NotifierProvider<PlayModeNotifier, PlayMode>(
+    PlayModeNotifier.new);
+
+class PlayModeNotifier extends Notifier<PlayMode> {
+  @override
+  PlayMode build() {
+    _load();
+    return PlayMode.listLoop;
+  }
+
+  SettingsDao get _settingsDao => ref.read(settingsDaoProvider);
+  Player get _player => ref.read(playerProvider);
+
+  Future<void> _load() async {
+    final mode = await _settingsDao.get('play_mode');
+    switch (mode) {
+      case 'single':
+        state = PlayMode.singleLoop;
+        _player.playMode = PlayMode.singleLoop;
+        break;
+      case 'shuffle':
+        state = PlayMode.shuffle;
+        _player.playMode = PlayMode.shuffle;
+        break;
+      case 'sequential':
+        state = PlayMode.sequential;
+        _player.playMode = PlayMode.sequential;
+        break;
+      default:
+        state = PlayMode.listLoop;
+        _player.playMode = PlayMode.listLoop;
+    }
+  }
+
+  Future<void> setMode(PlayMode mode) async {
+    state = mode;
+    _player.playMode = mode;
+    final value = switch (mode) {
+      PlayMode.singleLoop => 'single',
+      PlayMode.shuffle => 'shuffle',
+      PlayMode.sequential => 'sequential',
+      PlayMode.listLoop => 'list',
+    };
+    await _settingsDao.set('play_mode', value);
+  }
+}
 
 // ==================== 便捷 DAO Provider ====================
 
@@ -70,19 +155,18 @@ final favoritesDaoProvider = Provider<FavoritesDao>((ref) {
 // ==================== 主题模式 ====================
 
 /// 主题模式状态
-final themeModeProvider =
-    StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
-  return ThemeModeNotifier(ref.watch(settingsDaoProvider));
-});
+final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
+    ThemeModeNotifier.new);
 
-class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  final SettingsDao _settingsDao;
-
-  ThemeModeNotifier(this._settingsDao) : super(ThemeMode.system) {
+class ThemeModeNotifier extends Notifier<ThemeMode> {
+  @override
+  ThemeMode build() {
     _load();
+    return ThemeMode.system;
   }
 
-  /// 从数据库加载主题模式
+  SettingsDao get _settingsDao => ref.read(settingsDaoProvider);
+
   Future<void> _load() async {
     final mode = await _settingsDao.get('theme_mode');
     switch (mode) {
@@ -141,15 +225,14 @@ class SearchState {
 }
 
 /// 搜索 Notifier
-final searchNotifierProvider =
-    StateNotifierProvider<SearchNotifier, SearchState>((ref) {
-  return SearchNotifier(ref.watch(sourceManagerProvider));
-});
+final searchNotifierProvider = NotifierProvider<SearchNotifier, SearchState>(
+    SearchNotifier.new);
 
-class SearchNotifier extends StateNotifier<SearchState> {
-  final SourceManager _sourceManager;
+class SearchNotifier extends Notifier<SearchState> {
+  @override
+  SearchState build() => const SearchState();
 
-  SearchNotifier(this._sourceManager) : super(const SearchState());
+  SourceManager get _sourceManager => ref.read(sourceManagerProvider);
 
   /// 执行聚合搜索
   Future<void> search(String keyword) async {
@@ -178,18 +261,17 @@ class SearchNotifier extends StateNotifier<SearchState> {
 
 /// 最近播放列表
 final recentPlaysNotifierProvider =
-    StateNotifierProvider<RecentPlaysNotifier, List<Song>>((ref) {
-  return RecentPlaysNotifier(
-    ref.watch(recentPlaysServiceProvider),
-    ref.watch(sourceManagerProvider),
-  );
-});
+    NotifierProvider<RecentPlaysNotifier, List<Song>>(RecentPlaysNotifier.new);
 
-class RecentPlaysNotifier extends StateNotifier<List<Song>> {
-  final RecentPlaysService _service;
-  final SourceManager _sourceManager;
+class RecentPlaysNotifier extends Notifier<List<Song>> {
+  @override
+  List<Song> build() {
+    load();
+    return const [];
+  }
 
-  RecentPlaysNotifier(this._service, this._sourceManager) : super(const []);
+  RecentPlaysService get _service => ref.read(recentPlaysServiceProvider);
+  SourceManager get _sourceManager => ref.read(sourceManagerProvider);
 
   /// 加载最近播放列表
   Future<void> load() async {
@@ -218,19 +300,18 @@ class RecentPlaysNotifier extends StateNotifier<List<Song>> {
 // ==================== 收藏 ====================
 
 /// 收藏列表
-final favoritesNotifierProvider =
-    StateNotifierProvider<FavoritesNotifier, List<Song>>((ref) {
-  return FavoritesNotifier(
-    ref.watch(favoritesDaoProvider),
-    ref.watch(sourceManagerProvider),
-  );
-});
+final favoritesNotifierProvider = NotifierProvider<FavoritesNotifier, List<Song>>(
+    FavoritesNotifier.new);
 
-class FavoritesNotifier extends StateNotifier<List<Song>> {
-  final FavoritesDao _dao;
-  final SourceManager _sourceManager;
+class FavoritesNotifier extends Notifier<List<Song>> {
+  @override
+  List<Song> build() {
+    load();
+    return const [];
+  }
 
-  FavoritesNotifier(this._dao, this._sourceManager) : super(const []);
+  FavoritesDao get _dao => ref.read(favoritesDaoProvider);
+  SourceManager get _sourceManager => ref.read(sourceManagerProvider);
 
   Future<void> load() async {
     final keys = await _dao.getAllFavoriteKeys();
@@ -251,7 +332,8 @@ class FavoritesNotifier extends StateNotifier<List<Song>> {
     if (isFav) {
       await _dao.removeFavorite(song.globalKey);
     } else {
-      await _dao.addFavorite(song.globalKey, DateTime.now().millisecondsSinceEpoch);
+      await _dao.addFavorite(
+          song.globalKey, DateTime.now().millisecondsSinceEpoch);
     }
     await load();
   }
@@ -271,16 +353,17 @@ final sourceListProvider = FutureProvider<List<MusicSource>>((ref) async {
 
 /// 源启用状态
 final sourceEnabledProvider =
-    StateNotifierProvider<SourceEnabledNotifier, Map<String, bool>>((ref) {
-  return SourceEnabledNotifier(ref.watch(sourceManagerProvider));
-});
+    NotifierProvider<SourceEnabledNotifier, Map<String, bool>>(
+        SourceEnabledNotifier.new);
 
-class SourceEnabledNotifier extends StateNotifier<Map<String, bool>> {
-  final SourceManager _manager;
-
-  SourceEnabledNotifier(this._manager) : super({}) {
+class SourceEnabledNotifier extends Notifier<Map<String, bool>> {
+  @override
+  Map<String, bool> build() {
     _load();
+    return const {};
   }
+
+  SourceManager get _manager => ref.read(sourceManagerProvider);
 
   void _load() {
     final sources = _manager.getAllSources();
@@ -309,18 +392,15 @@ class ScanState {
 }
 
 /// 本地扫描 Notifier
-final scanNotifierProvider =
-    StateNotifierProvider<ScanNotifier, ScanState>((ref) {
-  return ScanNotifier(
-      ref.watch(sourceManagerProvider), ref.watch(settingsDaoProvider));
-});
+final scanNotifierProvider = NotifierProvider<ScanNotifier, ScanState>(
+    ScanNotifier.new);
 
-class ScanNotifier extends StateNotifier<ScanState> {
-  final SourceManager _sourceManager;
-  final SettingsDao _settingsDao;
+class ScanNotifier extends Notifier<ScanState> {
+  @override
+  ScanState build() => const ScanState();
 
-  ScanNotifier(this._sourceManager, this._settingsDao)
-      : super(const ScanState());
+  SourceManager get _sourceManager => ref.read(sourceManagerProvider);
+  SettingsDao get _settingsDao => ref.read(settingsDaoProvider);
 
   /// 获取扫描目录
   Future<String?> getScanDir() => _settingsDao.get('scan_dir');

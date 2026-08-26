@@ -40,8 +40,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       await player.play(song.copyWith(playUrl: url));
 
       // 更新播放状态
-      ref.read(currentSongProvider.notifier).state = song;
-      ref.read(isPlayingProvider.notifier).state = true;
+      ref.read(currentSongProvider.notifier).setSong(song);
+      ref.read(isPlayingProvider.notifier).setPlaying(true);
 
       // 记录最近播放
       ref.read(recentPlaysServiceProvider).recordPlay(song);

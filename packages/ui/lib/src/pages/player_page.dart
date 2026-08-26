@@ -146,8 +146,7 @@ class PlayerPage extends ConsumerWidget {
               PlayMode.shuffle => PlayMode.sequential,
               PlayMode.sequential => PlayMode.listLoop,
             };
-            ref.read(playModeProvider.notifier).state = next;
-            player.playMode = next;
+            ref.read(playModeProvider.notifier).setMode(next);
           },
         ),
         // 上一曲
