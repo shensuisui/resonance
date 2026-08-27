@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
-import '../theme/image_headers.dart';
 import '../providers/providers.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/empty_state.dart';
@@ -232,7 +231,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     if (url != null && url.isNotEmpty) {
       return Image.network(url,
           width: 120, height: 120, fit: BoxFit.cover,
-          headers: kImageHeaders,
           errorBuilder: (_, __, ___) => _defaultHotCover(cs));
     }
     return _defaultHotCover(cs);

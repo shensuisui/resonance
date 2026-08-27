@@ -18,6 +18,7 @@ import 'package:crawler/crawler.dart';
 import 'package:db/db.dart';
 import 'package:player/player.dart';
 import 'package:ui/ui.dart';
+import 'ua_overrides.dart';
 
 late DatabaseProvider gDatabaseProvider;
 late SourceManager gSourceManager;
@@ -27,6 +28,10 @@ late DownloadManager gDownloadManager;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 全局替换 dart:io 默认 User-Agent 为浏览器 UA
+  // （网易等 CDN 对 Dart UA 做访问控制返回 403，见 ua_overrides_io.dart）
+  applyBrowserUserAgent();
 
   // 1. 初始化 SQLite 数据库
   gDatabaseProvider = SqfliteDatabaseProvider();
