@@ -10,6 +10,7 @@ import 'package:core/core.dart';
 import '../providers/providers.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
+import '../theme/image_headers.dart';
 import '../widgets/song_tile.dart';
 
 class DiscoverPage extends ConsumerWidget {
@@ -153,6 +154,7 @@ class _PlaylistCard extends StatelessWidget {
       return Image.network(
         coverUrl,
         fit: BoxFit.cover,
+        headers: kImageHeaders,
         loadingBuilder: (context, child, progress) {
           // 加载中显示占位，避免空白
           if (progress == null) return child;

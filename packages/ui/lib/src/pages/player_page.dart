@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
+import '../theme/image_headers.dart';
 import '../providers/providers.dart';
 import '../widgets/lyrics_view.dart';
 import 'artist_page.dart';
@@ -126,6 +127,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         child: Image.network(
           song.coverUrl!,
           width: size, height: size, fit: BoxFit.cover,
+          headers: kImageHeaders,
           errorBuilder: (_, __, ___) => _defaultCover(cs, size),
         ),
       );

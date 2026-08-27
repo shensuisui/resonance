@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
+import '../theme/image_headers.dart';
 
 class SongTile extends StatelessWidget {
   final Song song;
@@ -89,6 +90,7 @@ class SongTile extends StatelessWidget {
           width: 48,
           height: 48,
           fit: BoxFit.cover,
+          headers: kImageHeaders,
           errorBuilder: (_, __, ___) => _defaultCover(cs),
         ),
       );
