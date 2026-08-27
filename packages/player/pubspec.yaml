@@ -14,6 +14,8 @@ dependencies:
   core:
     path: ../core
   just_audio: ^0.9.43
+  # just_audio 在 Windows 无平台实现，需显式加插件，否则运行时播放失败
+  just_audio_windows: ^0.2.0
 
 dev_dependencies:
   flutter_test:
