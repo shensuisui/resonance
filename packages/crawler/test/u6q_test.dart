@@ -149,6 +149,23 @@ void main() {
       expect(artist, '周杰伦');
     });
 
+    test('歌手字段 \\u0026 净化 —— 字面两反斜杠 u0026 替换为 &', () {
+      initExprEngine();
+      // 模拟 6uq 返回的歌手文本：HTML 里是字面 "\\u0026"（两个反斜杠 + u0026）
+      const dirtyHtml = r'''
+        <ul><li>
+          <div class="name"><a href="/play/abc123.html">温岚\\u0026周杰伦《屋顶》[MP3_LRC]</a></div>
+        </li></ul>
+      ''';
+      final items = ResponseHandler.extractList(dirtyHtml, r"@CSS:ul li@html");
+      final item = items.first as String;
+
+      // 使用与 6uq.json 完全一致的净化表达式（sanitize 挂在同一表达式上）
+      const expr = r"@CSS:div.name a@text && @Regex:^[^《]+##\\\\u0026||&";
+      final artist = evaluate(expr, item);
+      expect(artist, '温岚&周杰伦');
+    });
+
     test('第二首歌提取完整', () {
       initExprEngine();
       final items = ResponseHandler.extractList(html, r"@CSS:ul li@html");
@@ -207,7 +224,7 @@ void main() {
         }
       },
       timeout: const Timeout(Duration(minutes: 2)),
-      skip: '需要真实网络环境，CI 中跳过',
+      skip: '需要真实网络环境，CI 中跳过'
     );
 
     test(
@@ -237,7 +254,8 @@ void main() {
         expect(lyrics.lines.first.text, isNotEmpty);
       },
       timeout: const Timeout(Duration(minutes: 3)),
-      skip: '需要真实网络环境，CI 中跳过',
+      skip: '需要真实网络环境，CI 中跳过'
     );
   });
 }
+

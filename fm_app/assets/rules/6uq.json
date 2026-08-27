@@ -35,7 +35,7 @@
     "itemRules": {
       "id": "@CSS:div.name a@href && @Regex:/play/([^.]+)",
       "title": "@CSS:div.name a@text && @Regex:《([^》]+)》",
-      "artist": "@CSS:div.name a@text && @Regex:^[^《]+"
+      "artist": "@CSS:div.name a@text && @Regex:^[^《]+##\\\\\\\\u0026||&"
     },
     "pagination": {
       "type": "size",
