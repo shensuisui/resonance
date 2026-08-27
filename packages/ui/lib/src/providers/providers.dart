@@ -283,29 +283,50 @@ class ThemeModeNotifier extends _$ThemeModeNotifier {
 
 // ==================== 搜索状态 ====================
 
+/// 搜索结果的单个来源分组
+class SearchGroup {
+  final String sourceId;
+  final String sourceName;
+  final List<Song> songs;
+
+  const SearchGroup({
+    required this.sourceId,
+    required this.sourceName,
+    required this.songs,
+  });
+}
+
 /// 搜索状态
 class SearchState {
   final String keyword;
-  final List<Song> results;
+
+  /// 全部来源聚合结果（「全部」tab）
+  final List<Song> allResults;
+
+  /// 按来源分组（每个来源一个 tab）
+  final List<SearchGroup> groups;
   final bool loading;
   final bool hasMore;
 
   const SearchState({
     this.keyword = '',
-    this.results = const [],
+    this.allResults = const [],
+    this.groups = const [],
     this.loading = false,
     this.hasMore = false,
   });
 
   SearchState copyWith({
     String? keyword,
-    List<Song>? results,
+    List<Song>? allResults,
+    List<SearchGroup>? groups,
     bool? loading,
     bool? hasMore,
   }) {
     return SearchState(
       keyword: keyword ?? this.keyword,
-      results: results ?? this.results,
+      allResults: allResults ?? this.allResults,
+      groups: groups ?? this.groups,
       loading: loading ?? this.loading,
       hasMore: hasMore ?? this.hasMore,
     );
@@ -374,10 +395,23 @@ class SearchNotifier extends _$SearchNotifier {
     state = SearchState(keyword: keyword, loading: true);
     try {
       final results = await _sourceManager.searchAll(keyword: keyword);
-      final songs = results.expand((r) => r.songs).toList();
+      final groups = <SearchGroup>[];
+      final all = <Song>[];
+      for (final r in results) {
+        if (r.songs.isEmpty) continue;
+        final name = _sourceManager.getSource(r.sourceId)?.sourceInfo.name ??
+            r.sourceId;
+        groups.add(SearchGroup(
+          sourceId: r.sourceId,
+          sourceName: name,
+          songs: r.songs,
+        ));
+        all.addAll(r.songs);
+      }
       state = SearchState(
         keyword: keyword,
-        results: songs,
+        allResults: all,
+        groups: groups,
         loading: false,
         hasMore: results.any((r) => r.hasMore),
       );

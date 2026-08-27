@@ -251,59 +251,86 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(searchProvider);
+    // 有结果时按来源分组展示 tab（全部 + 各来源）
+    final showTabs =
+        !state.loading && state.keyword.isNotEmpty && state.groups.isNotEmpty;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: TextField(
-          controller: _controller,
-          decoration: const InputDecoration(
-            hintText: '搜索歌曲、歌手',
-            border: InputBorder.none,
+    return DefaultTabController(
+      length: state.groups.length + 1,
+      child: Scaffold(
+        appBar: AppBar(
+          title: TextField(
+            controller: _controller,
+            decoration: const InputDecoration(
+              hintText: '搜索歌曲、歌手',
+              border: InputBorder.none,
+            ),
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => _onSearch(),
           ),
-          textInputAction: TextInputAction.search,
-          onSubmitted: (_) => _onSearch(),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.search_rounded),
+              onPressed: _onSearch,
+            ),
+          ],
+          bottom: showTabs
+              ? TabBar(
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  tabs: [
+                    const Tab(text: '全部'),
+                    ...state.groups.map((g) => Tab(text: g.sourceName)),
+                  ],
+                )
+              : null,
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search_rounded),
-            onPressed: _onSearch,
-          ),
-        ],
-      ),
-      body: state.loading
-          ? const Center(child: CircularProgressIndicator())
-          : state.results.isEmpty
-              ? (state.keyword.isEmpty
-                  ? _buildIdle(context)
-                  : EmptyState(
-                      message: '没有找到 "${state.keyword}" 的结果',
-                    ))
-              : ListView.builder(
-                  itemCount: state.results.length,
-                  itemBuilder: (context, index) {
-                    final song = state.results[index];
-                    return SongTile(
-                      song: song,
-                      onTap: () => _onPlaySong(song),
-                      onArtistTap: (artist) => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ArtistPage(artistName: artist),
-                        ),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
+        body: state.loading
+            ? const Center(child: CircularProgressIndicator())
+            : state.keyword.isEmpty
+                ? _buildIdle(context)
+                : state.allResults.isEmpty
+                    ? EmptyState(
+                        message: '没有找到 "${state.keyword}" 的结果',
+                      )
+                    : TabBarView(
                         children: [
-                          DownloadButton(song: song),
-                          IconButton(
-                            icon: const Icon(Icons.playlist_add_rounded),
-                            tooltip: '加入歌单',
-                            onPressed: () => _addToPlaylist(song),
-                          ),
+                          _buildSongList(context, state.allResults),
+                          ...state.groups
+                              .map((g) => _buildSongList(context, g.songs)),
                         ],
                       ),
-                    );
-                  },
-                ),
+      ),
+    );
+  }
+
+  /// 歌单曲目列表（搜索结果通用渲染）
+  Widget _buildSongList(BuildContext context, List<Song> songs) {
+    return ListView.builder(
+      itemCount: songs.length,
+      itemBuilder: (context, index) {
+        final song = songs[index];
+        return SongTile(
+          song: song,
+          onTap: () => _onPlaySong(song),
+          onArtistTap: (artist) => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ArtistPage(artistName: artist),
+            ),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DownloadButton(song: song),
+              IconButton(
+                icon: const Icon(Icons.playlist_add_rounded),
+                tooltip: '加入歌单',
+                onPressed: () => _addToPlaylist(song),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
