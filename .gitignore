@@ -19,5 +19,8 @@
 .pub/
 build/
 
+# DevTools 本机生成配置
+devtools_options.yaml
+
 # 工具状态
 .cortexkit/
