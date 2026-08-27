@@ -1,7 +1,8 @@
 /// 发现页 —— 聚合各源推荐歌单
 ///
-/// 网格展示歌单封面 + 名称，点击进入歌单详情。
+/// 网格展示歌单封面 + 名称，点击进入歌单详情（从源加载曲目并播放）。
 /// 颜色用 Theme.colorScheme，间距用 AppSpacing。
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:core/core.dart';
 import '../providers/providers.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
+import '../widgets/song_tile.dart';
 
 class DiscoverPage extends ConsumerWidget {
   const DiscoverPage({super.key});
@@ -23,12 +25,12 @@ class DiscoverPage extends ConsumerWidget {
       appBar: AppBar(title: const Text('发现')),
       body: RefreshIndicator(
         onRefresh: () => ref.read(discoverProvider.notifier).load(),
-        child: _buildBody(context, ref, state, cs, tt),
+        child: _buildBody(context, state, cs, tt),
       ),
     );
   }
 
-  Widget _buildBody(BuildContext context, WidgetRef ref, DiscoverState state,
+  Widget _buildBody(BuildContext context, DiscoverState state,
       ColorScheme cs, TextTheme tt) {
     if (state.loading && state.playlists.isEmpty) {
       return const Center(child: CircularProgressIndicator());
@@ -55,7 +57,9 @@ class DiscoverPage extends ConsumerWidget {
                         child: Text(state.error!,
                             style: tt.bodySmall
                                 ?.copyWith(color: cs.onSurfaceVariant),
-                            textAlign: TextAlign.center),
+                            textAlign: TextAlign.center,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis),
                       ),
                     const SizedBox(height: AppSpacing.s8),
                     Text('下拉刷新', style: tt.bodySmall
@@ -83,15 +87,13 @@ class DiscoverPage extends ConsumerWidget {
         final playlist = state.playlists[index];
         return _PlaylistCard(
           playlist: playlist,
-          onTap: () => _openDetail(context, ref, playlist),
+          onTap: () => _openDetail(context, playlist),
         );
       },
     );
   }
 
-  void _openDetail(BuildContext context, WidgetRef ref, Playlist playlist) {
-    // 歌单详情页期望接收完整的歌单歌曲列表，
-    // 这里尝试从源获取歌单详情后跳转
+  void _openDetail(BuildContext context, Playlist playlist) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => DiscoverPlaylistPage(playlist: playlist),
@@ -151,7 +153,12 @@ class _PlaylistCard extends StatelessWidget {
       return Image.network(
         coverUrl,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _defaultCover(cs),
+        loadingBuilder: (context, child, progress) {
+          // 加载中显示占位，避免空白
+          if (progress == null) return child;
+          return _defaultCover(cs);
+        },
+        errorBuilder: (_, _, _) => _defaultCover(cs),
       );
     }
     return _defaultCover(cs);
@@ -166,80 +173,142 @@ class _PlaylistCard extends StatelessWidget {
   }
 }
 
-/// 发现页歌单详情（展示歌单歌曲列表）
-class DiscoverPlaylistPage extends ConsumerWidget {
+/// 发现页歌单详情 —— 从源加载曲目并展示/播放
+class DiscoverPlaylistPage extends ConsumerStatefulWidget {
   final Playlist playlist;
 
   const DiscoverPlaylistPage({super.key, required this.playlist});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DiscoverPlaylistPage> createState() =>
+      _DiscoverPlaylistPageState();
+}
+
+class _DiscoverPlaylistPageState extends ConsumerState<DiscoverPlaylistPage> {
+  bool _loading = true;
+  String? _error;
+  List<Song> _songs = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  MusicSource? get _source => ref
+      .read(sourceManagerProvider)
+      .getSource(widget.playlist.sourceId ?? '');
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final source = _source;
+    if (source == null) {
+      setState(() {
+        _error = '源 ${widget.playlist.sourceId} 不可用';
+        _loading = false;
+      });
+      return;
+    }
+    try {
+      final songs = await _loadSongs(source, widget.playlist.id);
+      if (!mounted) return;
+      setState(() {
+        _songs = songs;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  /// 优先走源的完整歌曲接口（规则源返回含元数据+播放地址的曲目）；
+  /// 否则回退为按 songKeys 逐条解析详情。
+  Future<List<Song>> _loadSongs(MusicSource source, String id) async {
+    final direct = await source.getPlaylistSongs(id);
+    if (direct.isNotEmpty) return direct;
+
+    final playlist = await source.getPlaylist(id);
+    if (playlist == null || playlist.songKeys.isEmpty) return const [];
+
+    final resolved = await Future.wait(
+      playlist.songKeys.map(
+        (key) => source
+            .getSongDetail(key)
+            .then<Song?>((v) => v)
+            .catchError((Object _) => null),
+      ),
+    );
+    return resolved.whereType<Song>().toList();
+  }
+
+  void _play(Song song) async {
+    try {
+      await ref.read(playbackControllerProvider.notifier).playSong(song);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('播放失败')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text(playlist.name)),
-      body: playlist.songKeys.isEmpty
-          ? Center(
-              child: Text('该歌单暂无歌曲', style: tt.bodyMedium),
-            )
-          : ListView(
-              padding: const EdgeInsets.all(AppSpacing.s16),
-              children: [
-                // 封面 + 信息头部
-                Row(
-                  children: [
-                    _cover(cs, 96),
-                    const SizedBox(width: AppSpacing.s16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(playlist.name,
-                              style: tt.titleLarge, maxLines: 2),
-                          const SizedBox(height: AppSpacing.s8),
-                          Text(
-                            '${playlist.songKeys.length} 首 · 来自 ${playlist.sourceId}',
-                            style: tt.bodySmall
-                                ?.copyWith(color: cs.onSurfaceVariant),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const Divider(),
-                // 提示：歌曲需点击源歌单打开（songKeys 为源内 id）
-                Text(
-                  '该歌单来自 ${playlist.sourceId} 源，歌曲数据需从源加载',
-                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                ),
-              ],
-            ),
+      appBar: AppBar(title: Text(widget.playlist.name)),
+      body: _buildBody(cs, tt),
     );
   }
 
-  Widget _cover(ColorScheme cs, double size) {
-    final url = playlist.coverUrl;
-    if (url != null && url.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.s12),
-        child: Image.network(url,
-            width: size, height: size, fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _defaultCover(cs, size)),
+  Widget _buildBody(ColorScheme cs, TextTheme tt) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!,
+                style: tt.bodyMedium?.copyWith(color: cs.error),
+                textAlign: TextAlign.center),
+            const SizedBox(height: AppSpacing.s8),
+            TextButton.icon(
+              onPressed: _load,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('重新加载'),
+            ),
+          ],
+        ),
       );
     }
-    return _defaultCover(cs, size);
-  }
+    if (_songs.isEmpty) {
+      return Center(child: Text('该歌单暂无歌曲', style: tt.bodyMedium));
+    }
 
-  Widget _defaultCover(ColorScheme cs, double size) {
-    return Container(
-      width: size, height: size,
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(AppRadius.s12),
-      ),
-      child: Icon(Icons.queue_music_rounded, color: cs.onSurfaceVariant),
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.s8),
+      itemCount: _songs.length,
+      separatorBuilder: (_, _) =>
+          const Divider(height: 1, indent: AppSpacing.s64),
+      itemBuilder: (context, index) {
+        final song = _songs[index];
+        return SongTile(
+          song: song,
+          onTap: () => _play(song),
+        );
+      },
     );
   }
 }

@@ -77,6 +77,14 @@ class RuleBasedMusicSource extends MusicSource {
     return result.playlist;
   }
 
+  /// 歌单完整歌曲列表（executePlaylist 已提取曲目标题/歌手/封面/播放地址）
+  @override
+  Future<List<Song>> getPlaylistSongs(String id) async {
+    final result = await _executor.executePlaylist(id);
+    if (result == null) return const [];
+    return result.songs;
+  }
+
   /// 获取推荐歌单列表（歌单发现页）
   Future<List<Playlist>> getPlaylistList({int page = 1}) async {
     return _executor.executePlaylistList(page: page);

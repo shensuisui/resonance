@@ -168,11 +168,13 @@ void main() {
       expect(first.id, contains('-'), reason: 'ID 应为 server-id 复合格式');
       expect(first.name, isNotEmpty);
       expect(first.sourceId, equals('fengye'));
+      expect(first.coverUrl, isNotEmpty,
+          reason: '推荐歌单应能提取封面 URL（发现页图片依赖此字段）');
 
       print('   ✅ ${playlists.length} 个歌单');
       for (var i = 0; i < playlists.length && i < 5; i++) {
         final p = playlists[i];
-        print('   ${i + 1}. ${p.name} (id: ${p.id})');
+        print('   ${i + 1}. ${p.name} (id: ${p.id}) cover: ${p.coverUrl}');
       }
 
       // 缓存第一个歌单 ID 供后续测试
