@@ -18,6 +18,7 @@ export 'src/sources/favorite_source.dart';
 
 /// 服务
 export 'src/services/source_manager.dart';
+export 'src/services/source_log_bus.dart';
 export 'src/services/recent_plays_service.dart';
 export 'src/services/download_manager.dart';
 export 'src/services/audio_metadata_reader.dart';

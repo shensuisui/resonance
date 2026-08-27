@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_spacing.dart';
 import '../providers/providers.dart';
 import 'download_queue_page.dart';
+import 'source_log_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -238,6 +239,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => const DownloadQueuePage(),
+              ),
+            ),
+          ),
+          // 调试
+          ListTile(
+            leading: const Icon(Icons.article_outlined),
+            title: const Text('运行日志'),
+            subtitle: const Text('查看各音乐源执行情况，排查播放/搜索失败'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const SourceLogPage(),
               ),
             ),
           ),

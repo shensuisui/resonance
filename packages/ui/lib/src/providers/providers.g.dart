@@ -1168,7 +1168,7 @@ final class SearchNotifierProvider
   }
 }
 
-String _$searchNotifierHash() => r'bb503abdf1b35b1ade541b06f297e8e113d8c205';
+String _$searchNotifierHash() => r'395bcd69874ee1cdf49ed95d870f7a29031341b6';
 
 /// 搜索 Notifier
 
@@ -1520,6 +1520,64 @@ abstract class _$DiscoverNotifier extends $Notifier<DiscoverState> {
             as $ClassProviderElement<
               AnyNotifier<DiscoverState, DiscoverState>,
               DiscoverState,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// 源执行日志 Notifier —— 订阅 SourceLogBus，保留最近 200 条
+
+@ProviderFor(SourceLog)
+final sourceLogProvider = SourceLogProvider._();
+
+/// 源执行日志 Notifier —— 订阅 SourceLogBus，保留最近 200 条
+final class SourceLogProvider
+    extends $NotifierProvider<SourceLog, SourceLogState> {
+  /// 源执行日志 Notifier —— 订阅 SourceLogBus，保留最近 200 条
+  SourceLogProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'sourceLogProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$sourceLogHash();
+
+  @$internal
+  @override
+  SourceLog create() => SourceLog();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(SourceLogState value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<SourceLogState>(value),
+    );
+  }
+}
+
+String _$sourceLogHash() => r'b5d064cc1b12ee65fb8799925d5daa7093720a40';
+
+/// 源执行日志 Notifier —— 订阅 SourceLogBus，保留最近 200 条
+
+abstract class _$SourceLog extends $Notifier<SourceLogState> {
+  SourceLogState build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<SourceLogState, SourceLogState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<SourceLogState, SourceLogState>,
+              SourceLogState,
               Object?,
               Object?
             >;

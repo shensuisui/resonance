@@ -633,6 +633,41 @@ class DiscoverNotifier extends _$DiscoverNotifier {
   }
 }
 
+// ==================== 源执行日志 ====================
+
+/// 源执行日志状态
+class SourceLogState {
+  final List<SourceLogEntry> entries;
+  const SourceLogState({this.entries = const []});
+}
+
+/// 源执行日志 Notifier —— 订阅 SourceLogBus，保留最近 200 条
+@Riverpod(keepAlive: true)
+class SourceLog extends _$SourceLog {
+  static const int _maxEntries = 200;
+
+  @override
+  SourceLogState build() {
+    // 先取历史，再订阅实时流
+    final initial = SourceLogBus.instance.entries.take(_maxEntries).toList();
+    _sub = SourceLogBus.instance.stream.listen((e) {
+      state = SourceLogState(
+        entries: [e, ...state.entries.take(_maxEntries - 1)],
+      );
+    });
+    ref.onDispose(() => _sub?.cancel());
+    return SourceLogState(entries: initial);
+  }
+
+  StreamSubscription<SourceLogEntry>? _sub;
+
+  /// 清空日志
+  void clear() {
+    SourceLogBus.instance.clear();
+    state = const SourceLogState();
+  }
+}
+
 // ==================== 歌词 ====================
 
 /// 当前歌曲歌词（随 currentSong 变化自动加载）
