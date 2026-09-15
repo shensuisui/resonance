@@ -2,6 +2,7 @@
 ///
 /// 验证 AppSpacing / AppRadius / AppTheme 的静态值和主题配置。
 /// 禁止魔法值——所有间距和圆角必须从预定义常量获取。
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
