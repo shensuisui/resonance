@@ -10,6 +10,7 @@ import '../providers/providers.dart';
 import '../widgets/lyrics_view.dart';
 import '../widgets/cover_background.dart';
 import '../widgets/pressable_scale.dart';
+import '../widgets/scrollable_text.dart';
 import 'artist_page.dart';
 import 'queue_page.dart';
 
@@ -109,12 +110,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             ),
           ),
           const SizedBox(height: AppSpacing.s32),
-          Text(
-            song.title,
+          // 标题：过长时跑马灯滚动（两端渐变遮罩）
+          ScrollableText(
+            text: song.title,
             style: tt.headlineSmall,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            fadeColor: cs.surface,
           ),
           const SizedBox(height: AppSpacing.s8),
           GestureDetector(

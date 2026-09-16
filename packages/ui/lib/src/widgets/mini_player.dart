@@ -14,6 +14,7 @@ import '../theme/app_radius.dart';
 import '../providers/providers.dart';
 import '../pages/player_page.dart';
 import 'cover_background.dart';
+import 'scrollable_text.dart';
 
 class MiniPlayer extends ConsumerWidget {
   const MiniPlayer({super.key});
@@ -68,12 +69,11 @@ class MiniPlayer extends ConsumerWidget {
                           Row(
                             children: [
                               Expanded(
-                                child: Text(
-                                  '${song.title} - ${song.artist}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                child: ScrollableText(
+                                  text: '${song.title} - ${song.artist}',
                                   style:
                                       Theme.of(context).textTheme.bodyMedium,
+                                  fadeColor: cs.surfaceContainerLow,
                                 ),
                               ),
                             ],
