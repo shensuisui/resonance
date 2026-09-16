@@ -7,6 +7,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../providers/providers.dart';
 import '../widgets/lyrics_view.dart';
+import '../widgets/cover_background.dart';
 import 'artist_page.dart';
 import 'queue_page.dart';
 
@@ -63,23 +64,29 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       ),
       body: song == null
           ? Center(child: Text('暂无播放', style: tt.bodyLarge))
-          : Padding(
-              padding: const EdgeInsets.all(AppSpacing.s24),
-              child: Column(
-                children: [
-                  // 上部：封面或歌词
-                  _showLyrics
-                      ? const Expanded(child: LyricsView())
-                      : _buildCoverSection(song, cs, tt),
-                  const SizedBox(height: AppSpacing.s16),
-                  // 进度条
-                  _buildProgress(position, duration, progress, cs, ref),
-                  const SizedBox(height: AppSpacing.s16),
-                  // 控制按钮
-                  _buildControls(isPlaying, playMode, ref, cs,
-                      song.globalKey),
-                  const SizedBox(height: AppSpacing.s24),
-                ],
+          : CoverBackground(
+              // 播放页沉浸背景：封面主色(顶部淡色) → 表面色(底部)
+              coverUrl: song.coverUrl,
+              fallback: cs.surface,
+              topOpacity: 0.35,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.s24),
+                child: Column(
+                  children: [
+                    // 上部：封面或歌词
+                    _showLyrics
+                        ? const Expanded(child: LyricsView())
+                        : _buildCoverSection(song, cs, tt),
+                    const SizedBox(height: AppSpacing.s16),
+                    // 进度条
+                    _buildProgress(position, duration, progress, cs, ref),
+                    const SizedBox(height: AppSpacing.s16),
+                    // 控制按钮
+                    _buildControls(isPlaying, playMode, ref, cs,
+                        song.globalKey),
+                    const SizedBox(height: AppSpacing.s24),
+                  ],
+                ),
               ),
             ),
     );

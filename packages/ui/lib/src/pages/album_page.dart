@@ -10,6 +10,7 @@ import '../providers/providers.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/cover_background.dart';
 
 class AlbumPage extends ConsumerStatefulWidget {
   final String albumName;
@@ -107,13 +108,17 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          // 专辑头部
+          // 专辑头部（背景：首曲封面主色渐变）
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.s24),
-              child: Row(
-                children: [
-                  _cover(cs, 96),
+            child: CoverBackground(
+              coverUrl: _firstCoverUrl,
+              fallback: cs.surface,
+              topOpacity: 0.3,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.s24),
+                child: Row(
+                  children: [
+                    _cover(cs, 96),
                   const SizedBox(width: AppSpacing.s16),
                   Expanded(
                     child: Column(
@@ -139,6 +144,7 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
               ),
             ),
           ),
+        ),
           const SliverToBoxAdapter(child: Divider(height: 1)),
           // 歌曲列表
           SliverList(
@@ -164,5 +170,13 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
       ),
       child: Icon(Icons.album_rounded, size: 40, color: cs.onSurfaceVariant),
     );
+  }
+
+  /// 列表第一首有封面的歌曲封面 URL（专辑背景取色源）
+  String? get _firstCoverUrl {
+    for (final s in _songs) {
+      if (s.coverUrl != null && s.coverUrl!.isNotEmpty) return s.coverUrl;
+    }
+    return null;
   }
 }

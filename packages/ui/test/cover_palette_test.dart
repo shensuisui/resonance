@@ -45,6 +45,18 @@ void main() {
     });
   });
 
+  group('CoverPalette.resolveColor 网络解析', () {
+    test('空 URL 返回 null', () async {
+      expect(await CoverPalette.resolveColor(''), isNull);
+    });
+
+    test('加载失败的 URL 返回 null（不抛异常）', () async {
+      final color = await CoverPalette.resolveColor(
+          'https://invalid.example/not-exist.jpg');
+      expect(color, isNull);
+    });
+  });
+
   group('CoverPalette.foreground 前景色', () {
     test('深色背景 → 白色文字', () {
       expect(CoverPalette.foreground(const Color(0xFF111111)), Colors.white);

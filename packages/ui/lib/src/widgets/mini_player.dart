@@ -12,6 +12,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../providers/providers.dart';
 import '../pages/player_page.dart';
+import 'cover_background.dart';
 
 class MiniPlayer extends ConsumerWidget {
   const MiniPlayer({super.key});
@@ -30,68 +31,83 @@ class MiniPlayer extends ConsumerWidget {
         ? position.inMilliseconds / duration.inMilliseconds
         : 0.0;
 
-    return Material(
-      elevation: 4,
-      color: cs.surfaceContainerLow,
-      child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const PlayerPage()),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.s12,
-            vertical: AppSpacing.s8,
-          ),
-          child: Row(
-            children: [
-              // 封面
-              _buildCover(song, cs),
-              const SizedBox(width: AppSpacing.s12),
-              // 标题 + 进度
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 顶部分隔线替代原 elevation 阴影
+        Divider(height: 1, color: cs.outlineVariant),
+        CoverBackground(
+          // 迷你条背景：封面主色(顶部淡色) → 表面色(底部)
+          coverUrl: song.coverUrl,
+          fallback: cs.surfaceContainerLow,
+          topOpacity: 0.45,
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const PlayerPage()),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.s12,
+                  vertical: AppSpacing.s8,
+                ),
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${song.title} - ${song.artist}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyMedium,
+                    // 封面
+                    _buildCover(song, cs),
+                    const SizedBox(width: AppSpacing.s12),
+                    // 标题 + 进度
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${song.title} - ${song.artist}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style:
+                                      Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: AppSpacing.s4),
+                          LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 2,
+                            backgroundColor: cs.surfaceContainerHighest,
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: AppSpacing.s4),
-                    LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 2,
-                      backgroundColor: cs.surfaceContainerHighest,
+                    const SizedBox(width: AppSpacing.s8),
+                    // 播放/暂停
+                    IconButton(
+                      icon: Icon(isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded),
+                      onPressed: () {
+                        final player = ref.read(playerProvider);
+                        if (isPlaying) {
+                          player.pause();
+                        } else {
+                          player.resume();
+                        }
+                      },
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: AppSpacing.s8),
-              // 播放/暂停
-              IconButton(
-                icon: Icon(isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
-                onPressed: () {
-                  final player = ref.read(playerProvider);
-                  if (isPlaying) {
-                    player.pause();
-                  } else {
-                    player.resume();
-                  }
-                },
-              ),
-            ],
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 

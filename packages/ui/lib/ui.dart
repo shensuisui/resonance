@@ -21,6 +21,7 @@ export 'src/widgets/mini_player.dart';
 export 'src/widgets/download_button.dart';
 export 'src/widgets/lyrics_view.dart';
 export 'src/widgets/color_picker_dialog.dart';
+export 'src/widgets/cover_background.dart';
 
 // 页面
 export 'src/pages/app_shell.dart';

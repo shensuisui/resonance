@@ -9,6 +9,7 @@
 /// 无第三方依赖，纯 dart:ui 像素运算（约 40 行），可单元测试。
 library;
 
+import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
@@ -71,6 +72,59 @@ class CoverPalette {
       alpha: 1,
     );
   }
+
+  /// URL → 主色缓存（模块级，防重复提取；ImageCache 命中不重复下载）
+  static final Map<String, Color?> _colorCache = {};
+
+  /// 缓存上限（FIFO，超出移除最旧）
+  static const int _cacheLimit = 64;
+
+  /// 解析封面 URL 的主题主色；空 URL / 加载失败返回 null。
+  ///
+  /// 网络图片经 [NetworkImage] 走 Flutter ImageCache（同 URL 不重复下载），
+  /// 提取结果模块级缓存，页面切换/重建不重复计算。
+  static Future<Color?> resolveColor(String url) async {
+    if (url.isEmpty) return null;
+    if (_colorCache.containsKey(url)) return _colorCache[url];
+    Color? color;
+    try {
+      final image = await _resolveImage(NetworkImage(url));
+      color = await extract(image);
+    } catch (_) {
+      color = null;
+    }
+    _cacheColor(url, color);
+    return color;
+  }
+
+  /// ImageProvider → ui.Image（ImageStreamListener 模式；加载失败抛错）
+  static Future<ui.Image> _resolveImage(ImageProvider provider) {
+    final completer = Completer<ui.Image>();
+    final stream = provider.resolve(ImageConfiguration.empty);
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (info, _) {
+        stream.removeListener(listener);
+        completer.complete(info.image);
+      },
+      onError: (Object error, StackTrace? stackTrace) {
+        stream.removeListener(listener);
+        completer.completeError(error, stackTrace);
+      },
+    );
+    stream.addListener(listener);
+    return completer.future;
+  }
+
+  static void _cacheColor(String url, Color? color) {
+    if (_colorCache.length >= _cacheLimit) {
+      _colorCache.remove(_colorCache.keys.first);
+    }
+    _colorCache[url] = color;
+  }
+
+  /// 测试用：清空模块级缓存
+  static void debugClearCache() => _colorCache.clear();
 
   /// 主色上的前景色：相对亮度 > 0.55 用深色文字，否则白色
   static Color foreground(Color background) {
