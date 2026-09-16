@@ -17,6 +17,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:core/core.dart';
+import '../theme/app_theme.dart';
 
 export 'subscription_library.dart';
 
@@ -330,6 +331,65 @@ class ThemeModeNotifier extends _$ThemeModeNotifier {
       ThemeMode.system => 'system',
     };
     await _settingsDao.set('theme_mode', value);
+  }
+}
+
+// ==================== 主题外观参数 ====================
+
+/// 主题种子色状态（settings key = seed_color，'#RRGGBB' 文本）
+///
+/// build 先返回默认色，异步加载 settings 后更新；颜色变化驱动
+/// MaterialApp theme 重建（FmApp 中 watch）。
+@Riverpod(keepAlive: true)
+class SeedColorNotifier extends _$SeedColorNotifier {
+  @override
+  Color build() {
+    _load();
+    return kDefaultSeedColor;
+  }
+
+  SettingsDao get _settingsDao => ref.read(settingsDaoProvider);
+
+  Future<void> _load() async {
+    final hex = await _settingsDao.get('seed_color');
+    if (hex != null && hex.isNotEmpty) {
+      state = hexToColor(hex);
+    }
+  }
+
+  /// 设置种子色并持久化
+  Future<void> setSeedColor(Color color) async {
+    state = color;
+    await _settingsDao.set('seed_color', colorToHex(color));
+  }
+}
+
+/// 全局圆角状态（settings key = corner_radius，整数文本）
+///
+/// 作用于卡片/对话框/底部弹层等容器组件（见 AppTheme 注入）。
+@Riverpod(keepAlive: true)
+class CornerRadiusNotifier extends _$CornerRadiusNotifier {
+  @override
+  int build() {
+    _load();
+    return kDefaultCornerRadius;
+  }
+
+  SettingsDao get _settingsDao => ref.read(settingsDaoProvider);
+
+  Future<void> _load() async {
+    final raw = await _settingsDao.get('corner_radius');
+    final v = int.tryParse(raw ?? '');
+    if (v != null && v >= kCornerRadiusMin && v <= kCornerRadiusMax) {
+      state = v;
+    }
+  }
+
+  /// 设置全局圆角并持久化（自动夹取到 [kCornerRadiusMin]~[kCornerRadiusMax]）
+  Future<void> setCornerRadius(int radius) async {
+    final v = radius.clamp(kCornerRadiusMin, kCornerRadiusMax);
+    state = v;
+    await _settingsDao.set('corner_radius', '$v');
   }
 }
 

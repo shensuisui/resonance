@@ -25,3 +25,5 @@ devtools_options.yaml
 # 工具状态
 .cortexkit/
 .mnemon/
+.dsh/
+.tmp*/

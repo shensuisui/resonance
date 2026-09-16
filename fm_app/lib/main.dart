@@ -113,11 +113,13 @@ class FmApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final seedColor = ref.watch(seedColorProvider);
+    final cornerRadius = ref.watch(cornerRadiusProvider);
     return MaterialApp(
       title: 'FM 音乐',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.light(seedColor: seedColor, cornerRadius: cornerRadius),
+      darkTheme: AppTheme.dark(seedColor: seedColor, cornerRadius: cornerRadius),
       themeMode: themeMode,
       home: const AppShell(),
     );

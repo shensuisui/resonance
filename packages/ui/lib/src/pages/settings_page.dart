@@ -18,7 +18,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_theme.dart';
 import '../providers/providers.dart';
+import '../widgets/color_picker_dialog.dart';
 import 'download_queue_page.dart';
 import 'source_log_page.dart';
 
@@ -370,6 +372,18 @@ class _SettingsGroupDetailPageState
                 leading: const Icon(Icons.dark_mode_rounded),
                 title: const Text('暗色'),
               ),
+              CustomSettingsTile(
+                child: (info) => Padding(
+                  padding: const EdgeInsets.all(AppSpacing.s16),
+                  child: _buildSeedColorPicker(cs, tt),
+                ),
+              ),
+              CustomSettingsTile(
+                child: (info) => Padding(
+                  padding: const EdgeInsets.all(AppSpacing.s16),
+                  child: _buildCornerRadiusSlider(cs, tt),
+                ),
+              ),
             ],
           ),
         ],
@@ -524,6 +538,103 @@ class _SettingsGroupDetailPageState
       // 嵌入宽屏时不显示 AppBar（由外层编排），push 二级页时显示返回栏
       appBar: widget.embedded ? null : AppBar(title: Text(widget.group.label)),
       body: SettingsList(sections: sections),
+    );
+  }
+
+  /// 外观：主题色预设色块 + 自定义取色器入口
+  Widget _buildSeedColorPicker(ColorScheme cs, TextTheme tt) {
+    final current = ref.watch(seedColorProvider);
+    final isCustom = !kSeedColorPresets
+        .any((p) => p.color.toARGB32() == current.toARGB32());
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('主题色', style: tt.titleSmall?.copyWith(color: cs.primary)),
+        const SizedBox(height: AppSpacing.s12),
+        Wrap(
+          spacing: AppSpacing.s12,
+          runSpacing: AppSpacing.s12,
+          children: [
+            for (final p in kSeedColorPresets)
+              _seedSwatch(
+                cs,
+                color: p.color,
+                selected: p.color.toARGB32() == current.toARGB32(),
+                onTap: () =>
+                    ref.read(seedColorProvider.notifier).setSeedColor(p.color),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.s4),
+        TextButton.icon(
+          onPressed: () async {
+            final color =
+                await showColorPickerDialog(context, initial: current);
+            if (color != null) {
+              await ref.read(seedColorProvider.notifier).setSeedColor(color);
+            }
+          },
+          icon: const Icon(Icons.colorize_rounded),
+          label: Text(
+              isCustom ? '自定义 ${colorToHex(current)}' : '自定义颜色'),
+        ),
+      ],
+    );
+  }
+
+  /// 主题色预设色块（圆形，选中打勾）
+  Widget _seedSwatch(ColorScheme cs,
+      {required Color color,
+      required bool selected,
+      required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: selected ? cs.primary : cs.outlineVariant,
+            width: selected ? 2.5 : 1,
+          ),
+        ),
+        child: selected
+            ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
+            : null,
+      ),
+    );
+  }
+
+  /// 外观：全局圆角滑杆（作用于卡片/对话框/底部弹层）
+  Widget _buildCornerRadiusSlider(ColorScheme cs, TextTheme tt) {
+    final radius = ref.watch(cornerRadiusProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('全局圆角', style: tt.titleSmall?.copyWith(color: cs.primary)),
+            const Spacer(),
+            Text('$radius',
+                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+          ],
+        ),
+        Slider(
+          value: radius.toDouble(),
+          min: kCornerRadiusMin.toDouble(),
+          max: kCornerRadiusMax.toDouble(),
+          divisions: kCornerRadiusMax - kCornerRadiusMin,
+          label: '$radius',
+          onChanged: (v) => ref
+              .read(cornerRadiusProvider.notifier)
+              .setCornerRadius(v.round()),
+        ),
+        Text('作用于卡片、对话框、底部弹层',
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+      ],
     );
   }
 

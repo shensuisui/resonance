@@ -1153,6 +1153,143 @@ abstract class _$ThemeModeNotifier extends $Notifier<ThemeMode> {
   }
 }
 
+/// 主题种子色状态（settings key = seed_color，'#RRGGBB' 文本）
+///
+/// build 先返回默认色，异步加载 settings 后更新；颜色变化驱动
+/// MaterialApp theme 重建（FmApp 中 watch）。
+
+@ProviderFor(SeedColorNotifier)
+final seedColorProvider = SeedColorNotifierProvider._();
+
+/// 主题种子色状态（settings key = seed_color，'#RRGGBB' 文本）
+///
+/// build 先返回默认色，异步加载 settings 后更新；颜色变化驱动
+/// MaterialApp theme 重建（FmApp 中 watch）。
+final class SeedColorNotifierProvider
+    extends $NotifierProvider<SeedColorNotifier, Color> {
+  /// 主题种子色状态（settings key = seed_color，'#RRGGBB' 文本）
+  ///
+  /// build 先返回默认色，异步加载 settings 后更新；颜色变化驱动
+  /// MaterialApp theme 重建（FmApp 中 watch）。
+  SeedColorNotifierProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'seedColorProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$seedColorNotifierHash();
+
+  @$internal
+  @override
+  SeedColorNotifier create() => SeedColorNotifier();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(Color value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<Color>(value),
+    );
+  }
+}
+
+String _$seedColorNotifierHash() => r'627112581c9ea6fef9f33495ca608878c24695ea';
+
+/// 主题种子色状态（settings key = seed_color，'#RRGGBB' 文本）
+///
+/// build 先返回默认色，异步加载 settings 后更新；颜色变化驱动
+/// MaterialApp theme 重建（FmApp 中 watch）。
+
+abstract class _$SeedColorNotifier extends $Notifier<Color> {
+  Color build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<Color, Color>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<Color, Color>,
+              Color,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// 全局圆角状态（settings key = corner_radius，整数文本）
+///
+/// 作用于卡片/对话框/底部弹层等容器组件（见 AppTheme 注入）。
+
+@ProviderFor(CornerRadiusNotifier)
+final cornerRadiusProvider = CornerRadiusNotifierProvider._();
+
+/// 全局圆角状态（settings key = corner_radius，整数文本）
+///
+/// 作用于卡片/对话框/底部弹层等容器组件（见 AppTheme 注入）。
+final class CornerRadiusNotifierProvider
+    extends $NotifierProvider<CornerRadiusNotifier, int> {
+  /// 全局圆角状态（settings key = corner_radius，整数文本）
+  ///
+  /// 作用于卡片/对话框/底部弹层等容器组件（见 AppTheme 注入）。
+  CornerRadiusNotifierProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'cornerRadiusProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$cornerRadiusNotifierHash();
+
+  @$internal
+  @override
+  CornerRadiusNotifier create() => CornerRadiusNotifier();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$cornerRadiusNotifierHash() =>
+    r'7312088380fdacc05fa8df2c9762a9344ff96585';
+
+/// 全局圆角状态（settings key = corner_radius，整数文本）
+///
+/// 作用于卡片/对话框/底部弹层等容器组件（见 AppTheme 注入）。
+
+abstract class _$CornerRadiusNotifier extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
 /// 搜索历史（持久化，新→旧，去重移顶，上限 [SearchHistory._maxEntries]）
 
 @ProviderFor(SearchHistory)
@@ -1364,7 +1501,7 @@ final class FavoritesNotifierProvider
   }
 }
 
-String _$favoritesNotifierHash() => r'38dbd96926f37f514d5f3debf40270050868f537';
+String _$favoritesNotifierHash() => r'5ddc4c30c3de0103bccbd3ba60170fcbf6172797';
 
 /// 收藏列表
 
