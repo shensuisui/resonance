@@ -155,15 +155,9 @@ void main() {
   });
 
   group('MiniPlayer 导航', () {
-    testWidgets('点击整条导航到全屏 PlayerPage', (tester) async {
-      // PlayerPage 封面区固定 280px 高 + 标题/歌手，在默认 800x600
-      // 测试画布会溢出（真实手机屏幕更窄长），这里用 800x1600 逻辑像素
-      // 模拟手机视口
-      tester.view.physicalSize = const Size(800, 1600);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
+    testWidgets('点击整条导航到全屏 PlayerPage（默认画布无溢出）', (tester) async {
+      // 默认 800x600 画布即可：封面区已用 Flexible+FittedBox 自适应缩放，
+      // 矮视口下不应溢出（此前固定 280px 封面在 600px 高度会 RenderFlex overflow）
       await pumpMiniPlayer(tester, currentSong: song);
 
       // 点击标题区域（位于 InkWell 内）
@@ -173,6 +167,8 @@ void main() {
       expect(find.byType(PlayerPage), findsOneWidget);
       // PlayerPage 复用同一容器状态：AppBar 标题为当前歌曲名
       expect(find.text('晴天'), findsWidgets);
+      // 布局修复验证：无渲染异常（溢出会在此暴露）
+      expect(tester.takeException(), isNull);
     });
   });
 }
