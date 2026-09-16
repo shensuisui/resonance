@@ -65,6 +65,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.1.1"
+  card_settings_ui:
+    dependency: transitive
+    description:
+      name: card_settings_ui
+      sha256: "73670e4685d44fed8e9669e813153801825eea6f7a2845665e3a5a8631761e6c"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "2.0.1"
   characters:
     dependency: transitive
     description:
@@ -487,10 +495,10 @@ packages:
     dependency: transitive
     description:
       name: just_audio
-      sha256: f978d5b4ccea08f267dae0232ec5405c1b05d3f3cd63f82097ea46c015d5c09e
+      sha256: e60aa97b233ddea025e13dfac59195207f528fa5e9e4a4a49a8c0766701e5fe6
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "0.9.46"
+    version: "0.10.6"
   just_audio_platform_interface:
     dependency: transitive
     description:

@@ -106,11 +106,40 @@ class PlayerImpl implements Player {
     _currentIndex = index;
     final song = _queue[index];
     _updateState(PlayerState.loading);
+    final sw = Stopwatch()..start();
+    final url = song.playUrl ?? '';
+    SourceLogBus.instance.emit(
+      song.sourceId, SourceLogLevel.info, '播放器',
+      '播放 idx=$index id=${song.id} url=$url');
     try {
-      await _audioPlayer.setAudioSource(AudioSource.uri(Uri.parse(song.playUrl ?? '')));
+      await _audioPlayer.setAudioSource(
+          AudioSource.uri(Uri.parse(url)),
+          preload: true);
+      SourceLogBus.instance.emit(
+        song.sourceId, SourceLogLevel.info, '播放器',
+        'setAudioSource 完成（${sw.elapsedMilliseconds}ms），状态=${_audioPlayer.processingState.name}');
+
+      // 关键：等待底层加载完成（ready）再发 play 请求。
+      // just_audio_windows 在 source 加载完成前调用 play() 会被忽略
+      // （Play() no-op，日志看不到 Called play），导致"已取到时长却不播放"。
+      if (_audioPlayer.processingState != ProcessingState.ready) {
+        await _audioPlayer.processingStateStream
+            .firstWhere((s) => s == ProcessingState.ready)
+            .timeout(const Duration(seconds: 15));
+        SourceLogBus.instance.emit(
+          song.sourceId, SourceLogLevel.info, '播放器',
+          '等待加载完成（共 ${sw.elapsedMilliseconds}ms）→ play()');
+      }
+
       await _audioPlayer.play();
+      SourceLogBus.instance.emit(
+        song.sourceId, SourceLogLevel.info, '播放器',
+        'play() 完成（${sw.elapsedMilliseconds}ms），状态=${_currentState.name}');
       _updateState(PlayerState.playing);
-    } catch (e) {
+    } catch (e, st) {
+      SourceLogBus.instance.emit(
+        song.sourceId, SourceLogLevel.error, '播放器',
+        '播放失败 idx=$index id=${song.id} url=$url: $e\n$st');
       _updateState(PlayerState.error);
     }
   }
