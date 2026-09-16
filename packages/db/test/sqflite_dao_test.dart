@@ -231,6 +231,24 @@ void main() {
       expect(keys.first, 's:9');
       expect(keys.last, 's:5');
     });
+
+    test('歌曲快照（title/artist/coverUrl）存取', () async {
+      // 最近播放列表显示名字依赖快照字段
+      await provider.recentPlaysDao.insertOrUpdateRecentPlay(
+        'src:1', 1000,
+        title: '晴天', artist: '周杰伦', coverUrl: 'http://c/1.jpg',
+      );
+      await provider.recentPlaysDao.insertOrUpdateRecentPlay('src:2', 2000);
+
+      final records = await provider.recentPlaysDao.getRecentPlayRecords();
+      expect(records.length, 2);
+      expect(records[0].songKey, 'src:2');
+      expect(records[0].title, isNull, reason: '未传快照的列为 null');
+      expect(records[1].songKey, 'src:1');
+      expect(records[1].title, '晴天');
+      expect(records[1].artist, '周杰伦');
+      expect(records[1].coverUrl, 'http://c/1.jpg');
+    });
   });
 
   // ==================== FavoritesDao ====================

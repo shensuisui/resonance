@@ -69,38 +69,70 @@ class InMemoryPlaylistDao implements PlaylistDao {
 }
 
 class InMemoryRecentPlaysDao implements RecentPlaysDao {
-  final _store = <String, int>{};
+  final _store = <String, RecentPlayRecord>{};
 
   @override
-  Future<void> insertOrUpdateRecentPlay(String songKey, int playedAt) async {
-    _store[songKey] = playedAt;
+  Future<void> insertOrUpdateRecentPlay(
+    String songKey,
+    int playedAt, {
+    String? title,
+    String? artist,
+    String? coverUrl,
+  }) async {
+    _store[songKey] = RecentPlayRecord(
+      songKey: songKey,
+      playedAt: playedAt,
+      title: title,
+      artist: artist,
+      coverUrl: coverUrl,
+    );
   }
 
   @override
   Future<List<String>> getRecentPlayKeys({int limit = 500}) async {
-    final sorted = _store.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return sorted.take(limit).map((e) => e.key).toList();
+    final sorted = _store.values.toList()
+      ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+    return sorted.take(limit).map((e) => e.songKey).toList();
+  }
+
+  @override
+  Future<List<RecentPlayRecord>> getRecentPlayRecords(
+      {int limit = 500}) async {
+    final sorted = _store.values.toList()
+      ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+    return sorted.take(limit).toList();
   }
 
   @override
   Future<void> cleanOldest(int maxCount) async {
     if (_store.length <= maxCount) return;
-    final sorted = _store.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final sorted = _store.values.toList()
+      ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
     final toRemove = sorted.skip(maxCount);
     for (final entry in toRemove) {
-      _store.remove(entry.key);
+      _store.remove(entry.songKey);
     }
   }
 }
 
 class InMemoryFavoritesDao implements FavoritesDao {
-  final _store = <String, int>{};
+  final _store = <String, FavoriteRecord>{};
 
   @override
-  Future<void> addFavorite(String songKey, int time) async {
-    _store[songKey] = time;
+  Future<void> addFavorite(
+    String songKey,
+    int time, {
+    String? title,
+    String? artist,
+    String? coverUrl,
+  }) async {
+    _store[songKey] = FavoriteRecord(
+      songKey: songKey,
+      time: time,
+      title: title,
+      artist: artist,
+      coverUrl: coverUrl,
+    );
   }
 
   @override
@@ -116,6 +148,13 @@ class InMemoryFavoritesDao implements FavoritesDao {
   @override
   Future<List<String>> getAllFavoriteKeys() async {
     return _store.keys.toList();
+  }
+
+  @override
+  Future<List<FavoriteRecord>> getAllFavoriteRecords() async {
+    final list = _store.values.toList()
+      ..sort((a, b) => b.time.compareTo(a.time));
+    return list;
   }
 }
 

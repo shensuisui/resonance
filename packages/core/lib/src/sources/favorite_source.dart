@@ -1,7 +1,7 @@
 import 'package:core/core.dart';
 
 /// 最喜欢源
-/// 跨源收藏系统，只存储歌曲标识，不复制文件
+/// 跨源收藏系统，只存储歌曲标识 + 元数据快照，不复制文件
 class FavoriteSource extends MusicSource {
   final FavoritesDao _favoritesDao;
   final SourceManager _sourceManager;
@@ -16,9 +16,15 @@ class FavoriteSource extends MusicSource {
     enabled: true,
   );
 
-  /// 添加喜欢
-  Future<void> addFavorite(String songKey, String sourceId, String songId) async {
-    await _favoritesDao.addFavorite(songKey, DateTime.now().millisecondsSinceEpoch);
+  /// 添加喜欢（保存歌曲快照，供列表直接渲染）
+  Future<void> addFavorite(Song song) async {
+    await _favoritesDao.addFavorite(
+      song.globalKey,
+      DateTime.now().millisecondsSinceEpoch,
+      title: song.title,
+      artist: song.artist,
+      coverUrl: song.coverUrl,
+    );
   }
 
   /// 取消喜欢
@@ -31,18 +37,33 @@ class FavoriteSource extends MusicSource {
     return _favoritesDao.isFavorite(songKey);
   }
 
-  /// 获取最喜欢的歌曲列表（回源获取详情）
+  /// 获取最喜欢的歌曲列表
+  ///
+  /// 优先使用快照直接渲染；历史收藏（快照功能前写入，title 为 null）
+  /// 回退回源补齐详情。
   Future<List<Song>> getFavoriteSongs() async {
-    final keys = await _favoritesDao.getAllFavoriteKeys();
+    final records = await _favoritesDao.getAllFavoriteRecords();
     final songs = <Song>[];
-    for (final key in keys) {
-      final parts = key.split(':');
+    for (final record in records) {
+      final parts = record.songKey.split(':');
       if (parts.length < 2) continue;
       final sourceId = parts[0];
       final songId = parts.sublist(1).join(':');
+
+      if (record.title != null) {
+        songs.add(Song(
+          id: songId,
+          sourceId: sourceId,
+          title: record.title!,
+          artist: record.artist ?? '',
+          coverUrl: record.coverUrl,
+        ));
+        continue;
+      }
+
+      // 旧记录回退：回源补齐
       try {
-        final song = await _sourceManager.getSongDetail(sourceId, songId);
-        songs.add(song);
+        songs.add(await _sourceManager.getSongDetail(sourceId, songId));
       } catch (_) {
         // 源不可用时跳过
       }

@@ -29,6 +29,36 @@ void main() {
       expect(keys.first, song.globalKey);
     });
 
+    test('recordPlay 保存歌曲快照（title/artist/coverUrl）', () async {
+      // 快照是最近播放列表显示名字的根因修复：
+      // UI 直接读快照渲染，无需回源 getSongDetail（规则源详情可能无标题）
+      final song = Song(
+        id: '1', sourceId: 's', title: '晴天', artist: '周杰伦',
+        coverUrl: 'http://cover/1.jpg',
+      );
+      await service.recordPlay(song);
+
+      final records = await service.getRecentPlayRecords();
+      expect(records.length, 1);
+      expect(records.first.songKey, song.globalKey);
+      expect(records.first.title, '晴天');
+      expect(records.first.artist, '周杰伦');
+      expect(records.first.coverUrl, 'http://cover/1.jpg');
+    });
+
+    test('getRecentPlayRecords 按时间倒序', () async {
+      final song1 = Song(id: '1', sourceId: 's', title: '歌1', artist: '手');
+      final song2 = Song(id: '2', sourceId: 's', title: '歌2', artist: '手');
+      await service.recordPlay(song1);
+      await Future.delayed(const Duration(milliseconds: 1));
+      await service.recordPlay(song2);
+
+      final records = await service.getRecentPlayRecords();
+      expect(records.length, 2);
+      expect(records[0].songKey, song2.globalKey);
+      expect(records[1].songKey, song1.globalKey);
+    });
+
     test('recordPlay 多首歌曲按时间倒序', () async {
       final song1 = Song(id: '1', sourceId: 's', title: '歌1', artist: '手');
       final song2 = Song(id: '2', sourceId: 's', title: '歌2', artist: '手');

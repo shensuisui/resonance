@@ -61,12 +61,29 @@ void main() {
     });
 
     test('add and check favorite', () async {
-      await source.addFavorite('test:1', 'test', '1');
+      await source.addFavorite(Song(
+        id: '1', sourceId: 'test', title: '晴天', artist: '周杰伦',
+      ));
       expect(await source.isFavorite('test:1'), isTrue);
     });
 
+    test('save favorite with snapshot', () async {
+      // 快照是「我最喜欢」列表显示名字的根因修复
+      await source.addFavorite(Song(
+        id: '1', sourceId: 'test', title: '晴天', artist: '周杰伦',
+        coverUrl: 'http://c/1.jpg',
+      ));
+      final songs = await source.getFavoriteSongs();
+      expect(songs.length, 1);
+      expect(songs.first.title, '晴天');
+      expect(songs.first.artist, '周杰伦');
+      expect(songs.first.coverUrl, 'http://c/1.jpg');
+    });
+
     test('remove favorite', () async {
-      await source.addFavorite('test:1', 'test', '1');
+      await source.addFavorite(Song(
+        id: '1', sourceId: 'test', title: '晴天', artist: '周杰伦',
+      ));
       await source.removeFavorite('test:1');
       expect(await source.isFavorite('test:1'), isFalse);
     });

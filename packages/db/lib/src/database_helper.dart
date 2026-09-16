@@ -12,7 +12,11 @@ import 'package:sqflite/sqflite.dart';
 import 'sqflite_init.dart';
 
 /// 数据库版本
-const int kDbVersion = 1;
+///
+/// 约定：升级不做数据迁移，直接删旧表重建（存量数据不保留）。
+/// v2：recent_plays 表新增歌曲快照列（title/artist/cover_url）。
+/// v3：favorites 表新增歌曲快照列（title/artist/cover_url）。
+const int kDbVersion = 3;
 
 /// 建表 SQL
 const String kCreateSongsTable = '''
@@ -59,7 +63,10 @@ CREATE TABLE IF NOT EXISTS playlist_songs (
 const String kCreateRecentPlaysTable = '''
 CREATE TABLE IF NOT EXISTS recent_plays (
   song_key   TEXT PRIMARY KEY,
-  played_at  INTEGER NOT NULL
+  played_at  INTEGER NOT NULL,
+  title      TEXT,
+  artist     TEXT,
+  cover_url  TEXT
 )
 ''';
 
@@ -70,7 +77,10 @@ CREATE INDEX IF NOT EXISTS idx_recent_played_at ON recent_plays(played_at DESC)
 const String kCreateFavoritesTable = '''
 CREATE TABLE IF NOT EXISTS favorites (
   song_key       TEXT PRIMARY KEY,
-  favorite_time  INTEGER NOT NULL
+  favorite_time  INTEGER NOT NULL,
+  title          TEXT,
+  artist         TEXT,
+  cover_url      TEXT
 )
 ''';
 
@@ -145,9 +155,28 @@ class DatabaseHelper {
 
   /// 版本升级时执行迁移
   ///
-  /// 当前只有 v1，未来新增版本在此分支处理。
+  /// 项目约定：升级不做数据迁移，直接删除旧表重建，
+  /// 新装库走 [onCreate] 完整建表；升级库同样先删后建。
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // v1 → v2, v2 → v3, ... 在此添加
+    await _dropAllTables(db);
+    await _onCreate(db, newVersion);
+  }
+
+  /// 删除所有业务表（升级重建用）
+  ///
+  /// 注意顺序：先删带外键引用的表，再删被引用表。
+  Future<void> _dropAllTables(Database db) async {
+    const tables = [
+      'playlist_songs',
+      'recent_plays',
+      'favorites',
+      'playlists',
+      'settings',
+      'songs',
+    ];
+    for (final table in tables) {
+      await db.execute('DROP TABLE IF EXISTS $table');
+    }
   }
 
   /// 关闭数据库（用于测试和清理）
