@@ -37,6 +37,11 @@ Future<void> main() async {
   gDatabaseProvider = SqfliteDatabaseProvider();
   await gDatabaseProvider.initialize();
 
+  // 源执行日志同时打印到控制台（便于排查插件失败）
+  // print 直接输出：普通日志自带换行符时为多行（如 error 栈），保持可读；
+  // 用 print 而非 debugPrint 避免 debugWordWrap 逐词断行。
+  SourceLogBus.consolePrinter = (line) => print(line);
+
   // 2. 创建播放器、最近播放服务和下载管理器
   gPlayer = PlayerImpl();
   gRecentPlaysService =

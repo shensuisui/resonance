@@ -39,6 +39,9 @@ class PluginDownloader {
       await writeFileAsString(savePath, response.rawData);
       return savePath;
     } catch (e) {
+      SourceLogBus.instance.emit(
+        'plugin', SourceLogLevel.error, '插件下载',
+        '下载失败 $url → $savePath: $e');
       return null;
     }
   }
@@ -90,13 +93,31 @@ class PluginManager {
 
       switch (ext) {
         case '.json':
-          return MusicFreeAdapter.convertToSource(content);
+          final source = MusicFreeAdapter.convertToSource(content);
+          if (source == null) {
+            SourceLogBus.instance.emit(
+              'plugin', SourceLogLevel.error, '插件加载',
+              'MusicFree 插件解析失败: $filePath\n内容前 200 字符: ${content.length > 200 ? content.substring(0, 200) : content}');
+          }
+          return source;
         case '.js':
-          return await LxMusicAdapter.tryCreate(content);
+          final source = await LxMusicAdapter.tryCreate(content);
+          if (source == null) {
+            SourceLogBus.instance.emit(
+              'plugin', SourceLogLevel.error, '插件加载',
+              '落雪插件创建失败（JS 运行时不可用或插件无效）: $filePath');
+          }
+          return source;
         default:
+          SourceLogBus.instance.emit(
+            'plugin', SourceLogLevel.warn, '插件加载',
+            '不支持的插件扩展名: $filePath（$ext）');
           return null;
       }
-    } catch (_) {
+    } catch (e, st) {
+      SourceLogBus.instance.emit(
+        'plugin', SourceLogLevel.error, '插件加载',
+        '读取插件文件失败 $filePath: $e\n$st');
       return null;
     }
   }
@@ -115,8 +136,15 @@ class MusicFreeAdapter {
       if (json is Map) {
         return _convertSingle(json.cast<String, dynamic>());
       }
+      SourceLogBus.instance.emit(
+        'plugin', SourceLogLevel.error, '插件解析',
+        'MusicFree 插件 JSON 顶层既非 List 也非 Map');
       return null;
-    } catch (_) {
+    } catch (e) {
+      SourceLogBus.instance.emit(
+        'plugin', SourceLogLevel.error, '插件解析',
+        'MusicFree 插件 JSON 解析失败: $e\n内容前 200 字符: '
+        '${jsonContent.length > 200 ? jsonContent.substring(0, 200) : jsonContent}');
       return null;
     }
   }
@@ -134,7 +162,10 @@ class MusicFreeAdapter {
       );
 
       return RuleBasedMusicSource(config);
-    } catch (_) {
+    } catch (e) {
+      SourceLogBus.instance.emit(
+        'plugin', SourceLogLevel.error, '插件解析',
+        'MusicFree 插件结构转换失败: $e\n插件字段: $plugin');
       return null;
     }
   }

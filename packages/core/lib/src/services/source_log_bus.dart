@@ -51,6 +51,12 @@ class SourceLogBus {
 
   static const int _maxEntries = 300;
 
+  /// 控制台输出回调（可注入）
+  ///
+  /// 默认 null：仅在内存收集。壳工程注入后，日志同时打印到控制台，
+  /// 便于排查插件失败（如 `(line) => debugPrint(line, wrapWidth: 0)`）。
+  static void Function(String line)? consolePrinter;
+
   final StreamController<SourceLogEntry> _controller =
       StreamController<SourceLogEntry>.broadcast();
   final List<SourceLogEntry> _entries = [];
@@ -62,7 +68,7 @@ class SourceLogBus {
   List<SourceLogEntry> get entries =>
       List.unmodifiable(_entries.reversed.toList());
 
-  /// 记录一条日志
+  /// 记录一条日志（同时转发到控制台）
   void emit(
     String sourceId,
     SourceLogLevel level,
@@ -83,6 +89,11 @@ class SourceLogBus {
     if (!_controller.isClosed) {
       _controller.add(entry);
     }
+    // 控制台输出（可注入，见 consolePrinter）
+    consolePrinter?.call(
+      '[${entry.timeText}] [${entry.sourceId}] '
+      '${entry.level.name.toUpperCase()} [${entry.action}] ${entry.detail}',
+    );
   }
 
   /// 清空日志

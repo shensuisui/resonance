@@ -191,6 +191,10 @@ class RuleExecutor {
       'id': id,
       'baseUrl': _rule.source.baseUrl ?? '',
     });
+    // 记录实际请求的接口 URL（排查播放 URL 为空/失败时定位问题）
+    SourceLogBus.instance.emit(
+      _rule.source.id, SourceLogLevel.info, '歌曲详情',
+      'id=$id 请求 URL=$url');
 
     try {
       // 重定向类型：不跟随 302，提取 Location header
@@ -204,15 +208,26 @@ class RuleExecutor {
         if (response.redirectUrl != null) {
           return {'playUrl': response.redirectUrl};
         }
+        SourceLogBus.instance.emit(
+          _rule.source.id, SourceLogLevel.warn, '歌曲详情',
+          'id=$id URL=$url 302 无 Location，未取到播放地址');
         return {};
       }
 
       // 常规 JSON/HTML 类型
       final response = await _httpClient.get(url, headers: detailRule.headers, responseType: detailRule.responseType);
       final items = ResponseHandler.extractList(response.data, detailRule.listRule);
-      if (items.isEmpty) return {};
+      if (items.isEmpty) {
+        SourceLogBus.instance.emit(
+          _rule.source.id, SourceLogLevel.warn, '歌曲详情',
+          'id=$id URL=$url 响应无列表项，未取到播放地址');
+        return {};
+      }
       return ResponseHandler.extractItem(items.first, detailRule.itemRules);
-    } catch (_) {
+    } catch (e) {
+      SourceLogBus.instance.emit(
+        _rule.source.id, SourceLogLevel.error, '歌曲详情',
+        'id=$id URL=$url 请求失败: $e');
       return {};
     }
   }

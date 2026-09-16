@@ -31,6 +31,8 @@ class JsPluginSource extends MusicSource {
     int page = 1,
     int pageSize = 20,
   }) async {
+    SourceLogBus.instance.emit(
+        _id, SourceLogLevel.info, '插件搜索', '开始搜索「$keyword」 page=$page');
     final result = await _runtime.callPluginFunction(
       "search('${_escapeJs(keyword)}', $page, 'music')",
     );
@@ -49,7 +51,12 @@ class JsPluginSource extends MusicSource {
             }
           }
         }
-      } catch (_) {}
+      } catch (e) {
+        SourceLogBus.instance.emit(
+          _id, SourceLogLevel.warn, '插件搜索',
+          '「$keyword」响应解析失败: $e\n响应片段: ${result.length > 200 ? result.substring(0, 200) : result}',
+        );
+      }
     }
     return _parseSearchResult(result);
   }
@@ -90,8 +97,20 @@ class JsPluginSource extends MusicSource {
     if (result != null) {
       try {
         final json = jsonDecode(result) as Map<String, dynamic>;
-        return json['url'] as String? ?? '';
-      } catch (_) {}
+        final url = json['url'] as String? ?? '';
+        SourceLogBus.instance.emit(
+          _id, url.isEmpty ? SourceLogLevel.warn : SourceLogLevel.info,
+          '插件播放URL', 'id=$id ${url.isEmpty ? '未返回地址' : '成功'}');
+        return url;
+      } catch (e) {
+        SourceLogBus.instance.emit(
+          _id, SourceLogLevel.error, '插件播放URL',
+          'id=$id 响应解析失败: $e\n响应: $result',
+        );
+      }
+    } else {
+      SourceLogBus.instance.emit(
+        _id, SourceLogLevel.error, '插件播放URL', 'id=$id 无响应（JS 执行失败）');
     }
     return '';
   }
@@ -123,7 +142,17 @@ class JsPluginSource extends MusicSource {
         if (lrc != null && lrc.isNotEmpty) {
           return Lyrics(songId: id, sourceId: _id, isLrc: lrc.contains('['));
         }
-      } catch (_) {}
+        SourceLogBus.instance.emit(
+          _id, SourceLogLevel.warn, '插件歌词', 'id=$id 返回空歌词');
+      } catch (e) {
+        SourceLogBus.instance.emit(
+          _id, SourceLogLevel.error, '插件歌词',
+          'id=$id 响应解析失败: $e\n响应: $result',
+        );
+      }
+    } else {
+      SourceLogBus.instance.emit(
+        _id, SourceLogLevel.error, '插件歌词', 'id=$id 无响应（JS 执行失败）');
     }
     return null;
   }
@@ -145,17 +174,25 @@ class JsPluginSource extends MusicSource {
 
   SearchResult _parseSearchResult(String? result) {
     if (result == null) {
+      SourceLogBus.instance.emit(
+        _id, SourceLogLevel.error, '插件搜索', 'JS 返回 null（执行失败或无结果）');
       return SearchResult(songs: [], sourceId: _id);
     }
 
     try {
       final json = jsonDecode(result) as Map<String, dynamic>;
       if (json.containsKey('error')) {
+        SourceLogBus.instance.emit(
+          _id, SourceLogLevel.error, '插件搜索',
+          '插件返回错误: ${json['error']}\n完整响应: $result');
         return SearchResult(songs: [], sourceId: _id);
       }
 
       final data = json['data'] as List?;
       if (data == null) {
+        SourceLogBus.instance.emit(
+          _id, SourceLogLevel.warn, '插件搜索',
+          '响应无 data 字段（可能 isEnd 结构异常）\n完整响应: $result');
         return SearchResult(songs: [], sourceId: _id);
       }
 
@@ -172,7 +209,10 @@ class JsPluginSource extends MusicSource {
         sourceId: _id,
         hasMore: json['isEnd'] == false,
       );
-    } catch (_) {
+    } catch (e) {
+      SourceLogBus.instance.emit(
+        _id, SourceLogLevel.error, '插件搜索',
+        '响应解析失败: $e\n完整响应: $result');
       return SearchResult(songs: [], sourceId: _id);
     }
   }
@@ -207,6 +247,8 @@ class JsPluginSource extends MusicSource {
 /// 创建 JS 插件源的工厂方法
 class JsPluginFactory {
   /// 从 JS 代码创建插件源
+  ///
+  /// 失败时记录详细原因（插件加载/初始化异常），便于排查插件为什么失败。
   static Future<JsPluginSource?> create(String jsContent) async {
     try {
       // 提取插件名称
@@ -221,12 +263,18 @@ class JsPluginFactory {
       // 检查插件是否加载成功
       final loaded = await runtime.isPluginLoaded();
       if (!loaded) {
+        SourceLogBus.instance.emit(
+          'plugin', SourceLogLevel.error, '插件加载',
+          '「$name」JS 加载后 isPluginLoaded()=false（插件可能缺少 platform 字段或语法错误）');
         await runtime.dispose();
         return null;
       }
 
       return JsPluginSource(runtime, name);
-    } catch (e) {
+    } catch (e, st) {
+      SourceLogBus.instance.emit(
+        'plugin', SourceLogLevel.error, '插件加载',
+        '创建插件源失败: $e\n$st');
       return null;
     }
   }
