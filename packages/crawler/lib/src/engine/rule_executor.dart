@@ -214,8 +214,30 @@ class RuleExecutor {
         return {};
       }
 
-      // 常规 JSON/HTML 类型
-      final response = await _httpClient.get(url, headers: detailRule.headers, responseType: detailRule.responseType);
+      // 常规 JSON/HTML 类型：按 method 分发 GET/POST
+      // POST 时 body 模板同样支持 {id}/{baseUrl} 占位（如 id={id}&type=music）
+      final HttpResponse response;
+      if (detailRule.method.toUpperCase() == 'POST') {
+        final body = detailRule.body != null
+            ? HttpClient.resolveUrl(detailRule.body!, {
+                'id': id,
+                'baseUrl': _rule.source.baseUrl ?? '',
+              })
+            : null;
+        response = await _httpClient.post(
+          url,
+          headers: detailRule.headers,
+          body: body,
+          contentType: detailRule.contentType,
+          responseType: detailRule.responseType,
+        );
+      } else {
+        response = await _httpClient.get(
+          url,
+          headers: detailRule.headers,
+          responseType: detailRule.responseType,
+        );
+      }
       final items = ResponseHandler.extractList(response.data, detailRule.listRule);
       if (items.isEmpty) {
         SourceLogBus.instance.emit(

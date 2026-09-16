@@ -65,6 +65,10 @@ class FlowRule {
   final String responseType;
   final String listRule;
   final Map<String, String> itemRules;
+  /// POST 请求体模板，可用 {变量名} 占位（method 为 POST 时生效）
+  final String? body;
+  /// POST Content-Type（method 为 POST 时生效，默认 application/x-www-form-urlencoded）
+  final String? contentType;
   final PaginationRule? pagination;
   /// URL 参数表达式：键为模板变量名，值为 expr DSL 表达式
   /// 表达式对输入参数求值，结果替换 URL 中的 {变量名}
@@ -81,6 +85,8 @@ class FlowRule {
     this.responseType = 'json',
     required this.listRule,
     required this.itemRules,
+    this.body,
+    this.contentType,
     this.pagination,
     this.params,
     this.playlistInfo,
@@ -96,6 +102,8 @@ class FlowRule {
         listRule: json['listRule'] as String,
         itemRules: (json['itemRules'] as Map<String, dynamic>)
             .map((k, v) => MapEntry(k, v as String)),
+        body: json['body'] as String?,
+        contentType: json['contentType'] as String?,
         pagination: json['pagination'] != null
             ? PaginationRule.fromJson(json['pagination'] as Map<String, dynamic>)
             : null,

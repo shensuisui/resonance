@@ -76,13 +76,16 @@ void main() {
       expect(search.pagination!.limitValue, 20);
     });
 
-    test('播放URL配置正确（redirect 类型）', () {
+    test('播放URL配置正确（POST /js/play.php 取 JSON url）', () {
       final detail = config.songDetail!;
-      expect(detail.url, contains('/plug/down.php'));
-      expect(detail.url, contains('ac=music'));
-      expect(detail.url, contains('id={id}'));
-      expect(detail.url, contains('k=320kmp3'));
-      expect(detail.responseType, 'redirect');
+      expect(detail.url, '/js/play.php');
+      expect(detail.method, 'POST');
+      expect(detail.body, 'id={id}&type=music');
+      expect(detail.contentType, 'application/x-www-form-urlencoded');
+      expect(detail.responseType, 'json');
+      expect(detail.listRule, r'$');
+      // playUrl 从 JSON 响应的 $.url 字段提取
+      expect(detail.itemRules['playUrl'], r'$.url');
     });
 
     test(r'歌词配置正确（JSON $.lrc）', () {
