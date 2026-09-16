@@ -14,6 +14,7 @@ import '../widgets/song_tile.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/playlist_header.dart';
 import '../widgets/cover_palette.dart';
+import '../widgets/pressable_scale.dart';
 
 class DiscoverPage extends ConsumerWidget {
   const DiscoverPage({super.key});
@@ -117,35 +118,38 @@ class _PlaylistCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.s12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 封面
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.s12),
-              child: _buildCover(playlist, cs),
+    return PressableScale(
+      // 卡片按压缩放；点击仍由 InkWell 承担（避免双重回调）
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.s12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 封面
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppRadius.s12),
+                child: _buildCover(playlist, cs),
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.s8),
-          // 名称
-          Text(
-            playlist.name,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: tt.bodyMedium,
-          ),
-          const SizedBox(height: AppSpacing.s2),
-          // 曲目数
-          if (playlist.songKeys.isNotEmpty)
+            const SizedBox(height: AppSpacing.s8),
+            // 名称
             Text(
-              '${playlist.songKeys.length} 首',
-              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              playlist.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: tt.bodyMedium,
             ),
-        ],
+            const SizedBox(height: AppSpacing.s2),
+            // 曲目数
+            if (playlist.songKeys.isNotEmpty)
+              Text(
+                '${playlist.songKeys.length} 首',
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+          ],
+        ),
       ),
     );
   }

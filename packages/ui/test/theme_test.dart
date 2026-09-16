@@ -84,5 +84,14 @@ void main() {
       expect(theme, isA<ThemeData>());
       expect(theme.colorScheme, isA<ColorScheme>());
     });
+
+    test('全部平台使用统一转场 builder', () {
+      final theme = AppTheme.light();
+      final builders = theme.pageTransitionsTheme.builders;
+      for (final platform in TargetPlatform.values) {
+        expect(builders[platform], isA<FadeSlidePageTransitionsBuilder>(),
+            reason: '$platform 应使用统一转场');
+      }
+    });
   });
 }

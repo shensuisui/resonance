@@ -52,6 +52,42 @@ Color hexToColor(String hex) {
   return Color(0xFF000000 | (v & 0xFFFFFF));
 }
 
+/// 全局页面转场：淡入 + 轻微上移 + 轻微缩放
+///
+/// 统一所有 push/pop 观感（MaterialPageRoute 默认按平台各异，
+/// 此 builder 在全部平台表现一致）。
+class FadeSlidePageTransitionsBuilder extends PageTransitionsBuilder {
+  const FadeSlidePageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.06),
+          end: Offset.zero,
+        ).animate(curved),
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.98, end: 1).animate(curved),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
 class AppTheme {
   AppTheme._();
 
@@ -88,6 +124,17 @@ class AppTheme {
       ),
       bottomSheetTheme: BottomSheetThemeData(
         shape: RoundedRectangleBorder(borderRadius: radius),
+      ),
+      // 全局统一页面转场（淡入+上移+缩放）
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: FadeSlidePageTransitionsBuilder(),
+          TargetPlatform.iOS: FadeSlidePageTransitionsBuilder(),
+          TargetPlatform.macOS: FadeSlidePageTransitionsBuilder(),
+          TargetPlatform.windows: FadeSlidePageTransitionsBuilder(),
+          TargetPlatform.linux: FadeSlidePageTransitionsBuilder(),
+          TargetPlatform.fuchsia: FadeSlidePageTransitionsBuilder(),
+        },
       ),
     );
   }

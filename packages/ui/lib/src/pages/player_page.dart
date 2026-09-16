@@ -1,6 +1,7 @@
 /// 全屏播放页 —— 封面/歌词 + 进度 + 控制
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
@@ -8,6 +9,7 @@ import '../theme/app_radius.dart';
 import '../providers/providers.dart';
 import '../widgets/lyrics_view.dart';
 import '../widgets/cover_background.dart';
+import '../widgets/pressable_scale.dart';
 import 'artist_page.dart';
 import 'queue_page.dart';
 
@@ -175,6 +177,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             final pos = Duration(milliseconds: (v * dur.inMilliseconds).toInt());
             ref.read(playerProvider).seek(pos);
           },
+          // 拖动结束轻触觉反馈
+          onChangeEnd: (_) => HapticFeedback.selectionClick(),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
@@ -218,24 +222,28 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           iconSize: 48,
           onPressed: () => player.previous(),
         ),
-        // 播放/暂停
-        Container(
-          width: 72, height: 72,
-          decoration: BoxDecoration(
-            color: cs.primary,
-            shape: BoxShape.circle,
-          ),
-          child: IconButton(
-            icon: Icon(isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
-            iconSize: 36,
-            color: cs.onPrimary,
-            onPressed: () {
-              if (isPlaying) {
-                player.pause();
-              } else {
-                player.resume();
-              }
-            },
+        // 播放/暂停（按压缩放 + 触觉反馈）
+        PressableScale(
+          pressedScale: 0.92,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            if (isPlaying) {
+              player.pause();
+            } else {
+              player.resume();
+            }
+          },
+          child: Container(
+            width: 72, height: 72,
+            decoration: BoxDecoration(
+              color: cs.primary,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              size: 36,
+              color: cs.onPrimary,
+            ),
           ),
         ),
         // 下一曲

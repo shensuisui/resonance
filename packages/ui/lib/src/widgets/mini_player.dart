@@ -5,6 +5,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widget_previews.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
@@ -87,12 +88,13 @@ class MiniPlayer extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: AppSpacing.s8),
-                    // 播放/暂停
+                    // 播放/暂停（触觉反馈）
                     IconButton(
                       icon: Icon(isPlaying
                           ? Icons.pause_rounded
                           : Icons.play_arrow_rounded),
                       onPressed: () {
+                        HapticFeedback.selectionClick();
                         final player = ref.read(playerProvider);
                         if (isPlaying) {
                           player.pause();

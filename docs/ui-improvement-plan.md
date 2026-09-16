@@ -232,12 +232,12 @@ fm 的 UI 架构（Riverpod + Material 3 + 常量主题 + 响应式导航）方�
 - **[x] 1 主题色设置**：`SeedColorNotifier`（settings key `seed_color`，hex 存储）+ 8 色预设（`kSeedColorPresets`）+ HSV 自定义取色器（`color_picker_dialog.dart`）+ 设置页「外观」分组色块选择；`FmApp` watch 种子色重建主题。
 - **[x] 3 圆角设置**：`CornerRadiusNotifier`（settings key `corner_radius`，默认 12、范围 0~32）+ `AppTheme` 注入 card/dialog/bottomSheet；设置页「外观」分组滑杆。
 - **[x] 4 封面渐层背景**：新增 `CoverBackground` 组件（封面主色 → 表面色垂直渐变，300ms 过渡）；`CoverPalette.resolveColor`（NetworkImage + ImageStreamListener + 模块级 LRU 缓存 64）；接入播放页（body 背景）、迷你条（渐变背景 + 顶部分隔线替代阴影）、专辑页（头部区块，首曲封面取色）。歌单详情页（本地/发现）此前已实现（PlaylistHeaderView + CoverPalette）。
-- 新增：`packages/ui/lib/src/widgets/color_picker_dialog.dart`、`packages/ui/lib/src/widgets/cover_background.dart`、`packages/ui/test/theme_settings_test.dart`（17 用例）、`packages/ui/test/widgets/cover_background_test.dart`（3 用例）
-- 验证：ui 包全量 67 测试通过；ui / fm_app analyze 无 error/warning。
+- **[x] 5 转场微交互**：`FadeSlidePageTransitionsBuilder` 全局统一转场（淡入+上移+缩放，全平台注入 `pageTransitionsTheme`）；`PressableScale` 按压缩放组件（按下 0.96 回弹，120ms）接入播放页大播放按钮与发现页歌单卡片；触觉反馈（播放/暂停按钮、进度条拖动结束 `HapticFeedback.selectionClick`）。
+- 新增：`packages/ui/lib/src/widgets/color_picker_dialog.dart`、`packages/ui/lib/src/widgets/cover_background.dart`、`packages/ui/lib/src/widgets/pressable_scale.dart`、`packages/ui/test/theme_settings_test.dart`（17 用例）、`packages/ui/test/widgets/cover_background_test.dart`（3 用例）、`packages/ui/test/widgets/pressable_scale_test.dart`（2 用例）
+- 验证：ui 包全量 70 测试通过；ui / fm_app analyze 无 error/warning。
 
 ### 待做（阶段一）
 
-- [ ] 5 转场微交互
 - [ ] 8 跑马灯
 
 ## 已确认决策（v1.2，无未决项）
