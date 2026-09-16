@@ -86,6 +86,34 @@ void main() {
       expect(detail.listRule, r'$');
       // playUrl 从 JSON 响应的 $.url 字段提取
       expect(detail.itemRules['playUrl'], r'$.url');
+      // 元数据提取：play.php 返回 title（歌手《歌名》[Mp3_Lrc]）与 pic
+      expect(detail.itemRules['title'], contains(r'《([^》]+)》'));
+      expect(detail.itemRules['artist'], contains(r'^[^《]+'));
+      expect(detail.itemRules['coverUrl'], r'$.pic');
+    });
+
+    test('songDetail 从 play.php JSON 提取播放地址与元数据', () {
+      initExprEngine();
+      // 模拟 play.php 响应（与真实接口字段一致）
+      const response = {
+        'msg': 1,
+        'lkid': 6468891,
+        'title': r'薛之谦《演员》[Mp3_Lrc]',
+        'pic': 'http://img3.kuwo.cn/star/albumcover/500/s4s72/12/2959679061.jpg',
+        'url': 'https://kw-er.kuwo.cn/resource/30106/trackmedia/M500003ArIqB27NamX.mp3',
+      };
+      final items = ResponseHandler.extractList(response, r'$');
+      expect(items, hasLength(1));
+      final fields = ResponseHandler.extractItem(items.first, {
+        'playUrl': r'$.url',
+        'title': r'$.title && @Regex:《([^》]+)》',
+        'artist': r'$.title && @Regex:^[^《]+',
+        'coverUrl': r'$.pic',
+      });
+      expect(fields['playUrl'], response['url']);
+      expect(fields['title'], '演员');
+      expect(fields['artist'], '薛之谦');
+      expect(fields['coverUrl'], response['pic']);
     });
 
     test(r'歌词配置正确（JSON $.lrc）', () {

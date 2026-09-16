@@ -13,6 +13,7 @@ import '../theme/app_radius.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/playlist_header.dart';
+import '../widgets/cover_palette.dart';
 
 class DiscoverPage extends ConsumerWidget {
   const DiscoverPage({super.key});
@@ -191,6 +192,9 @@ class _DiscoverPlaylistPageState extends ConsumerState<DiscoverPlaylistPage> {
   String? _error;
   List<Song> _songs = const [];
 
+  /// 封面主题色（手机 SliverAppBar 折叠态背景/前景用）
+  Color? _headerColor;
+
   @override
   void initState() {
     super.initState();
@@ -266,15 +270,12 @@ class _DiscoverPlaylistPageState extends ConsumerState<DiscoverPlaylistPage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    // 窄屏用 SliverAppBar 承担顶部栏（含返回）；宽屏无 SliverAppBar，
-    // 需外层 AppBar 提供返回按钮。
+    // 窄屏用 SliverAppBar 承担顶部栏（含返回）；宽屏无全宽 AppBar，
+    // 左列面板自带返回条（AppBar 只占左边）。
     return OrientationBuilder(
       builder: (context, orientation) {
         final isWide = orientation == Orientation.landscape;
         return Scaffold(
-          appBar: isWide
-              ? AppBar(title: Text(widget.playlist.name))
-              : null,
           body: isWide ? _buildWideLayout(cs) : _buildNarrowLayout(cs),
         );
       },
@@ -284,35 +285,33 @@ class _DiscoverPlaylistPageState extends ConsumerState<DiscoverPlaylistPage> {
   // ==================== 竖屏：可伸缩头部 + 列表 ====================
 
   Widget _buildNarrowLayout(ColorScheme cs) {
+    // 折叠态背景/前景跟随封面主题色
+    final headerBg = _headerColor ?? cs.surfaceContainerLow;
+
     return CustomScrollView(
       slivers: [
-        // 唯一顶部栏（复用公共 PlaylistHeader）
+        // 唯一顶部栏（复用公共 PlaylistHeaderView），背景为封面主题色渐变
         SliverAppBar(
           pinned: true,
-          expandedHeight: 300,
+          expandedHeight: 320,
+          backgroundColor: headerBg,
+          foregroundColor: _headerColor == null
+              ? null
+              : CoverPalette.foreground(_headerColor!),
           title: Text(widget.playlist.name,
               maxLines: 1, overflow: TextOverflow.ellipsis),
           flexibleSpace: FlexibleSpaceBar(
             collapseMode: CollapseMode.parallax,
-            background: Container(
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerLow,
-                border: Border(
-                  bottom: BorderSide(color: cs.outlineVariant, width: 0.5),
-                ),
-              ),
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.s16),
-                  child: PlaylistHeader(
-                    name: widget.playlist.name,
-                    coverUrl: widget.playlist.coverUrl,
-                    subtitle: _subtitleText(),
-                    onPlayAll: _songs.isEmpty ? null : _playAll,
-                  ).buildFlexibleSpace(context),
-                ),
-              ),
+            background: PlaylistHeaderView(
+              mode: PlaylistHeaderMode.flexible,
+              name: widget.playlist.name,
+              coverUrl: widget.playlist.coverUrl,
+              subtitle: _subtitleText(),
+              onPlayAll: _songs.isEmpty ? null : _playAll,
+              onColorExtracted: (color) {
+                if (!mounted) return;
+                setState(() => _headerColor = color);
+              },
             ),
           ),
         ),
@@ -368,16 +367,17 @@ class _DiscoverPlaylistPageState extends ConsumerState<DiscoverPlaylistPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 左侧：封面 + 名称/描述（公共组件）
+        // 左侧：完整信息面板——返回条（AppBar 只占左列）+ 封面充满 +
+        // 名称/描述 + 播放全部，背景为封面主题色渐变
         SizedBox(
-          width: 280,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.s16),
-            child: PlaylistHeader(
-              name: widget.playlist.name,
-              coverUrl: widget.playlist.coverUrl,
-              subtitle: _subtitleText(),
-            ).buildWideColumn(context),
+          width: 300,
+          child: PlaylistHeaderView(
+            mode: PlaylistHeaderMode.wide,
+            name: widget.playlist.name,
+            coverUrl: widget.playlist.coverUrl,
+            subtitle: _subtitleText(),
+            onPlayAll: _songs.isEmpty ? null : _playAll,
+            onBack: () => Navigator.pop(context),
           ),
         ),
         const VerticalDivider(width: 1),

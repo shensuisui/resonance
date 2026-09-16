@@ -26,6 +26,7 @@ import '../services/playlist_io.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/playlist_header.dart';
+import '../widgets/cover_palette.dart';
 
 /// 我最喜欢虚拟歌单 id
 const String kFavoritePlaylistId = 'favorite';
@@ -43,6 +44,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   Playlist? _playlist;
   List<Song> _songs = [];
   bool _loading = true;
+
+  /// 封面主题色（手机 SliverAppBar 折叠态背景/前景用）
+  Color? _headerColor;
 
   /// 是否为「我最喜欢」特殊歌单
   bool get _isFavorite => widget.playlistId == kFavoritePlaylistId;
@@ -86,7 +90,10 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       return;
     }
 
-    // 解析 songKeys 为 Song（缺失的源返回 null 占位）
+    // 解析 songKeys 为 Song：
+    // 元数据（title/artist/cover）优先用写入时的歌曲快照（规则源
+    // getSongDetail 不返回元数据，快照根治歌单歌曲名称空白）；
+    // 播放地址用 getSongDetail 补充（有时效，不落库）。
     final resolved = <Song?>[];
     for (final key in pl.songKeys) {
       final parts = key.split(':');
@@ -94,11 +101,35 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         resolved.add(null);
         continue;
       }
+      final snapshot = pl.songSnapshots[key];
+      Song? detail;
       try {
-        resolved.add(await manager.getSongDetail(parts[0], parts[1]));
+        detail = await manager.getSongDetail(parts[0], parts[1]);
       } catch (_) {
-        resolved.add(null);
+        detail = null;
       }
+      if (snapshot == null && detail == null) {
+        resolved.add(null);
+        continue;
+      }
+      final snap = snapshot;
+      resolved.add(Song(
+        id: parts[1],
+        sourceId: parts[0],
+        title: snap != null && snap.title.isNotEmpty
+            ? snap.title
+            : (detail?.title ?? ''),
+        artist: snap != null && snap.artist.isNotEmpty
+            ? snap.artist
+            : (detail?.artist ?? ''),
+        album: snap?.album ?? detail?.album,
+        coverUrl: snap != null && (snap.coverUrl?.isNotEmpty ?? false)
+            ? snap.coverUrl
+            : detail?.coverUrl,
+        duration: snap?.duration ?? detail?.duration,
+        playUrl: detail?.playUrl,
+        lyricUrl: detail?.lyricUrl,
+      ));
     }
 
     if (mounted) {
@@ -291,13 +322,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     return OrientationBuilder(
       builder: (context, orientation) {
         final isWide = orientation == Orientation.landscape;
+        // 宽屏：无全宽 AppBar（左列面板自带返回条）；竖屏由 SliverAppBar 承担
         return Scaffold(
-          appBar: isWide
-              ? AppBar(
-                  title: Text(pl?.name ?? (_isFavorite ? '我最喜欢' : '歌单')),
-                  actions: _isFavorite ? null : _buildPopupActions(),
-                )
-              : null,
           body: _loading
               ? const Center(child: CircularProgressIndicator())
               : pl == null
@@ -361,37 +387,35 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
   Widget _buildNarrowLayout(Playlist pl) {
     final cs = Theme.of(context).colorScheme;
+    // 折叠态背景/前景跟随封面主题色（展开态背景由 flexibleSpace 渐变承担）
+    final headerBg = _headerColor ?? cs.surfaceContainerLow;
 
     return CustomScrollView(
       slivers: [
         // 唯一顶部栏：展开时含封面+名称+操作区；收起后仅标题（+ 操作菜单）
+        // 背景为封面主题色渐变，折叠后标题配色同步主题色
         SliverAppBar(
           pinned: true,
-          expandedHeight: 300,
+          expandedHeight: 320,
+          backgroundColor: headerBg,
+          foregroundColor: _headerColor == null
+              ? null
+              : CoverPalette.foreground(_headerColor!),
           title: Text(pl.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           actions: _isFavorite ? null : _buildPopupActions(),
           flexibleSpace: FlexibleSpaceBar(
             collapseMode: CollapseMode.parallax,
-            background: Container(
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerLow,
-                border: Border(
-                  bottom: BorderSide(color: cs.outlineVariant, width: 0.5),
-                ),
-              ),
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.s16),
-                  child: PlaylistHeader(
-                    name: pl.name,
-                    coverUrl: pl.coverUrl,
-                    subtitle: '${_songs.length} 首歌曲',
-                    isFavorite: _isFavorite,
-                    onPlayAll: _songs.isEmpty ? null : _playAll,
-                  ).buildFlexibleSpace(context),
-                ),
-              ),
+            background: PlaylistHeaderView(
+              mode: PlaylistHeaderMode.flexible,
+              name: pl.name,
+              coverUrl: pl.coverUrl,
+              subtitle: '${_songs.length} 首歌曲',
+              isFavorite: _isFavorite,
+              onPlayAll: _songs.isEmpty ? null : _playAll,
+              onColorExtracted: (color) {
+                if (!mounted) return;
+                setState(() => _headerColor = color);
+              },
             ),
           ),
         ),
@@ -436,17 +460,18 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 左侧：封面 + 名称/描述（公共组件）
+        // 左侧：完整信息面板——返回条（AppBar 只占左列）+ 封面充满 +
+        // 名称/描述 + 播放全部，背景为封面主题色渐变
         SizedBox(
-          width: 280,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.s16),
-            child: PlaylistHeader(
-              name: pl.name,
-              coverUrl: pl.coverUrl,
-              subtitle: '${_songs.length} 首歌曲',
-              isFavorite: _isFavorite,
-            ).buildWideColumn(context),
+          width: 300,
+          child: PlaylistHeaderView(
+            mode: PlaylistHeaderMode.wide,
+            name: pl.name,
+            coverUrl: pl.coverUrl,
+            subtitle: '${_songs.length} 首歌曲',
+            isFavorite: _isFavorite,
+            onPlayAll: _songs.isEmpty ? null : _playAll,
+            onBack: () => Navigator.pop(context),
           ),
         ),
         const VerticalDivider(width: 1),

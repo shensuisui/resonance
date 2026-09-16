@@ -202,6 +202,67 @@ void main() {
       final result = await provider.playlistDao.getPlaylist('pl-001');
       expect(result, isNull);
     });
+
+    test('歌曲快照：写入 songSnapshots 后读回（根治规则源无元数据）', () async {
+      final playlist = Playlist(
+        id: 'pl-snap', name: '快照歌单',
+        songKeys: ['6uq:d2Vod2VlZmo', 'fengye:abc123'],
+        songSnapshots: {
+          '6uq:d2Vod2VlZmo': Song(
+            id: 'd2Vod2VlZmo', sourceId: '6uq',
+            title: '演员', artist: '薛之谦',
+            coverUrl: 'https://example.com/actor.jpg', duration: 262,
+          ),
+          'fengye:abc123': Song(
+            id: 'abc123', sourceId: 'fengye',
+            title: '屋顶', artist: '周杰伦',
+          ),
+        },
+        createdTime: DateTime(2026, 1, 1),
+        modifiedTime: DateTime(2026, 1, 1),
+      );
+      await provider.playlistDao.insertPlaylist(playlist);
+
+      final result = await provider.playlistDao.getPlaylist('pl-snap');
+      expect(result, isNotNull);
+      // songKeys 保序
+      expect(result!.songKeys, ['6uq:d2Vod2VlZmo', 'fengye:abc123']);
+      // 快照完整读回
+      final snap1 = result.songSnapshots['6uq:d2Vod2VlZmo'];
+      expect(snap1, isNotNull);
+      expect(snap1!.title, '演员');
+      expect(snap1.artist, '薛之谦');
+      expect(snap1.coverUrl, 'https://example.com/actor.jpg');
+      expect(snap1.duration, 262);
+      final snap2 = result.songSnapshots['fengye:abc123'];
+      expect(snap2!.title, '屋顶');
+      expect(snap2.artist, '周杰伦');
+    });
+
+    test('歌曲快照：updatePlaylist 全量替换时同步更新快照', () async {
+      final playlist = Playlist(
+        id: 'pl-snap2', name: '歌单', songKeys: ['s1:001'],
+        songSnapshots: {
+          's1:001': Song(id: '001', sourceId: 's1', title: '旧歌', artist: ''),
+        },
+        createdTime: DateTime(2026, 1, 1),
+        modifiedTime: DateTime(2026, 1, 1),
+      );
+      await provider.playlistDao.insertPlaylist(playlist);
+
+      await provider.playlistDao.updatePlaylist(playlist.copyWith(
+        songKeys: ['s2:002'],
+        songSnapshots: {
+          's2:002': Song(id: '002', sourceId: 's2', title: '新歌', artist: ''),
+        },
+        modifiedTime: DateTime(2026, 1, 2),
+      ));
+
+      final result = await provider.playlistDao.getPlaylist('pl-snap2');
+      expect(result!.songKeys, ['s2:002']);
+      expect(result.songSnapshots['s2:002']!.title, '新歌');
+      expect(result.songSnapshots.containsKey('s1:001'), isFalse);
+    });
   });
 
   // ==================== RecentPlaysDao ====================

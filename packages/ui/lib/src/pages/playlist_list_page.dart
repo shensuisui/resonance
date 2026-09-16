@@ -113,6 +113,8 @@ class _PlaylistListPageState extends ConsumerState<PlaylistListPage> {
       id: 'pl_${now.millisecondsSinceEpoch}',
       name: name,
       songKeys: songs.map((s) => s.globalKey).toList(),
+      // 导入即存歌曲快照，歌单列表/详情直接展示名字与封面
+      songSnapshots: {for (final s in songs) s.globalKey: s},
       createdTime: now,
       modifiedTime: now,
     );

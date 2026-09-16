@@ -106,8 +106,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final alreadyHas = pl.songKeys.contains(song.globalKey);
 
     if (!alreadyHas) {
+      // 写入歌曲快照：规则源详情不返回元数据，快照保证歌单列表/详情有名字
+      final newSnapshots = Map<String, Song>.from(pl.songSnapshots)
+        ..[song.globalKey] = song;
       await dao.updatePlaylist(
-        pl.copyWith(songKeys: [...pl.songKeys, song.globalKey]),
+        pl.copyWith(
+          songKeys: [...pl.songKeys, song.globalKey],
+          songSnapshots: newSnapshots,
+        ),
       );
     }
 

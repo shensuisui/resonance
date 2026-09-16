@@ -55,7 +55,10 @@
     "responseType": "json",
     "listRule": "$",
     "itemRules": {
-      "playUrl": "$.url"
+      "playUrl": "$.url",
+      "title": "$.title && @Regex:《([^》]+)》",
+      "artist": "$.title && @Regex:^[^《]+",
+      "coverUrl": "$.pic"
     }
   },
   "lyric": {
