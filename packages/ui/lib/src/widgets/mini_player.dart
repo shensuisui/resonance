@@ -2,8 +2,10 @@
 ///
 /// 显示当前歌曲、播放/暂停按钮、进度条。
 /// 点击展开为全屏播放页（S2 后续实现）。
+library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/widget_previews.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
@@ -100,7 +102,7 @@ class MiniPlayer extends ConsumerWidget {
         child: Image.network(
           song.coverUrl!,
           width: 40, height: 40, fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _defaultCover(cs),
+          errorBuilder: (_, _, _) => _defaultCover(cs),
         ),
       );
     }
@@ -117,4 +119,64 @@ class MiniPlayer extends ConsumerWidget {
       child: Icon(Icons.music_note, color: cs.onSurfaceVariant, size: 20),
     );
   }
+}
+
+/// Widget 预览：底部迷你播放器（播放中）
+///
+/// 预览环境无真实服务，用内存 DAO + 假播放器注入；
+/// 假播放器仅满足 Player 接口（经 noSuchMethod 转发，预览不触达）。
+@Preview(name: 'MiniPlayer 播放中', group: 'MiniPlayer')
+Widget miniPlayerPreview() {
+  final song = Song(
+    id: '1', sourceId: 'netease', title: '晴天', artist: '周杰伦',
+  );
+  final container = ProviderContainer(overrides: [
+    playerProvider.overrideWith((ref) => _PreviewFakePlayer()),
+    appDatabaseProvider.overrideWith((ref) => InMemoryDatabaseProvider()),
+  ]);
+  // 注入播放状态：当前歌曲 + 播放中 + 进度 30s/60s
+  container.read(currentSongProvider.notifier).setSong(song);
+  container.read(isPlayingProvider.notifier).setPlaying(true);
+  container
+      .read(playbackPositionProvider.notifier)
+      .setPosition(const Duration(seconds: 30));
+  container
+      .read(playbackDurationProvider.notifier)
+      .setDuration(const Duration(seconds: 60));
+
+  return UncontrolledProviderScope(
+    container: container,
+    child: const MaterialApp(home: Scaffold(body: MiniPlayer())),
+  );
+}
+
+/// Widget 预览：底部迷你播放器（暂停态，无进度）
+@Preview(name: 'MiniPlayer 暂停', group: 'MiniPlayer')
+Widget miniPlayerPausedPreview() {
+  final song = Song(
+    id: '2', sourceId: 'local_scan', title: '稻香', artist: '周杰伦',
+  );
+  final container = ProviderContainer(overrides: [
+    playerProvider.overrideWith((ref) => _PreviewFakePlayer()),
+    appDatabaseProvider.overrideWith((ref) => InMemoryDatabaseProvider()),
+  ]);
+  container.read(currentSongProvider.notifier).setSong(song);
+  container.read(isPlayingProvider.notifier).setPlaying(false);
+
+  return UncontrolledProviderScope(
+    container: container,
+    child: const MaterialApp(home: Scaffold(body: MiniPlayer())),
+  );
+}
+
+/// 预览用假播放器：只实现 Player 接口中触达的方法，其余 noSuchMethod 转发
+class _PreviewFakePlayer implements Player {
+  @override
+  Future<void> pause() async {}
+
+  @override
+  Future<void> resume() async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
 }

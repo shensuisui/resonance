@@ -7,7 +7,6 @@ import '../widgets/mini_player.dart';
 import 'search_page.dart';
 import 'recent_plays_page.dart';
 import 'playlist_list_page.dart';
-import 'source_management_page.dart';
 import 'settings_page.dart';
 import 'discover_page.dart';
 
@@ -26,8 +25,55 @@ class _AppShellState extends ConsumerState<AppShell> {
     DiscoverPage(),
     RecentPlaysPage(),
     PlaylistListPage(),
-    SourceManagementPage(),
     SettingsPage(),
+  ];
+
+  /// 底部导航目的地（窄屏竖屏）
+  static const _barDestinations = [
+    NavigationDestination(
+      icon: Icon(Icons.search_rounded),
+      label: '搜索',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.explore_rounded),
+      label: '发现',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.history_rounded),
+      label: '最近',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.queue_music_rounded),
+      label: '歌单',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.settings_rounded),
+      label: '设置',
+    ),
+  ];
+
+  /// 侧边导航目的地（宽屏横屏）
+  static const _railDestinations = [
+    NavigationRailDestination(
+      icon: Icon(Icons.search_rounded),
+      label: Text('搜索'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.explore_rounded),
+      label: Text('发现'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.history_rounded),
+      label: Text('最近'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.queue_music_rounded),
+      label: Text('歌单'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.settings_rounded),
+      label: Text('设置'),
+    ),
   ];
 
   @override
@@ -38,47 +84,57 @@ class _AppShellState extends ConsumerState<AppShell> {
     ref.watch(pluginLibraryProvider);
     ref.watch(subscriptionLibraryProvider);
 
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const MiniPlayer(),
-          NavigationBar(
-            selectedIndex: _currentIndex,
-            onDestinationSelected: (i) => setState(() => _currentIndex = i),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.search_rounded),
-                label: '搜索',
+    // 宽屏（横屏）用左侧导航栏，窄屏（竖屏）用底部导航栏
+    return OrientationBuilder(
+      builder: (context, orientation) {
+        final isWide = orientation == Orientation.landscape;
+        if (isWide) {
+          return Row(
+            children: [
+              NavigationRail(
+                selectedIndex: _currentIndex,
+                onDestinationSelected: (i) =>
+                    setState(() => _currentIndex = i),
+                labelType: NavigationRailLabelType.all,
+                destinations: _railDestinations,
               ),
-              NavigationDestination(
-                icon: Icon(Icons.explore_rounded),
-                label: '发现',
+              const VerticalDivider(width: 1),
+              Expanded(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: IndexedStack(
+                        index: _currentIndex,
+                        children: _pages,
+                      ),
+                    ),
+                    // 迷你播放器固定在内容底部（与窄屏一致）
+                    const MiniPlayer(),
+                  ],
+                ),
               ),
-              NavigationDestination(
-                icon: Icon(Icons.history_rounded),
-                label: '最近',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.queue_music_rounded),
-                label: '歌单',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.cloud_rounded),
-                label: '源',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.settings_rounded),
-                label: '设置',
+            ],
+          );
+        }
+        return Scaffold(
+          body: IndexedStack(
+            index: _currentIndex,
+            children: _pages,
+          ),
+          bottomNavigationBar: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const MiniPlayer(),
+              NavigationBar(
+                selectedIndex: _currentIndex,
+                onDestinationSelected: (i) =>
+                    setState(() => _currentIndex = i),
+                destinations: _barDestinations,
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

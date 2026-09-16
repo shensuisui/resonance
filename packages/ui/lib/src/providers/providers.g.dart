@@ -421,11 +421,17 @@ final class FavoritesDaoProvider
 String _$favoritesDaoHash() => r'309e9ef1596e1300d9c1efdb6adc7e42c701a25b';
 
 /// 下载任务流（来自 DownloadManager）
+///
+/// 先发出当前任务快照（避免首次订阅一直 loading——底层 taskStream
+/// 是 broadcast 流，无下载时不发事件），再转发实时更新。
 
 @ProviderFor(downloadTasks)
 final downloadTasksProvider = DownloadTasksProvider._();
 
 /// 下载任务流（来自 DownloadManager）
+///
+/// 先发出当前任务快照（避免首次订阅一直 loading——底层 taskStream
+/// 是 broadcast 流，无下载时不发事件），再转发实时更新。
 
 final class DownloadTasksProvider
     extends
@@ -438,6 +444,9 @@ final class DownloadTasksProvider
         $FutureModifier<List<DownloadTask>>,
         $StreamProvider<List<DownloadTask>> {
   /// 下载任务流（来自 DownloadManager）
+  ///
+  /// 先发出当前任务快照（避免首次订阅一直 loading——底层 taskStream
+  /// 是 broadcast 流，无下载时不发事件），再转发实时更新。
   DownloadTasksProvider._()
     : super(
         from: null,
@@ -464,7 +473,7 @@ final class DownloadTasksProvider
   }
 }
 
-String _$downloadTasksHash() => r'2629cc1ccfaab032417fd20ea7731db0e5f4864d';
+String _$downloadTasksHash() => r'ba8271c4caf98dd4a61d0039f6a11464ad18c7f4';
 
 /// 歌曲是否已收藏
 
@@ -590,7 +599,7 @@ final class PlaybackControllerProvider
 }
 
 String _$playbackControllerHash() =>
-    r'bb12054caa08a5f623a8577192aad86c8f633d35';
+    r'b0c85ff027b5f03f0f4a4604462a237c1ebb8acc';
 
 /// 播放控制器 —— 统一播放入口
 ///
@@ -958,6 +967,76 @@ abstract class _$PlaybackDuration extends $Notifier<Duration> {
   }
 }
 
+/// 正在请求播放 URL 的歌曲 key（列表项 loading 状态）
+///
+/// 点击搜索候选/远程歌单的歌曲时，需先请求播放 URL 才能开始播放，
+/// 此状态让对应列表项显示 loading 动画；请求结束（成功/失败）即清除。
+
+@ProviderFor(PlaybackLoading)
+final playbackLoadingProvider = PlaybackLoadingProvider._();
+
+/// 正在请求播放 URL 的歌曲 key（列表项 loading 状态）
+///
+/// 点击搜索候选/远程歌单的歌曲时，需先请求播放 URL 才能开始播放，
+/// 此状态让对应列表项显示 loading 动画；请求结束（成功/失败）即清除。
+final class PlaybackLoadingProvider
+    extends $NotifierProvider<PlaybackLoading, String?> {
+  /// 正在请求播放 URL 的歌曲 key（列表项 loading 状态）
+  ///
+  /// 点击搜索候选/远程歌单的歌曲时，需先请求播放 URL 才能开始播放，
+  /// 此状态让对应列表项显示 loading 动画；请求结束（成功/失败）即清除。
+  PlaybackLoadingProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'playbackLoadingProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$playbackLoadingHash();
+
+  @$internal
+  @override
+  PlaybackLoading create() => PlaybackLoading();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(String? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<String?>(value),
+    );
+  }
+}
+
+String _$playbackLoadingHash() => r'da7cfeba7843a867cb7d8db19cec77d81dce3377';
+
+/// 正在请求播放 URL 的歌曲 key（列表项 loading 状态）
+///
+/// 点击搜索候选/远程歌单的歌曲时，需先请求播放 URL 才能开始播放，
+/// 此状态让对应列表项显示 loading 动画；请求结束（成功/失败）即清除。
+
+abstract class _$PlaybackLoading extends $Notifier<String?> {
+  String? build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<String?, String?>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<String?, String?>,
+              String?,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
 /// 播放模式（持久化）
 
 @ProviderFor(PlayModeNotifier)
@@ -1227,7 +1306,7 @@ final class RecentPlaysNotifierProvider
 }
 
 String _$recentPlaysNotifierHash() =>
-    r'5cb629c3257b8f61cc2e050a8b8cbe3180b6e022';
+    r'54820e67abe60bae2c4dd39eca25925ccd106f62';
 
 /// 最近播放列表
 
@@ -1285,7 +1364,7 @@ final class FavoritesNotifierProvider
   }
 }
 
-String _$favoritesNotifierHash() => r'003db41185504d171df34e97cf9cfe66660cf055';
+String _$favoritesNotifierHash() => r'38dbd96926f37f514d5f3debf40270050868f537';
 
 /// 收藏列表
 
@@ -1306,6 +1385,50 @@ abstract class _$FavoritesNotifier extends $Notifier<List<Song>> {
     return element.handleCreate(ref, build);
   }
 }
+
+/// 收藏歌曲数（「我最喜欢」歌单副标题）
+///
+/// 收藏变更时由 [FavoritesNotifier.toggle] 失效刷新。
+
+@ProviderFor(favoriteCount)
+final favoriteCountProvider = FavoriteCountProvider._();
+
+/// 收藏歌曲数（「我最喜欢」歌单副标题）
+///
+/// 收藏变更时由 [FavoritesNotifier.toggle] 失效刷新。
+
+final class FavoriteCountProvider
+    extends $FunctionalProvider<AsyncValue<int>, int, FutureOr<int>>
+    with $FutureModifier<int>, $FutureProvider<int> {
+  /// 收藏歌曲数（「我最喜欢」歌单副标题）
+  ///
+  /// 收藏变更时由 [FavoritesNotifier.toggle] 失效刷新。
+  FavoriteCountProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'favoriteCountProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$favoriteCountHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<int> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<int> create(Ref ref) {
+    return favoriteCount(ref);
+  }
+}
+
+String _$favoriteCountHash() => r'9763a7558469d48ba69d1dec5995161a2827f0d2';
 
 /// 已注册源列表
 
@@ -1354,14 +1477,26 @@ final class SourceListProvider
 String _$sourceListHash() => r'cf3c429dc5be29bd573881978d9fd00a47fb7427';
 
 /// 源启用状态
+///
+/// 依赖 [sourceListProvider]：源注册/注销时（插件、订阅异步加载）
+/// sourceListProvider 被 invalidate，本 provider 随之重建，新源自动进 map。
+/// 启用状态持久化到 settings（键 source_enabled_<id>），重启后恢复。
 
 @ProviderFor(SourceEnabled)
 final sourceEnabledProvider = SourceEnabledProvider._();
 
 /// 源启用状态
+///
+/// 依赖 [sourceListProvider]：源注册/注销时（插件、订阅异步加载）
+/// sourceListProvider 被 invalidate，本 provider 随之重建，新源自动进 map。
+/// 启用状态持久化到 settings（键 source_enabled_<id>），重启后恢复。
 final class SourceEnabledProvider
     extends $NotifierProvider<SourceEnabled, Map<String, bool>> {
   /// 源启用状态
+  ///
+  /// 依赖 [sourceListProvider]：源注册/注销时（插件、订阅异步加载）
+  /// sourceListProvider 被 invalidate，本 provider 随之重建，新源自动进 map。
+  /// 启用状态持久化到 settings（键 source_enabled_<id>），重启后恢复。
   SourceEnabledProvider._()
     : super(
         from: null,
@@ -1389,9 +1524,13 @@ final class SourceEnabledProvider
   }
 }
 
-String _$sourceEnabledHash() => r'def98cc3a6874c2446b31cee425b9c0b3205f595';
+String _$sourceEnabledHash() => r'f5fb0301392676e1224b3bbb9776f000df176534';
 
 /// 源启用状态
+///
+/// 依赖 [sourceListProvider]：源注册/注销时（插件、订阅异步加载）
+/// sourceListProvider 被 invalidate，本 provider 随之重建，新源自动进 map。
+/// 启用状态持久化到 settings（键 source_enabled_<id>），重启后恢复。
 
 abstract class _$SourceEnabled extends $Notifier<Map<String, bool>> {
   Map<String, bool> build();

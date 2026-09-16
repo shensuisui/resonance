@@ -91,7 +91,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildCover(song, cs),
+          // 封面等比缩放：剩余高度不足时（矮窗口/小屏）自动缩小，
+          // 避免固定 280px 封面 + 文本超出可用空间溢出
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: _buildCover(song, cs),
+            ),
+          ),
           const SizedBox(height: AppSpacing.s32),
           Text(
             song.title,

@@ -1,23 +1,34 @@
 /// 歌单详情页 —— 曲目列表 + 播放 + 排序 + 删除
 ///
+/// 布局（响应式）：
+/// - 手机/竖屏：CustomScrollView + SliverAppBar（可伸缩），
+///   顶部为 row[封面, col(名称,描述,操作区)]，下方歌曲列表
+/// - 宽屏/横屏：Row 布局，左侧 col(封面,名称,描述)，
+///   右侧顶部操作区 + 下方歌曲列表
+///
+/// 特殊歌单：
+/// - playlistId == 'favorite'（「我最喜欢」）：歌曲来自收藏（FavoriteSource），
+///   支持播放/取消收藏，不允许重命名/删除/排序。
+///
 /// 功能：
-/// - 展示歌单内所有歌曲（songKeys → Song，通过 SourceManager 解析）
 /// - 点击歌曲播放（setQueue + jumpToIndex）
 /// - 播放全部
-/// - 长按删除歌曲
-/// - 拖动排序（ReorderableListView）
-/// - 重命名歌单
-/// - 删除歌单
+/// - 长按删除歌曲（收藏歌单为取消收藏）
+/// - 拖动排序（用户歌单）
+/// - 重命名/删除歌单（用户歌单）
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_radius.dart';
 import '../providers/providers.dart';
 import '../services/playlist_io.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/playlist_header.dart';
+
+/// 我最喜欢虚拟歌单 id
+const String kFavoritePlaylistId = 'favorite';
 
 class PlaylistDetailPage extends ConsumerStatefulWidget {
   final String playlistId;
@@ -30,8 +41,11 @@ class PlaylistDetailPage extends ConsumerStatefulWidget {
 
 class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   Playlist? _playlist;
-  List<Song?> _songs = [];
+  List<Song> _songs = [];
   bool _loading = true;
+
+  /// 是否为「我最喜欢」特殊歌单
+  bool get _isFavorite => widget.playlistId == kFavoritePlaylistId;
 
   @override
   void initState() {
@@ -40,11 +54,35 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   }
 
   Future<void> _load() async {
-    final dao = ref.read(playlistDaoProvider);
     final manager = ref.read(sourceManagerProvider);
+
+    if (_isFavorite) {
+      // 特殊歌单：从 FavoriteSource 读收藏
+      final favSource = manager.getSource('favorite') as FavoriteSource?;
+      final songs = favSource == null ? <Song>[] : await favSource.getFavoriteSongs();
+      if (mounted) {
+        setState(() {
+          final now = DateTime.now();
+          _playlist = Playlist(
+            id: kFavoritePlaylistId,
+            name: '我最喜欢',
+            songKeys: songs.map((s) => s.globalKey).toList(),
+            sourceId: 'favorite',
+            createdTime: now,
+            modifiedTime: now,
+          );
+          _songs = songs;
+          _loading = false;
+        });
+      }
+      return;
+    }
+
+    // 用户歌单：从 DAO 读
+    final dao = ref.read(playlistDaoProvider);
     final pl = await dao.getPlaylist(widget.playlistId);
     if (pl == null) {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
       return;
     }
 
@@ -66,7 +104,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     if (mounted) {
       setState(() {
         _playlist = pl;
-        _songs = resolved;
+        _songs = resolved.whereType<Song>().toList();
         _loading = false;
       });
     }
@@ -81,24 +119,29 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
   /// 播放全部
   void _playAll() {
-    final songs = _songs.whereType<Song>().toList();
-    if (songs.isEmpty) return;
+    if (_songs.isEmpty) return;
     final player = ref.read(playerProvider);
-    player.setQueue(songs);
+    player.setQueue(_songs);
     player.jumpToIndex(0);
   }
 
   /// 播放指定歌曲
   void _playSong(int index) {
-    final songs = _songs.whereType<Song>().toList();
-    if (songs.isEmpty) return;
+    if (_songs.isEmpty) return;
     final player = ref.read(playerProvider);
-    player.setQueue(songs);
+    player.setQueue(_songs);
     player.jumpToIndex(index);
   }
 
-  /// 删除歌曲
+  /// 移出歌单（用户歌单）/ 取消收藏（收藏歌单）
   Future<void> _removeSong(int index) async {
+    if (_isFavorite) {
+      // 取消收藏
+      final song = _songs[index];
+      await ref.read(favoritesProvider.notifier).toggle(song);
+      await _load();
+      return;
+    }
     final pl = _playlist;
     if (pl == null) return;
     final confirmed = await showDialog<bool>(
@@ -124,8 +167,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     }
   }
 
-  /// 重命名歌单
+  /// 重命名歌单（仅用户歌单）
   Future<void> _rename() async {
+    if (_isFavorite) return;
     final pl = _playlist;
     if (pl == null) return;
     final controller = TextEditingController(text: pl.name);
@@ -155,8 +199,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     }
   }
 
-  /// 删除歌单
+  /// 删除歌单（仅用户歌单）
   Future<void> _deletePlaylist() async {
+    if (_isFavorite) return;
     final pl = _playlist;
     if (pl == null) return;
     final confirmed = await showDialog<bool>(
@@ -182,12 +227,12 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     }
   }
 
-  /// 导出歌单（M3U/PLS/JSON）
+  /// 导出歌单（仅用户歌单）
   Future<void> _export() async {
+    if (_isFavorite) return;
     final pl = _playlist;
     if (pl == null) return;
-    final songs = _songs.whereType<Song>().toList();
-    if (songs.isEmpty) {
+    if (_songs.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('歌单还没有歌曲，无法导出')),
@@ -221,7 +266,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     );
     if (format == null) return;
 
-    final ok = await PlaylistIo.exportPlaylist(pl.name, songs, format);
+    final ok = await PlaylistIo.exportPlaylist(pl.name, _songs, format);
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('已导出为 ${format.extension.toUpperCase()} 格式')),
@@ -240,145 +285,244 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   @override
   Widget build(BuildContext context) {
     final pl = _playlist;
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(pl?.name ?? '歌单'),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded),
-            onSelected: (value) {
-              switch (value) {
-                case 'export':
-                  _export();
-                case 'rename':
-                  _rename();
-                case 'delete':
-                  _deletePlaylist();
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: 'export',
-                child: ListTile(
-                  leading: Icon(Icons.ios_share_rounded),
-                  title: Text('导出歌单'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: 'rename',
-                child: ListTile(
-                  leading: Icon(Icons.drive_file_rename_outline_rounded),
-                  title: Text('重命名'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: 'delete',
-                child: ListTile(
-                  leading: Icon(Icons.delete_outline_rounded),
-                  title: Text('删除歌单'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : pl == null
-              ? const EmptyState(
-                  icon: Icons.folder_off_rounded,
-                  message: '歌单不存在',
+    // 响应式：横屏宽屏用左右分栏，否则竖直列表
+    // 窄屏用 SliverAppBar 承担顶部栏（含返回）；宽屏无 SliverAppBar，
+    // 需外层 AppBar 提供返回按钮与操作菜单。
+    return OrientationBuilder(
+      builder: (context, orientation) {
+        final isWide = orientation == Orientation.landscape;
+        return Scaffold(
+          appBar: isWide
+              ? AppBar(
+                  title: Text(pl?.name ?? (_isFavorite ? '我最喜欢' : '歌单')),
+                  actions: _isFavorite ? null : _buildPopupActions(),
                 )
-              : Column(
-                  children: [
-                    // 头部信息
-                    _buildHeader(pl, cs, tt),
-                    const Divider(height: 1),
-                    // 歌曲列表（可拖动排序）
-                    Expanded(
-                      child: _songs.isEmpty
-                          ? const EmptyState(
-                              icon: Icons.music_off_rounded,
-                              message: '歌单还没有歌曲',
-                            )
-                          : ReorderableListView.builder(
-                              itemCount: _songs.length,
-                              onReorder: (oldIndex, newIndex) {
-                                final keys = [...pl.songKeys];
-                                if (newIndex > oldIndex) newIndex--;
-                                final key = keys.removeAt(oldIndex);
-                                keys.insert(newIndex, key);
-                                _save(pl.copyWith(songKeys: keys));
-                              },
-                              itemBuilder: (context, index) {
-                                final song = _songs[index];
-                                return _buildSongRow(index, song, pl, cs);
-                              },
-                            ),
-                    ),
-                  ],
-                ),
+              : null,
+          body: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : pl == null
+                  ? const EmptyState(
+                      icon: Icons.folder_off_rounded,
+                      message: '歌单不存在',
+                    )
+                  : isWide
+                      ? _buildWideLayout(pl)
+                      : _buildNarrowLayout(pl),
+        );
+      },
     );
   }
 
-  /// 头部信息：播放全部 + 歌曲数
-  Widget _buildHeader(Playlist pl, ColorScheme cs, TextTheme tt) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.s16),
-      child: Row(
-        children: [
-          Container(
-            width: 56, height: 56,
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(AppRadius.s12),
-            ),
-            child: Icon(Icons.queue_music_rounded,
-                color: cs.onSurfaceVariant, size: 28),
-          ),
-          const SizedBox(width: AppSpacing.s16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(pl.name, style: tt.titleMedium),
-                const SizedBox(height: AppSpacing.s4),
-                Text('${pl.songKeys.length} 首歌曲',
-                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-              ],
+  List<Widget>? _buildPopupActions() {
+    return [
+      PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert_rounded),
+        onSelected: (value) {
+          switch (value) {
+            case 'export':
+              _export();
+            case 'rename':
+              _rename();
+            case 'delete':
+              _deletePlaylist();
+          }
+        },
+        itemBuilder: (context) => const [
+          PopupMenuItem(
+            value: 'export',
+            child: ListTile(
+              leading: Icon(Icons.ios_share_rounded),
+              title: Text('导出歌单'),
+              contentPadding: EdgeInsets.zero,
             ),
           ),
-          // 播放全部
-          FilledButton.icon(
-            icon: const Icon(Icons.play_arrow_rounded),
-            label: const Text('播放全部'),
-            onPressed: _playAll,
+          PopupMenuItem(
+            value: 'rename',
+            child: ListTile(
+              leading: Icon(Icons.drive_file_rename_outline_rounded),
+              title: Text('重命名'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          PopupMenuItem(
+            value: 'delete',
+            child: ListTile(
+              leading: Icon(Icons.delete_outline_rounded),
+              title: Text('删除歌单'),
+              contentPadding: EdgeInsets.zero,
+            ),
           ),
         ],
       ),
+    ];
+  }
+
+  // ==================== 手机/竖屏布局（可伸缩 bar） ====================
+
+  Widget _buildNarrowLayout(Playlist pl) {
+    final cs = Theme.of(context).colorScheme;
+
+    return CustomScrollView(
+      slivers: [
+        // 唯一顶部栏：展开时含封面+名称+操作区；收起后仅标题（+ 操作菜单）
+        SliverAppBar(
+          pinned: true,
+          expandedHeight: 300,
+          title: Text(pl.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          actions: _isFavorite ? null : _buildPopupActions(),
+          flexibleSpace: FlexibleSpaceBar(
+            collapseMode: CollapseMode.parallax,
+            background: Container(
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerLow,
+                border: Border(
+                  bottom: BorderSide(color: cs.outlineVariant, width: 0.5),
+                ),
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.s16),
+                  child: PlaylistHeader(
+                    name: pl.name,
+                    coverUrl: pl.coverUrl,
+                    subtitle: '${_songs.length} 首歌曲',
+                    isFavorite: _isFavorite,
+                    onPlayAll: _songs.isEmpty ? null : _playAll,
+                  ).buildFlexibleSpace(context),
+                ),
+              ),
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(child: SizedBox(height: AppSpacing.s8)),
+        // 歌曲列表（支持拖动排序或收藏）
+        if (_songs.isEmpty)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: EmptyState(
+              icon: Icons.music_off_rounded,
+              message: '歌单还没有歌曲',
+            ),
+          )
+        else if (_isFavorite)
+          SliverList.builder(
+            itemCount: _songs.length,
+            itemBuilder: (context, index) =>
+                _buildSongRow(index, pl, cs),
+          )
+        else
+          SliverReorderableList(
+            itemCount: _songs.length,
+            onReorder: (oldIndex, newIndex) {
+              final keys = [...pl.songKeys];
+              if (newIndex > oldIndex) newIndex--;
+              final key = keys.removeAt(oldIndex);
+              keys.insert(newIndex, key);
+              _save(pl.copyWith(songKeys: keys));
+            },
+            itemBuilder: (context, index) =>
+                _buildSongRow(index, pl, cs),
+          ),
+      ],
+    );
+  }
+
+  // ==================== 宽屏/横屏布局（左 col 右列表） ====================
+
+  Widget _buildWideLayout(Playlist pl) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 左侧：封面 + 名称/描述（公共组件）
+        SizedBox(
+          width: 280,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.s16),
+            child: PlaylistHeader(
+              name: pl.name,
+              coverUrl: pl.coverUrl,
+              subtitle: '${_songs.length} 首歌曲',
+              isFavorite: _isFavorite,
+            ).buildWideColumn(context),
+          ),
+        ),
+        const VerticalDivider(width: 1),
+        // 右侧：顶部操作区 + 歌曲列表
+        Expanded(
+          child: Column(
+            children: [
+              // 操作区
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.s16),
+                child: Row(
+                  children: [
+                    FilledButton.icon(
+                      icon: const Icon(Icons.play_arrow_rounded),
+                      label: const Text('播放全部'),
+                      onPressed: _songs.isEmpty ? null : _playAll,
+                    ),
+                    const SizedBox(width: AppSpacing.s12),
+                    if (!_isFavorite)
+                      IconButton(
+                        icon: const Icon(Icons.ios_share_rounded),
+                        tooltip: '导出歌单',
+                        onPressed: _export,
+                      ),
+                    if (!_isFavorite)
+                      IconButton(
+                        icon: const Icon(Icons.drive_file_rename_outline_rounded),
+                        tooltip: '重命名',
+                        onPressed: _rename,
+                      ),
+                    if (!_isFavorite)
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline_rounded),
+                        tooltip: '删除歌单',
+                        onPressed: _deletePlaylist,
+                      ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              // 歌曲列表
+              Expanded(
+                child: _songs.isEmpty
+                    ? const EmptyState(
+                        icon: Icons.music_off_rounded,
+                        message: '歌单还没有歌曲',
+                      )
+                    : _isFavorite
+                        ? ListView.builder(
+                            itemCount: _songs.length,
+                            itemBuilder: (context, index) =>
+                                _buildSongRow(index, pl, cs),
+                          )
+                        : ReorderableListView.builder(
+                            itemCount: _songs.length,
+                            onReorder: (oldIndex, newIndex) {
+                              final keys = [...pl.songKeys];
+                              if (newIndex > oldIndex) newIndex--;
+                              final key = keys.removeAt(oldIndex);
+                              keys.insert(newIndex, key);
+                              _save(pl.copyWith(songKeys: keys));
+                            },
+                            itemBuilder: (context, index) =>
+                                _buildSongRow(index, pl, cs),
+                          ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
   /// 歌曲行（带唯一 key 供 ReorderableListView）
-  Widget _buildSongRow(int index, Song? song, Playlist pl, ColorScheme cs) {
-    // 无法解析的歌曲显示占位
-    if (song == null) {
-      return ListTile(
-        key: ValueKey('pl_${pl.id}_$index'),
-        leading: Container(
-          width: 48, height: 48,
-          color: cs.surfaceContainerHighest,
-        ),
-        title: Text('未知歌曲', style: TextStyle(color: cs.onSurfaceVariant)),
-        trailing: Icon(Icons.error_outline, color: cs.error),
-      );
-    }
+  Widget _buildSongRow(int index, Playlist pl, ColorScheme cs) {
+    final song = _songs[index];
     return Dismissible(
       key: ValueKey('pl_${pl.id}_$index'),
       direction: DismissDirection.endToStart,
@@ -392,7 +536,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       child: SongTile(
         song: song,
         onTap: () => _playSong(index),
-        trailing: const Icon(Icons.drag_handle_rounded),
+        trailing: _isFavorite
+            ? Icon(Icons.favorite_rounded, color: cs.primary, size: 20)
+            : const Icon(Icons.drag_handle_rounded),
       ),
     );
   }

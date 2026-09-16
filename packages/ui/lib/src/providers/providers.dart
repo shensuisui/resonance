@@ -67,9 +67,15 @@ FavoritesDao favoritesDao(Ref ref) =>
     ref.watch(appDatabaseProvider).favoritesDao;
 
 /// 下载任务流（来自 DownloadManager）
+///
+/// 先发出当前任务快照（避免首次订阅一直 loading——底层 taskStream
+/// 是 broadcast 流，无下载时不发事件），再转发实时更新。
 @Riverpod(keepAlive: true)
-Stream<List<DownloadTask>> downloadTasks(Ref ref) {
-  return ref.watch(downloadManagerProvider).taskStream;
+Stream<List<DownloadTask>> downloadTasks(Ref ref) async* {
+  final manager = ref.watch(downloadManagerProvider);
+  // 初始快照：页面首次打开即可渲染当前任务（含空列表）
+  yield manager.getTasks();
+  yield* manager.taskStream;
 }
 
 /// 歌曲是否已收藏
@@ -93,17 +99,49 @@ class PlaybackController extends _$PlaybackController {
   Player get _player => ref.read(playerProvider);
 
   /// 播放一首歌（自动解析播放地址）
+  ///
+  /// 播放期间置 [playbackLoadingProvider] 为当前歌曲 key，
+  /// UI 列表项据此显示 loading；请求完成（成功/失败）后清除。
+  /// 全程记入 SourceLogBus（含请求的播放 URL 与耗时），便于排查不播放问题。
   Future<void> playSong(Song song) async {
+    final loading = ref.read(playbackLoadingProvider.notifier);
+    loading.setLoading(song.globalKey);
     try {
+      final sw = Stopwatch()..start();
       final url = await _sourceManager.getSongUrl(song.sourceId, song.id);
+      SourceLogBus.instance.emit(
+        song.sourceId,
+        SourceLogLevel.info,
+        '播放',
+        'id=${song.id} 请求播放URL，耗时 ${sw.elapsedMilliseconds}ms → $url',
+      );
+      if (url.isEmpty) {
+        // 播放 URL 为空：仍记录日志（来源端失败），UI 播放不启动
+        SourceLogBus.instance.emit(
+          song.sourceId,
+          SourceLogLevel.error,
+          '播放',
+          'id=${song.id} 播放URL为空，无法播放',
+        );
+        loading.clear();
+        return;
+      }
       final playable = song.copyWith(playUrl: url);
       await _player.play(playable);
+      loading.clear();
       ref.read(currentSongProvider.notifier).setSong(playable);
       ref.read(isPlayingProvider.notifier).setPlaying(true);
       ref.read(playQueueProvider.notifier).setQueue(_player.queue);
       // 异步记录最近播放，不阻塞播放
       unawaited(ref.read(recentPlaysProvider.notifier).recordPlay(song));
-    } catch (_) {
+    } catch (e, st) {
+      loading.clear();
+      SourceLogBus.instance.emit(
+        song.sourceId,
+        SourceLogLevel.error,
+        '播放',
+        'id=${song.id} 播放失败: $e\n$st',
+      );
       ref.read(isPlayingProvider.notifier).setPlaying(false);
     }
   }
@@ -194,6 +232,20 @@ class PlaybackDuration extends _$PlaybackDuration {
   Duration build() => Duration.zero;
 
   void setDuration(Duration duration) => state = duration;
+}
+
+/// 正在请求播放 URL 的歌曲 key（列表项 loading 状态）
+///
+/// 点击搜索候选/远程歌单的歌曲时，需先请求播放 URL 才能开始播放，
+/// 此状态让对应列表项显示 loading 动画；请求结束（成功/失败）即清除。
+@Riverpod(keepAlive: true)
+class PlaybackLoading extends _$PlaybackLoading {
+  @override
+  String? build() => null;
+
+  void setLoading(String songKey) => state = songKey;
+
+  void clear() => state = null;
 }
 
 /// 播放模式（持久化）
@@ -441,12 +493,30 @@ class RecentPlaysNotifier extends _$RecentPlaysNotifier {
   SourceManager get _sourceManager => ref.read(sourceManagerProvider);
 
   /// 加载最近播放列表
+  ///
+  /// 优先使用记录时保存的歌曲快照（title/artist/coverUrl）直接渲染，
+  /// 无需回源查询——规则源详情接口可能不返回标题导致名字为空。
+  /// 存量旧记录（快照功能前写入，title 为 null）回退 getSongDetail 补齐。
   Future<void> load() async {
-    final keys = await _service.getRecentSongKeys();
+    final records = await _service.getRecentPlayRecords();
     final songs = <Song>[];
-    for (final key in keys) {
-      final parts = key.split(':');
+    for (final record in records) {
+      final parts = record.songKey.split(':');
       if (parts.length != 2) continue;
+
+      if (record.title != null) {
+        // 快照完整：直接渲染
+        songs.add(Song(
+          id: parts[1],
+          sourceId: parts[0],
+          title: record.title!,
+          artist: record.artist ?? '',
+          coverUrl: record.coverUrl,
+        ));
+        continue;
+      }
+
+      // 旧记录回退：回源补齐
       try {
         final song = await _sourceManager.getSongDetail(parts[0], parts[1]);
         songs.add(song);
@@ -497,15 +567,33 @@ class FavoritesNotifier extends _$FavoritesNotifier {
     if (isFav) {
       await _dao.removeFavorite(song.globalKey);
     } else {
+      // 保存歌曲快照（title/artist/coverUrl），列表直接渲染
       await _dao.addFavorite(
-          song.globalKey, DateTime.now().millisecondsSinceEpoch);
+        song.globalKey,
+        DateTime.now().millisecondsSinceEpoch,
+        title: song.title,
+        artist: song.artist,
+        coverUrl: song.coverUrl,
+      );
     }
     await load();
+    // 收藏数变化：让「我最喜欢」歌单计数刷新
+    ref.invalidate(favoriteCountProvider);
   }
 
   Future<bool> isFavorite(String songKey) {
     return _dao.isFavorite(songKey);
   }
+}
+
+/// 收藏歌曲数（「我最喜欢」歌单副标题）
+///
+/// 收藏变更时由 [FavoritesNotifier.toggle] 失效刷新。
+@Riverpod(keepAlive: true)
+Future<int> favoriteCount(Ref ref) async {
+  final dao = ref.watch(favoritesDaoProvider);
+  final keys = await dao.getAllFavoriteKeys();
+  return keys.length;
 }
 
 // ==================== 源列表 ====================
@@ -518,21 +606,36 @@ Future<List<MusicSource>> sourceList(Ref ref) async {
 }
 
 /// 源启用状态
+///
+/// 依赖 [sourceListProvider]：源注册/注销时（插件、订阅异步加载）
+/// sourceListProvider 被 invalidate，本 provider 随之重建，新源自动进 map。
+/// 启用状态持久化到 settings（键 source_enabled_<id>），重启后恢复。
 @Riverpod(keepAlive: true)
 class SourceEnabled extends _$SourceEnabled {
   @override
   Map<String, bool> build() {
-    _load();
-    return const {};
-  }
-
-  SourceManager get _manager => ref.read(sourceManagerProvider);
-
-  void _load() {
-    final sources = _manager.getAllSources();
+    // 监听源列表：插件/订阅注册新源后自动重建，避免新源缺失显示为禁用
+    final sources = ref.watch(sourceListProvider).value ?? const <MusicSource>[];
     final map = <String, bool>{};
     for (final s in sources) {
       map[s.sourceInfo.id] = _manager.isSourceEnabled(s.sourceInfo.id);
+    }
+    _loadPersisted(map);
+    return map;
+  }
+
+  SourceManager get _manager => ref.read(sourceManagerProvider);
+  SettingsDao get _settingsDao => ref.read(settingsDaoProvider);
+
+  /// 从 settings 恢复持久化的启用状态，覆盖内存默认值
+  Future<void> _loadPersisted(Map<String, bool> map) async {
+    final all = await _settingsDao.getAll();
+    for (final entry in all.entries) {
+      if (!entry.key.startsWith('source_enabled_')) continue;
+      final id = entry.key.substring('source_enabled_'.length);
+      if (map.containsKey(id)) {
+        map[id] = entry.value == '1';
+      }
     }
     state = map;
   }
@@ -540,6 +643,8 @@ class SourceEnabled extends _$SourceEnabled {
   Future<void> toggle(String sourceId, bool enabled) async {
     _manager.setSourceEnabled(sourceId, enabled);
     state = {...state, sourceId: enabled};
+    await _settingsDao.set(
+        'source_enabled_$sourceId', enabled ? '1' : '0');
   }
 }
 

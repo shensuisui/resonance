@@ -5,8 +5,10 @@
 /// - 下载中 → 圆形进度指示，点击取消
 /// - 已缓存 → 对勾图标，点击删除缓存
 /// 颜色用 Theme.colorScheme，间距用 AppSpacing。
+library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/widget_previews.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../providers/providers.dart';
@@ -93,4 +95,41 @@ class DownloadButton extends ConsumerWidget {
       onPressed: () => m.deleteCache(song.globalKey),
     );
   }
+}
+
+/// Widget 预览：未下载状态（下载图标）
+///
+/// 预览环境无真实服务，用内存 DAO + 假下载管理器注入。
+@Preview(name: 'DownloadButton 未下载', group: 'DownloadButton')
+Widget downloadButtonPreview() {
+  final container = ProviderContainer(overrides: [
+    appDatabaseProvider.overrideWith((ref) => InMemoryDatabaseProvider()),
+  ]);
+  final song = Song(
+    id: '1', sourceId: 'netease', title: '晴天', artist: '周杰伦',
+  );
+  return UncontrolledProviderScope(
+    container: container,
+    child: MaterialApp(
+      home: Scaffold(body: Center(child: DownloadButton(song: song))),
+    ),
+  );
+}
+
+/// Widget 预览：已缓存状态（对勾图标）
+@Preview(name: 'DownloadButton 已缓存', group: 'DownloadButton')
+Widget downloadButtonCachedPreview() {
+  final container = ProviderContainer(overrides: [
+    appDatabaseProvider.overrideWith((ref) => InMemoryDatabaseProvider()),
+  ]);
+  final song = Song(
+    id: '2', sourceId: 'netease', title: '稻香', artist: '周杰伦',
+    localPath: '/cached/2.mp3',
+  );
+  return UncontrolledProviderScope(
+    container: container,
+    child: MaterialApp(
+      home: Scaffold(body: Center(child: DownloadButton(song: song))),
+    ),
+  );
 }

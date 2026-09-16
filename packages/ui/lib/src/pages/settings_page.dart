@@ -1,12 +1,52 @@
-/// 设置页 —— 主题切换 + 本地扫描目录 + 插件管理 + 下载 + 关于
+/// 设置页 —— 分级设置（手机二级页 / 宽屏左 tab 右详情）
+///
+/// 分组：
+/// - 外观：主题模式（跟随系统/亮色/暗色）
+/// - 本地音乐：扫描目录输入 + 保存/开始扫描
+/// - 下载与调试：下载管理、运行日志（二级页）
+/// - 订阅：订阅列表 + 右上角添加/全部更新
+/// - 源：已注册源列表（含启用开关）+ 右上角导入插件
+/// - 关于：版本信息
+///
+/// 响应式：竖屏显示分组导航，点击进二级详情页；
+/// 横屏（宽屏）左侧 NavigationRail 分组 tab，右侧显示分组详情。
+/// 颜色用 Theme.colorScheme，间距用 AppSpacing。
+library;
 
+import 'package:card_settings_ui/card_settings_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
 import '../providers/providers.dart';
 import 'download_queue_page.dart';
 import 'source_log_page.dart';
 
+/// 设置分组
+enum SettingsGroup {
+  appearance('外观', Icons.palette_outlined),
+  localMusic('本地音乐', Icons.music_note_outlined),
+  download('下载与调试', Icons.download_for_offline_outlined),
+  subscription('订阅', Icons.rss_feed_rounded),
+  source('源', Icons.cloud_outlined),
+  about('关于', Icons.info_outline_rounded);
+
+  final String label;
+  final IconData icon;
+
+  const SettingsGroup(this.label, this.icon);
+
+  static const List<SettingsGroup> all = [
+    SettingsGroup.appearance,
+    SettingsGroup.localMusic,
+    SettingsGroup.download,
+    SettingsGroup.subscription,
+    SettingsGroup.source,
+    SettingsGroup.about,
+  ];
+}
+
+/// 设置页主入口：竖屏分组导航 → 二级页；横屏左 tab 右详情
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
@@ -15,6 +55,96 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
+  /// 宽屏模式下当前选中的分组
+  SettingsGroup _selected = SettingsGroup.appearance;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('设置')),
+      body: OrientationBuilder(
+        builder: (context, orientation) {
+          final isWide = orientation == Orientation.landscape;
+          if (isWide) {
+            // 宽屏：左 tab 右详情（tab 为 icon+名字 一行的基础样式）
+            return Row(
+              children: [
+                SizedBox(
+                  width: 200,
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.s8),
+                    children: [
+                      for (final g in SettingsGroup.all)
+                        ListTile(
+                          selected: _selected == g,
+                          selectedTileColor: Theme.of(context)
+                              .colorScheme
+                              .secondaryContainer
+                              .withValues(alpha: 0.5),
+                          leading: Icon(g.icon),
+                          title: Text(g.label),
+                          onTap: () =>
+                              setState(() => _selected = g),
+                        ),
+                    ],
+                  ),
+                ),
+                const VerticalDivider(width: 1),
+                Expanded(
+                  child: SettingsGroupDetailPage(
+                    group: _selected,
+                    embedded: true,
+                  ),
+                ),
+              ],
+            );
+          }
+          // 竖屏：分组导航列表 → 二级页
+          return ListView(
+            children: [
+              for (final g in SettingsGroup.all)
+                ListTile(
+                  leading: Icon(g.icon),
+                  title: Text(g.label),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SettingsGroupDetailPage(group: g),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// 分组详情页（手机二级页 push；宽屏嵌入为右侧详情）
+class SettingsGroupDetailPage extends ConsumerStatefulWidget {
+  final SettingsGroup group;
+
+  /// 是否嵌入宽屏（true 时省略 AppBar，由外层编排）
+  final bool embedded;
+
+  const SettingsGroupDetailPage({
+    super.key,
+    required this.group,
+    this.embedded = false,
+  });
+
+  @override
+  ConsumerState<SettingsGroupDetailPage> createState() =>
+      _SettingsGroupDetailPageState();
+}
+
+class _SettingsGroupDetailPageState
+    extends ConsumerState<SettingsGroupDetailPage> {
   final _scanDirController = TextEditingController();
   bool _scanDirLoaded = false;
 
@@ -115,288 +245,357 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return '$m-$day $hh:$mm';
   }
 
+  /// 添加订阅（右上角操作按钮）
+  Future<void> _addSubscription() async {
+    final result = await _showAddSubscriptionDialog();
+    if (result == null) return;
+    final (url, type, name) = result;
+    if (url.isEmpty) return;
+    await ref
+        .read(subscriptionLibraryProvider.notifier)
+        .addSubscription(url, type, name: name);
+    if (context.mounted) {
+      _showMessage(ref.read(subscriptionLibraryProvider).message);
+    }
+  }
+
+  /// 全部订阅检查更新（右上角操作按钮）
+  Future<void> _updateAllSubscriptions() async {
+    final (ok, fail) = await ref
+        .read(subscriptionLibraryProvider.notifier)
+        .updateAll();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('更新完成：成功 $ok，失败 $fail')),
+      );
+    }
+  }
+
+  /// 导入插件文件（「源」组右上角操作按钮）
+  Future<void> _importPlugin() async {
+    await ref.read(pluginLibraryProvider.notifier).importFromFile();
+    if (context.mounted) {
+      _showMessage(ref.read(pluginLibraryProvider).message);
+    }
+  }
+
+  /// 构建「源」列表 tile：类型图标 + 名称/id + 启用开关
+  List<SettingsTile> _buildSourceTiles(
+    List<MusicSource> sources,
+    Map<String, bool> enabledMap,
+    Map<String, String> originMap,
+    ColorScheme cs,
+    TextTheme tt,
+  ) {
+    return [
+      for (final source in sources)
+        SettingsTile.switchTile(
+          initialValue: enabledMap[source.sourceInfo.id] ?? false,
+          onToggle: (v) {
+            ref
+                .read(sourceEnabledProvider.notifier)
+                .toggle(source.sourceInfo.id, v ?? false);
+          },
+          leading: Icon(_sourceTypeIcon(source.sourceInfo.type)),
+          title: Text(source.sourceInfo.name,
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+          description: Text(
+            _sourceSubtitle(source.sourceInfo, originMap[source.sourceInfo.id]),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+    ];
+  }
+
+  /// 源类型图标
+  IconData _sourceTypeIcon(SourceType type) => switch (type) {
+        SourceType.local => Icons.folder_rounded,
+        SourceType.rule => Icons.description_rounded,
+        SourceType.plugin => Icons.extension_rounded,
+      };
+
+  /// 源类型标签
+  String _sourceTypeLabel(SourceType type) => switch (type) {
+        SourceType.local => '本地',
+        SourceType.rule => '规则',
+        SourceType.plugin => '插件',
+      };
+
+  /// 源副标题：id · 类型[ · 来源]
+  String _sourceSubtitle(SourceInfo info, String? origin) {
+    final parts = [info.id, _sourceTypeLabel(info.type)];
+    if (origin != null && origin.isNotEmpty) {
+      final host = Uri.tryParse(origin)?.host;
+      parts.add('来自 ${host?.isNotEmpty == true ? host : origin}');
+    }
+    return parts.join(' · ');
+  }
+
   @override
   Widget build(BuildContext context) {
-    _loadScanDir();
-    final themeMode = ref.watch(themeModeProvider);
-    final scanState = ref.watch(scanProvider);
-    final pluginState = ref.watch(pluginLibraryProvider);
-    final subState = ref.watch(subscriptionLibraryProvider);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final themeMode = ref.watch(themeModeProvider);
+    final scanState = ref.watch(scanProvider);
+    final subState = ref.watch(subscriptionLibraryProvider);
+    // 源列表（含插件）与启用状态、来源归属
+    final sourcesAsync = ref.watch(sourceListProvider);
+    final enabledMap = ref.watch(sourceEnabledProvider);
+    final originMap = ref.watch(subscriptionLibraryProvider).sourceOrigin;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
-      body: ListView(
-        children: [
-          // 外观
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.s16),
-            child: Text('外观', style: tt.titleSmall?.copyWith(color: cs.primary)),
-          ),
-          RadioListTile<ThemeMode>(
-            value: ThemeMode.system,
-            groupValue: themeMode,
-            title: const Text('跟随系统'),
-            onChanged: (v) => ref.read(themeModeProvider.notifier).setMode(v!),
-          ),
-          RadioListTile<ThemeMode>(
-            value: ThemeMode.light,
-            groupValue: themeMode,
-            title: const Text('亮色'),
-            onChanged: (v) => ref.read(themeModeProvider.notifier).setMode(v!),
-          ),
-          RadioListTile<ThemeMode>(
-            value: ThemeMode.dark,
-            groupValue: themeMode,
-            title: const Text('暗色'),
-            onChanged: (v) => ref.read(themeModeProvider.notifier).setMode(v!),
-          ),
-          const Divider(),
-          // 本地音乐
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.s16),
-            child: Text('本地音乐', style: tt.titleSmall?.copyWith(color: cs.primary)),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
-            child: TextField(
-              controller: _scanDirController,
-              decoration: const InputDecoration(
-                labelText: '扫描目录',
-                hintText: '如 /music 或 C:\\Music',
-                border: OutlineInputBorder(),
+    final sections = switch (widget.group) {
+      SettingsGroup.appearance => [
+          SettingsSection(
+            title: Text('外观', style: tt.titleSmall?.copyWith(color: cs.primary)),
+            tiles: [
+              SettingsTile.radioTile(
+                radioValue: ThemeMode.system,
+                groupValue: themeMode,
+                onChanged: (v) => ref.read(themeModeProvider.notifier).setMode(v!),
+                leading: const Icon(Icons.brightness_auto_rounded),
+                title: const Text('跟随系统'),
               ),
-            ),
+              SettingsTile.radioTile(
+                radioValue: ThemeMode.light,
+                groupValue: themeMode,
+                onChanged: (v) => ref.read(themeModeProvider.notifier).setMode(v!),
+                leading: const Icon(Icons.light_mode_rounded),
+                title: const Text('亮色'),
+              ),
+              SettingsTile.radioTile(
+                radioValue: ThemeMode.dark,
+                groupValue: themeMode,
+                onChanged: (v) => ref.read(themeModeProvider.notifier).setMode(v!),
+                leading: const Icon(Icons.dark_mode_rounded),
+                title: const Text('暗色'),
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.s16, vertical: AppSpacing.s8),
-            child: Row(
-              children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.folder_open_rounded),
-                  label: const Text('保存路径'),
-                  onPressed: () async {
-                    await ref.read(scanProvider.notifier)
-                        .setScanDir(_scanDirController.text.trim());
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('扫描目录已保存')),
-                      );
-                    }
-                  },
+        ],
+      SettingsGroup.localMusic => [
+          SettingsSection(
+            title: Text('本地音乐', style: tt.titleSmall?.copyWith(color: cs.primary)),
+            tiles: [
+              CustomSettingsTile(
+                child: (info) => Padding(
+                  padding: const EdgeInsets.all(AppSpacing.s16),
+                  child: _buildScanDirPanel(scanState, cs, tt),
                 ),
-                const SizedBox(width: AppSpacing.s12),
-                ElevatedButton.icon(
-                  icon: scanState.scanning
-                      ? const SizedBox(
-                          width: 16, height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.search_rounded),
-                  label: const Text('开始扫描'),
-                  onPressed: scanState.scanning
-                      ? null
-                      : () async {
-                          await ref.read(scanProvider.notifier)
-                              .setScanDir(_scanDirController.text.trim());
-                          await ref.read(scanProvider.notifier).scan();
-                        },
+              ),
+            ],
+          ),
+        ],
+      SettingsGroup.download => [
+          SettingsSection(
+            title: Text('下载与调试', style: tt.titleSmall?.copyWith(color: cs.primary)),
+            tiles: [
+              SettingsTile.navigation(
+                leading: const Icon(Icons.download_for_offline_rounded),
+                title: const Text('下载管理'),
+                description: const Text('查看下载任务，取消或删除缓存'),
+                onPressed: (_) => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const DownloadQueuePage(),
+                  ),
+                ),
+              ),
+              SettingsTile.navigation(
+                leading: const Icon(Icons.article_outlined),
+                title: const Text('运行日志'),
+                description: const Text('查看各音乐源执行情况，排查播放/搜索失败'),
+                onPressed: (_) => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const SourceLogPage(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      SettingsGroup.subscription => [
+          SettingsSection(
+            title: Row(
+              children: [
+                Text('订阅', style: tt.titleSmall?.copyWith(color: cs.primary)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline_rounded),
+                  tooltip: '添加订阅',
+                  onPressed: _addSubscription,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.sync_rounded),
+                  tooltip: '全部检查更新',
+                  onPressed: _updateAllSubscriptions,
                 ),
               ],
             ),
-          ),
-          if (scanState.foundCount != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.s16, vertical: AppSpacing.s4),
-              child: Text(
-                '扫描完成：新增 ${scanState.foundCount} 首',
-                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-              ),
-            ),
-          if (scanState.error != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.s16, vertical: AppSpacing.s4),
-              child: Text(
-                '错误：${scanState.error}',
-                style: tt.bodySmall?.copyWith(color: cs.error),
-              ),
-            ),
-          const Divider(),
-          // 下载
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.s16),
-            child: Text('下载', style: tt.titleSmall?.copyWith(color: cs.primary)),
-          ),
-          ListTile(
-            leading: const Icon(Icons.download_for_offline_rounded),
-            title: const Text('下载管理'),
-            subtitle: const Text('查看下载任务，取消或删除缓存'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const DownloadQueuePage(),
-              ),
-            ),
-          ),
-          // 调试
-          ListTile(
-            leading: const Icon(Icons.article_outlined),
-            title: const Text('运行日志'),
-            subtitle: const Text('查看各音乐源执行情况，排查播放/搜索失败'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const SourceLogPage(),
-              ),
-            ),
-          ),
-          const Divider(),
-          // 订阅
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.s16),
-            child: Text('订阅', style: tt.titleSmall?.copyWith(color: cs.primary)),
-          ),
-          // 订阅列表
-          for (final sub in subState.subscriptions)
-            ListTile(
-              leading: Icon(sub.type == SubscriptionType.mfGroup ||
-                      sub.type == SubscriptionType.singlePlugin
-                  ? Icons.extension_rounded
-                  : Icons.description_rounded),
-              title: Text(sub.name ?? sub.type.label,
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text(
-                '${sub.type.label} · ${sub.url}\n${subState.sourceCounts[sub.url] ?? 0} 源 · 上次检查 ${_formatTime(sub.lastCheckedAt)}',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.refresh_rounded),
-                    tooltip: '检查更新',
-                    onPressed: () async {
-                      await ref
-                          .read(subscriptionLibraryProvider.notifier)
-                          .updateSubscription(sub.url);
-                      _showMessage(
-                          ref.read(subscriptionLibraryProvider).message);
-                    },
+            tiles: [
+              for (final sub in subState.subscriptions)
+                SettingsTile.navigation(
+                  leading: Icon(sub.type == SubscriptionType.mfGroup ||
+                          sub.type == SubscriptionType.singlePlugin
+                      ? Icons.extension_rounded
+                      : Icons.description_rounded),
+                  title: Text(sub.name ?? sub.type.label,
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  description: Text(
+                    '${sub.type.label} · ${sub.url}\n'
+                    '${subState.sourceCounts[sub.url] ?? 0} 源 · 上次检查 ${_formatTime(sub.lastCheckedAt)}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    tooltip: '删除订阅',
-                    onPressed: () async {
-                      await ref
-                          .read(subscriptionLibraryProvider.notifier)
-                          .removeSubscription(sub.url);
-                      _showMessage(
-                          ref.read(subscriptionLibraryProvider).message);
-                    },
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.refresh_rounded),
+                        tooltip: '检查更新',
+                        onPressed: () async {
+                          await ref
+                              .read(subscriptionLibraryProvider.notifier)
+                              .updateSubscription(sub.url);
+                          _showMessage(
+                              ref.read(subscriptionLibraryProvider).message);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline_rounded),
+                        tooltip: '删除订阅',
+                        onPressed: () async {
+                          await ref
+                              .read(subscriptionLibraryProvider.notifier)
+                              .removeSubscription(sub.url);
+                          _showMessage(
+                              ref.read(subscriptionLibraryProvider).message);
+                        },
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          if (subState.subscriptions.isEmpty && !subState.loading)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
-              child: Text(
-                '暂无订阅，可添加远程规则或插件订阅',
-                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-              ),
-            ),
-          ListTile(
-            leading: const Icon(Icons.add_circle_outline_rounded),
-            title: const Text('添加订阅'),
-            subtitle: const Text('规则 / 规则组 / MusicFree 组 / 单插件'),
-            onTap: () async {
-              final result = await _showAddSubscriptionDialog();
-              if (result == null) return;
-              final (url, type, name) = result;
-              if (url.isEmpty) return;
-              await ref
-                  .read(subscriptionLibraryProvider.notifier)
-                  .addSubscription(url, type, name: name);
-              _showMessage(ref.read(subscriptionLibraryProvider).message);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.sync_rounded),
-            title: const Text('全部检查更新'),
-            onTap: () async {
-              final (ok, fail) = await ref
-                  .read(subscriptionLibraryProvider.notifier)
-                  .updateAll();
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('更新完成：成功 $ok，失败 $fail')),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.cloud_download_rounded),
-            title: const Text('添加默认订阅'),
-            subtitle: const Text('落雪音乐 + MusicFree 官方地址'),
-            onTap: () async {
-              final count = await ref
-                  .read(subscriptionLibraryProvider.notifier)
-                  .addDefaultSubscriptions();
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(count > 0 ? '已登记 $count 个默认订阅' : '默认订阅已存在或登记失败')),
-              );
-            },
-          ),
-          const Divider(),
-          // 插件
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.s16),
-            child: Text('插件', style: tt.titleSmall?.copyWith(color: cs.primary)),
-          ),
-          // 已加载插件列表
-          for (final plugin in pluginState.plugins)
-            ListTile(
-              leading: const Icon(Icons.extension_rounded),
-              title: Text(plugin.sourceInfo.name, maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
-              subtitle: Text(plugin.sourceInfo.id, maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
-            ),
-          if (pluginState.plugins.isEmpty && !pluginState.loading)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
-              child: Text(
-                '暂无插件，可从下方导入或加载默认源',
-                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-              ),
-            ),
-          ListTile(
-            leading: const Icon(Icons.upload_file_rounded),
-            title: const Text('导入插件文件'),
-            subtitle: const Text('支持 .js / .json（落雪、MusicFree）'),
-            onTap: () async {
-              await ref.read(pluginLibraryProvider.notifier).importFromFile();
-              _showMessage(ref.read(pluginLibraryProvider).message);
-            },
-          ),
-          const Divider(),
-          // 关于
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.s16),
-            child: Text('关于', style: tt.titleSmall?.copyWith(color: cs.primary)),
-          ),
-          const ListTile(
-            leading: Icon(Icons.music_note_rounded),
-            title: Text('FM 音乐'),
-            subtitle: Text('全源音乐聚合播放器 v1.0.0'),
+                ),
+              if (subState.subscriptions.isEmpty && !subState.loading)
+                SettingsTile(
+                  leading: const Icon(Icons.info_outline_rounded),
+                  title: const Text('暂无订阅，点右上角 + 添加远程规则或插件订阅'),
+                ),
+            ],
           ),
         ],
-      ),
+      SettingsGroup.source => [
+          SettingsSection(
+            title: Row(
+              children: [
+                Text('源', style: tt.titleSmall?.copyWith(color: cs.primary)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.upload_file_rounded),
+                  tooltip: '导入插件文件',
+                  onPressed: _importPlugin,
+                ),
+              ],
+            ),
+            tiles: [
+              ..._buildSourceTiles(sourcesAsync.value ?? const [], enabledMap,
+                  originMap, cs, tt),
+              if ((sourcesAsync.value ?? const []).isEmpty)
+                SettingsTile(
+                  leading: const Icon(Icons.info_outline_rounded),
+                  title: const Text('暂无源，可通过订阅或导入插件添加'),
+                ),
+            ],
+          ),
+        ],
+      SettingsGroup.about => [
+          SettingsSection(
+            title: Text('关于', style: tt.titleSmall?.copyWith(color: cs.primary)),
+            tiles: [
+              SettingsTile(
+                leading: const Icon(Icons.music_note_rounded),
+                title: const Text('FM 音乐'),
+                description: const Text('全源音乐聚合播放器 v1.0.0'),
+              ),
+            ],
+          ),
+        ],
+    };
+
+    return Scaffold(
+      // 嵌入宽屏时不显示 AppBar（由外层编排），push 二级页时显示返回栏
+      appBar: widget.embedded ? null : AppBar(title: Text(widget.group.label)),
+      body: SettingsList(sections: sections),
+    );
+  }
+
+  /// 本地音乐：扫描目录输入 + 保存/开始扫描面板
+  Widget _buildScanDirPanel(ScanState scanState, ColorScheme cs, TextTheme tt) {
+    _loadScanDir();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _scanDirController,
+          decoration: const InputDecoration(
+            labelText: '扫描目录',
+            hintText: '如 /music 或 C:\\Music',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.s12),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.tonalIcon(
+                icon: const Icon(Icons.folder_open_rounded),
+                label: const Text('保存路径'),
+                onPressed: () async {
+                  await ref.read(scanProvider.notifier)
+                      .setScanDir(_scanDirController.text.trim());
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('扫描目录已保存')),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: AppSpacing.s12),
+            Expanded(
+              child: FilledButton.icon(
+                icon: scanState.scanning
+                    ? const SizedBox(
+                        width: 16, height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.search_rounded),
+                label: const Text('开始扫描'),
+                onPressed: scanState.scanning
+                    ? null
+                    : () async {
+                        await ref.read(scanProvider.notifier)
+                            .setScanDir(_scanDirController.text.trim());
+                        await ref.read(scanProvider.notifier).scan();
+                      },
+              ),
+            ),
+          ],
+        ),
+        if (scanState.foundCount != null)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.s8),
+            child: Text(
+              '扫描完成：新增 ${scanState.foundCount} 首',
+              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ),
+        if (scanState.error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.s8),
+            child: Text(
+              '错误：${scanState.error}',
+              style: tt.bodySmall?.copyWith(color: cs.error),
+            ),
+          ),
+      ],
     );
   }
 }

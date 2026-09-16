@@ -2,8 +2,10 @@
 ///
 /// 根据播放进度高亮当前歌词行并自动滚动居中。
 /// 颜色用 Theme.colorScheme，间距用 AppSpacing。
+library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/widget_previews.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../providers/providers.dart';
@@ -97,4 +99,55 @@ class _LyricsViewState extends ConsumerState<LyricsView> {
       },
     );
   }
+}
+
+/// Widget 预览：同步歌词（有歌词，当前高亮第 2 行）
+@Preview(name: 'LyricsView 有歌词', group: 'LyricsView')
+Widget lyricsViewPreview() {
+  const lines = [
+    LyricLine(time: Duration(seconds: 0), text: '故事的小黄花'),
+    LyricLine(time: Duration(seconds: 4), text: '从出生那年就飘着'),
+    LyricLine(time: Duration(seconds: 8), text: '童年的荡秋千'),
+    LyricLine(time: Duration(seconds: 12), text: '随记忆一直晃到现在'),
+  ];
+  // 用预置歌词的 Notifier 覆盖 lyricsProvider，避免直接写 state
+  final container = ProviderContainer(overrides: [
+    appDatabaseProvider.overrideWith((ref) => InMemoryDatabaseProvider()),
+    lyricsProvider.overrideWith(
+      () => _PreviewLyricsNotifier(
+        Lyrics(songId: '1', sourceId: 'netease', lines: lines),
+      ),
+    ),
+  ]);
+  container
+      .read(playbackPositionProvider.notifier)
+      .setPosition(const Duration(seconds: 5));
+
+  return UncontrolledProviderScope(
+    container: container,
+    child: const MaterialApp(home: Scaffold(body: LyricsView())),
+  );
+}
+
+/// Widget 预览：无歌词
+@Preview(name: 'LyricsView 无歌词', group: 'LyricsView')
+Widget lyricsViewEmptyPreview() {
+  final container = ProviderContainer(overrides: [
+    appDatabaseProvider.overrideWith((ref) => InMemoryDatabaseProvider()),
+    lyricsProvider.overrideWith(() => _PreviewLyricsNotifier(null)),
+  ]);
+  return UncontrolledProviderScope(
+    container: container,
+    child: const MaterialApp(home: Scaffold(body: LyricsView())),
+  );
+}
+
+/// 预览用歌词 Notifier：build 直接返回固定歌词，不依赖源管理器
+class _PreviewLyricsNotifier extends LyricsNotifier {
+  final Lyrics? _lyrics;
+
+  _PreviewLyricsNotifier(this._lyrics);
+
+  @override
+  Lyrics? build() => _lyrics;
 }

@@ -11,6 +11,8 @@ import '../providers/providers.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/empty_state.dart';
+import '../widgets/playlist_header.dart';
 
 class DiscoverPage extends ConsumerWidget {
   const DiscoverPage({super.key});
@@ -263,15 +265,164 @@ class _DiscoverPlaylistPageState extends ConsumerState<DiscoverPlaylistPage> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.playlist.name)),
-      body: _buildBody(cs, tt),
+    // 窄屏用 SliverAppBar 承担顶部栏（含返回）；宽屏无 SliverAppBar，
+    // 需外层 AppBar 提供返回按钮。
+    return OrientationBuilder(
+      builder: (context, orientation) {
+        final isWide = orientation == Orientation.landscape;
+        return Scaffold(
+          appBar: isWide
+              ? AppBar(title: Text(widget.playlist.name))
+              : null,
+          body: isWide ? _buildWideLayout(cs) : _buildNarrowLayout(cs),
+        );
+      },
     );
   }
 
-  Widget _buildBody(ColorScheme cs, TextTheme tt) {
+  // ==================== 竖屏：可伸缩头部 + 列表 ====================
+
+  Widget _buildNarrowLayout(ColorScheme cs) {
+    return CustomScrollView(
+      slivers: [
+        // 唯一顶部栏（复用公共 PlaylistHeader）
+        SliverAppBar(
+          pinned: true,
+          expandedHeight: 300,
+          title: Text(widget.playlist.name,
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+          flexibleSpace: FlexibleSpaceBar(
+            collapseMode: CollapseMode.parallax,
+            background: Container(
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerLow,
+                border: Border(
+                  bottom: BorderSide(color: cs.outlineVariant, width: 0.5),
+                ),
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.s16),
+                  child: PlaylistHeader(
+                    name: widget.playlist.name,
+                    coverUrl: widget.playlist.coverUrl,
+                    subtitle: _subtitleText(),
+                    onPlayAll: _songs.isEmpty ? null : _playAll,
+                  ).buildFlexibleSpace(context),
+                ),
+              ),
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(child: SizedBox(height: AppSpacing.s8)),
+        if (_loading)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_error != null)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_error!,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(color: cs.error),
+                      textAlign: TextAlign.center),
+                  const SizedBox(height: AppSpacing.s8),
+                  TextButton.icon(
+                    onPressed: _load,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('重新加载'),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (_songs.isEmpty)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: EmptyState(
+              icon: Icons.music_off_rounded,
+              message: '该歌单暂无歌曲',
+            ),
+          )
+        else
+          SliverList.builder(
+            itemCount: _songs.length,
+            itemBuilder: (context, index) => _buildSongRow(index),
+          ),
+      ],
+    );
+  }
+
+  // ==================== 横屏：左侧信息 + 右下列表 ====================
+
+  Widget _buildWideLayout(ColorScheme cs) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 左侧：封面 + 名称/描述（公共组件）
+        SizedBox(
+          width: 280,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.s16),
+            child: PlaylistHeader(
+              name: widget.playlist.name,
+              coverUrl: widget.playlist.coverUrl,
+              subtitle: _subtitleText(),
+            ).buildWideColumn(context),
+          ),
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.s16),
+                child: Row(
+                  children: [
+                    FilledButton.icon(
+                      icon: const Icon(Icons.play_arrow_rounded),
+                      label: const Text('播放全部'),
+                      onPressed: _songs.isEmpty ? null : _playAll,
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(child: _buildSongList(cs)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 头部描述文案：有曲目数用曲目数；否则错误信息 / 加载中
+  String _subtitleText() {
+    if (widget.playlist.songKeys.isNotEmpty) {
+      return '${_songs.length} 首歌曲';
+    }
+    if (_error != null) return _error!;
+    return '正在加载...';
+  }
+
+  /// 播放全部（远程源：逐首请求播放 URL，会触发列表 loading 状态）
+  void _playAll() {
+    if (_songs.isEmpty) return;
+    final player = ref.read(playerProvider);
+    player.setQueue(_songs);
+    player.jumpToIndex(0);
+  }
+
+  Widget _buildSongList(ColorScheme cs) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -281,7 +432,10 @@ class _DiscoverPlaylistPageState extends ConsumerState<DiscoverPlaylistPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!,
-                style: tt.bodyMedium?.copyWith(color: cs.error),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: cs.error),
                 textAlign: TextAlign.center),
             const SizedBox(height: AppSpacing.s8),
             TextButton.icon(
@@ -294,21 +448,22 @@ class _DiscoverPlaylistPageState extends ConsumerState<DiscoverPlaylistPage> {
       );
     }
     if (_songs.isEmpty) {
-      return Center(child: Text('该歌单暂无歌曲', style: tt.bodyMedium));
+      return const EmptyState(
+        icon: Icons.music_off_rounded,
+        message: '该歌单暂无歌曲',
+      );
     }
-
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.s8),
+    return ListView.builder(
       itemCount: _songs.length,
-      separatorBuilder: (_, _) =>
-          const Divider(height: 1, indent: AppSpacing.s64),
-      itemBuilder: (context, index) {
-        final song = _songs[index];
-        return SongTile(
-          song: song,
-          onTap: () => _play(song),
-        );
-      },
+      itemBuilder: (context, index) => _buildSongRow(index),
+    );
+  }
+
+  Widget _buildSongRow(int index) {
+    final song = _songs[index];
+    return SongTile(
+      song: song,
+      onTap: () => _play(song),
     );
   }
 }

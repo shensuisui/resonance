@@ -130,6 +130,8 @@ class _PlaylistListPageState extends ConsumerState<PlaylistListPage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    // 收藏数（「我最喜欢」歌单副标题，动态刷新）
+    final favCount = ref.watch(favoriteCountProvider).value ?? 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -148,16 +150,52 @@ class _PlaylistListPageState extends ConsumerState<PlaylistListPage> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _playlists.isEmpty
-              ? const EmptyState(
-                  icon: Icons.queue_music_rounded,
-                  message: '还没有歌单，点击 + 创建',
-                )
-              : ListView.builder(
-                  itemCount: _playlists.length,
-                  itemBuilder: (context, index) {
-                    final pl = _playlists[index];
-                    return ListTile(
+          : ListView(
+              children: [
+                // 「我最喜欢」特殊歌单：永远第一个，收藏动态驱动
+                ListTile(
+                  key: const ValueKey('favorite'),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.s16,
+                    vertical: AppSpacing.s4,
+                  ),
+                  leading: Container(
+                    width: 48, height: 48,
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer,
+                      borderRadius: BorderRadius.circular(AppRadius.s8),
+                    ),
+                    child: Icon(Icons.favorite_rounded,
+                        color: cs.onPrimaryContainer),
+                  ),
+                  title: Text('我最喜欢', style: tt.bodyLarge),
+                  subtitle: Text('$favCount 首',
+                      style: tt.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      )),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const PlaylistDetailPage(playlistId: 'favorite'),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                // 用户歌单列表
+                if (_playlists.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: AppSpacing.s48),
+                    child: EmptyState(
+                      icon: Icons.queue_music_rounded,
+                      message: '还没有歌单，点击 + 创建',
+                    ),
+                  )
+                else
+                  for (final pl in _playlists)
+                    ListTile(
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.s16,
                         vertical: AppSpacing.s4,
@@ -186,9 +224,9 @@ class _PlaylistListPageState extends ConsumerState<PlaylistListPage> {
                         );
                       },
                       onLongPress: () => _showDeleteDialog(pl),
-                    );
-                  },
-                ),
+                    ),
+              ],
+            ),
     );
   }
 

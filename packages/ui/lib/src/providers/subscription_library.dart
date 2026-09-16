@@ -375,8 +375,16 @@ class SubscriptionLibrary extends _$SubscriptionLibrary {
           _sourceManager.registerSource(source);
           ref.invalidate(sourceListProvider);
           count++;
+        } else {
+          SourceLogBus.instance.emit(
+            'subscription', SourceLogLevel.error, '订阅恢复',
+            '文件转换失败 ${file.path}（type=${sub.type.name}）');
         }
-      } catch (_) {}
+      } catch (e) {
+        SourceLogBus.instance.emit(
+          'subscription', SourceLogLevel.error, '订阅恢复',
+          '恢复源失败 ${file.path}: $e');
+      }
     }
     return count;
   }
@@ -478,10 +486,9 @@ class SubscriptionLibrary extends _$SubscriptionLibrary {
         return items;
 
       case SubscriptionType.mfGroup:
-        final decoded = jsonDecode(raw);
-        if (decoded is! List) throw FormatException('MusicFree 订阅组格式不正确');
+        final entries = parseMfGroupEntries(raw);
         final items = <_ExpandedItem>[];
-        for (final entry in decoded) {
+        for (final entry in entries) {
           if (entry is! Map || entry['url'] is! String) continue;
           final entryUrl = entry['url'] as String;
           final ext = entryUrl.toLowerCase().endsWith('.json')
@@ -497,8 +504,14 @@ class SubscriptionLibrary extends _$SubscriptionLibrary {
             }
             final item = await _expandPluginItem(resp.rawData, ext);
             if (item != null) items.add(item);
-          } catch (_) {
-            // 单条目失败跳过
+          } catch (e) {
+            // 单条目失败跳过，记录原因供排查
+            SourceLogBus.instance.emit(
+              sub.url,
+              SourceLogLevel.error,
+              '订阅展开',
+              'MusicFree 插件条目 $entryUrl 展开失败: $e',
+            );
           }
         }
         return items;
@@ -510,10 +523,32 @@ class SubscriptionLibrary extends _$SubscriptionLibrary {
     }
   }
 
+  /// 解析 MusicFree 插件订阅组内容
+  ///
+  /// 兼容两种实际存在的索引格式：
+  /// 1. 裸 List：[{"name","url"}, ...]
+  /// 2. 带 plugins 键：{"plugins":[...]}（官方 myPlugins.json 即此格式）
+  ///
+  /// 非法内容（JSON 解析失败 / 非 List / 无 plugins 键的 Map）抛 FormatException。
+  static List<dynamic> parseMfGroupEntries(String raw) {
+    final decoded = jsonDecode(raw);
+    if (decoded is List) return decoded;
+    if (decoded is Map && decoded['plugins'] is List) {
+      return decoded['plugins'] as List<dynamic>;
+    }
+    throw const FormatException('MusicFree 订阅组格式不正确');
+  }
+
   /// 展开单个规则内容
   Future<_ExpandedItem?> _expandRuleItem(String raw, String ext) async {
     final config = RuleLoader.loadFromJson(raw);
-    if (config == null) return null;
+    if (config == null) {
+      SourceLogBus.instance.emit(
+        'subscription', SourceLogLevel.error, '规则展开',
+        '规则 JSON 解析失败\n内容前 200 字符: '
+        '${raw.length > 200 ? raw.substring(0, 200) : raw}');
+      return null;
+    }
     final source = RuleBasedMusicSource(config);
     final id = config.source.id;
     return _ExpandedItem(id, '$id$ext', raw, source);
@@ -527,7 +562,13 @@ class SubscriptionLibrary extends _$SubscriptionLibrary {
     } else {
       source = await LxMusicAdapter.tryCreate(raw);
     }
-    if (source == null) return null;
+    if (source == null) {
+      SourceLogBus.instance.emit(
+        'subscription', SourceLogLevel.error, '插件展开',
+        '插件内容创建源失败（ext=$ext）\n内容前 200 字符: '
+        '${raw.length > 200 ? raw.substring(0, 200) : raw}');
+      return null;
+    }
     final id = source.sourceInfo.id;
     return _ExpandedItem(id, '$id$ext', raw, source);
   }
