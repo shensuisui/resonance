@@ -1,5 +1,6 @@
 /// 全屏播放页 —— 封面/歌词 + 进度 + 控制
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -141,18 +142,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   /// 封面 + 标题/歌手（非歌词模式）
   Widget _buildCoverSection(Song song, ColorScheme cs, TextTheme tt) {
     return Expanded(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // 封面等比缩放：剩余高度不足时（矮窗口/小屏）自动缩小，
-          // 避免固定 280px 封面 + 文本超出可用空间溢出
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: _buildCover(song, cs),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.s32),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 封面自适应：取可用宽/高较小者，上限 480（对齐 PixelPlayer 大封面观感）
+          final coverSize = math
+              .min(constraints.maxWidth, constraints.maxHeight - 120)
+              .clamp(200.0, 480.0);
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: _buildCover(song, cs, coverSize),
+              ),
+              const SizedBox(height: AppSpacing.s32),
           // 标题：过长时跑马灯滚动（两端渐变遮罩）
           ScrollableText(
             text: song.title,
@@ -172,13 +174,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               textAlign: TextAlign.center,
             ),
           ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildCover(Song song, ColorScheme cs) {
-    final size = 280.0;
+  Widget _buildCover(Song song, ColorScheme cs, double size) {
     if (song.coverUrl != null && song.coverUrl!.isNotEmpty) {
       return CoverImage(
         url: song.coverUrl,
@@ -245,7 +248,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         // 播放模式
         IconButton(
           icon: Icon(_playModeIcon(playMode)),
-          iconSize: 32,
+          iconSize: 36,
           color: cs.onSurfaceVariant,
           onPressed: () {
             final next = switch (playMode) {
@@ -260,7 +263,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         // 上一曲
         IconButton(
           icon: const Icon(Icons.skip_previous_rounded),
-          iconSize: 48,
+          iconSize: 56,
           onPressed: () => player.previous(),
         ),
         // 播放/暂停（按压缩放 + 触觉反馈）
@@ -275,14 +278,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             }
           },
           child: Container(
-            width: 72, height: 72,
+            width: 80, height: 80,
             decoration: BoxDecoration(
               color: cs.primary,
               shape: BoxShape.circle,
             ),
             child: Icon(
               isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-              size: 36,
+              size: 40,
               color: cs.onPrimary,
             ),
           ),
@@ -290,7 +293,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         // 下一曲
         IconButton(
           icon: const Icon(Icons.skip_next_rounded),
-          iconSize: 48,
+          iconSize: 56,
           onPressed: () => player.next(),
         ),
         // 收藏
@@ -301,7 +304,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 ? Icons.favorite_rounded
                 : Icons.favorite_border_rounded,
           ),
-          iconSize: 32,
+          iconSize: 36,
           color: cs.onSurfaceVariant,
           onPressed: () async {
             final key = songKey;
