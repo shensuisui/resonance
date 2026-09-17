@@ -251,7 +251,18 @@ fm 的 UI 架构（Riverpod + Material 3 + 常量主题 + 响应式导航）方�
 - 新增测试：player_overlay_test（6+4）、wavy_progress_bar_test（4）、lyrics_view_test（4）、queue_sheet_test（3）
 - 验证：ui 包全量 93 测试通过；analyze 无 error/warning。
 
-**阶段二全部完成。** 下一步：阶段三（11 封面缓存 / 12 滑动多选 / 13 空态撤销 / 14 睡眠定时器 / 15 首页化）。
+**阶段二全部完成。**
+
+### 已完成（阶段三）
+
+- **[x] 11 统一封面组件**：`CoverImage`（cached_network_image 缓存 + ShimmerBox 骨架 + 音符占位）替换全部封面 Image.network（song_tile/mini_player/player_page/discover 卡片/playlist_header）；新增测试假 PathProvider。
+- **[x] 12 列表滑动 + 多选**：SongTile onLongPress；搜索页长按多选（计数 + 批量加入歌单/下载），左滑快速「加入歌单」（confirmDismiss 弹回）。
+- **[x] 13 空态 + 撤销**：EmptyState 插画层 + 主操作按钮（歌单空态加「新建歌单」）；歌单移出/删除 SnackBar 撤销。
+- **[x] 14 睡眠定时器**：SleepTimerNotifier（15/30/60/90 分钟倒计时，到点暂停）；播放页菜单显示剩余时间。
+- **[x] 15 发现页首页化**：最近播放横滑区 + 音乐源管理快捷入口 + 推荐歌单网格（CustomScrollView）；tab 收敛未做（产品决策另议）。
+- 验证：ui 包全量 106 测试通过；analyze 无 error/warning。
+
+**阶段三全部完成。** 本期 UI 改进（阶段一~三）已全部落地。
 
 ### 待做（阶段一）
 

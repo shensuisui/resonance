@@ -12,6 +12,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/empty_state.dart';
+import 'source_management_page.dart';
 import '../widgets/playlist_header.dart';
 import '../widgets/cover_palette.dart';
 import '../widgets/pressable_scale.dart';
@@ -28,73 +29,146 @@ class DiscoverPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('发现')),
-      body: RefreshIndicator(
-        onRefresh: () => ref.read(discoverProvider.notifier).load(),
-        child: _buildBody(context, state, cs, tt),
-      ),
+      body: _buildBody(
+          ref, context, state, cs, tt, ref.watch(recentPlaysProvider)),
     );
   }
 
-  Widget _buildBody(BuildContext context, DiscoverState state,
-      ColorScheme cs, TextTheme tt) {
+  Widget _buildBody(WidgetRef ref, BuildContext context, DiscoverState state,
+      ColorScheme cs, TextTheme tt, List<Song> recentSongs) {
     if (state.loading && state.playlists.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (state.playlists.isEmpty) {
-      return LayoutBuilder(
-        builder: (context, constraints) => ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            SizedBox(
-              height: constraints.maxHeight,
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.explore_rounded,
-                        size: 64, color: cs.onSurfaceVariant),
-                    const SizedBox(height: AppSpacing.s16),
-                    Text('暂无推荐歌单', style: tt.titleMedium),
-                    if (state.error != null)
-                      Padding(
-                        padding: const EdgeInsets.all(AppSpacing.s16),
-                        child: Text(state.error!,
-                            style: tt.bodySmall
-                                ?.copyWith(color: cs.onSurfaceVariant),
-                            textAlign: TextAlign.center,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                    const SizedBox(height: AppSpacing.s8),
-                    Text('下拉刷新', style: tt.bodySmall
-                        ?.copyWith(color: cs.onSurfaceVariant)),
-                  ],
+    return RefreshIndicator(
+      onRefresh: () => ref.read(discoverProvider.notifier).load(),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          // 首页化：最近播放横滑区
+          if (recentSongs.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _buildRecentSection(ref, recentSongs, cs, tt),
+            ),
+          // 首页化：快捷入口（源管理）
+          if (!state.loading)
+            SliverToBoxAdapter(
+              child: _buildQuickActions(context, cs, tt),
+            ),
+          // 推荐歌单
+          if (state.playlists.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _buildEmpty(cs, tt, state.error),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.all(AppSpacing.s16),
+              sliver: SliverGrid(
+                gridDelegate:
+                    const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 180,
+                  mainAxisSpacing: AppSpacing.s16,
+                  crossAxisSpacing: AppSpacing.s16,
+                  childAspectRatio: 0.72,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final playlist = state.playlists[index];
+                    return _PlaylistCard(
+                      playlist: playlist,
+                      onTap: () => _openDetail(context, playlist),
+                    );
+                  },
+                  childCount: state.playlists.length,
                 ),
               ),
             ),
-          ],
-        ),
-      );
-    }
-
-    return GridView.builder(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(AppSpacing.s16),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 180,
-        mainAxisSpacing: AppSpacing.s16,
-        crossAxisSpacing: AppSpacing.s16,
-        childAspectRatio: 0.72,
+        ],
       ),
-      itemCount: state.playlists.length,
-      itemBuilder: (context, index) {
-        final playlist = state.playlists[index];
-        return _PlaylistCard(
-          playlist: playlist,
-          onTap: () => _openDetail(context, playlist),
-        );
-      },
+    );
+  }
+
+  /// 推荐歌单空态
+  Widget _buildEmpty(ColorScheme cs, TextTheme tt, String? error) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.explore_rounded, size: 64, color: cs.onSurfaceVariant),
+          const SizedBox(height: AppSpacing.s16),
+          Text('暂无推荐歌单', style: tt.titleMedium),
+          if (error != null)
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.s16),
+              child: Text(error,
+                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis),
+            ),
+          const SizedBox(height: AppSpacing.s8),
+          Text('下拉刷新',
+              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+        ],
+      ),
+    );
+  }
+
+  /// 最近播放横滑区（最多 10 首）
+  Widget _buildRecentSection(
+      WidgetRef ref, List<Song> songs, ColorScheme cs, TextTheme tt) {
+    final items = songs.take(10).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.s16, AppSpacing.s16, AppSpacing.s16, AppSpacing.s8),
+          child: Text('最近播放',
+              style: tt.titleSmall?.copyWith(color: cs.primary)),
+        ),
+        SizedBox(
+          height: 118,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.s12),
+            itemBuilder: (context, index) {
+              final song = items[index];
+              return _RecentSongCard(
+                song: song,
+                onTap: () =>
+                    ref.read(playbackControllerProvider.notifier).playSong(song),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 最近播放横滑卡片
+  Widget _buildQuickActions(BuildContext context, ColorScheme cs, TextTheme tt) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppSpacing.s16, AppSpacing.s8, AppSpacing.s16, AppSpacing.s4),
+      child: Row(
+        children: [
+          Expanded(
+            child: _QuickActionCard(
+              icon: Icons.cloud_outlined,
+              label: '音乐源管理',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const SourceManagementPage(),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -172,6 +246,84 @@ class _PlaylistCard extends StatelessWidget {
       color: cs.surfaceContainerHighest,
       child: Icon(Icons.queue_music_rounded,
           size: 40, color: cs.onSurfaceVariant),
+    );
+  }
+}
+/// 最近播放横滑卡片
+class _RecentSongCard extends StatelessWidget {
+  final Song song;
+  final VoidCallback onTap;
+
+  const _RecentSongCard({required this.song, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return SizedBox(
+      width: 72,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.s12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CoverImage(
+              url: song.coverUrl,
+              width: 72,
+              height: 72,
+              radius: AppRadius.s12,
+            ),
+            const SizedBox(height: AppSpacing.s4),
+            Text(song.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: tt.bodySmall),
+            Text(song.artist,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 快捷入口卡片（源管理等）
+class _QuickActionCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickActionCard({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Material(
+      color: cs.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(AppRadius.s12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.s12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.s12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 20, color: cs.primary),
+              const SizedBox(width: AppSpacing.s8),
+              Text(label, style: tt.bodyMedium),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
