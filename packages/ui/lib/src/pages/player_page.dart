@@ -71,6 +71,34 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             tooltip: _showLyrics ? '显示封面' : '显示歌词',
             onPressed: () => setState(() => _showLyrics = !_showLyrics),
           ),
+          // 睡眠定时器
+          PopupMenuButton<String>(
+            tooltip: '睡眠定时器',
+            onSelected: (value) {
+              final notifier = ref.read(sleepTimerProvider.notifier);
+              switch (value) {
+                case '15':
+                  notifier.start(const Duration(minutes: 15));
+                case '30':
+                  notifier.start(const Duration(minutes: 30));
+                case '60':
+                  notifier.start(const Duration(minutes: 60));
+                case '90':
+                  notifier.start(const Duration(minutes: 90));
+                case 'cancel':
+                  notifier.cancel();
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: '15', child: Text('15 分钟')),
+              PopupMenuItem(value: '30', child: Text('30 分钟')),
+              PopupMenuItem(value: '60', child: Text('60 分钟')),
+              PopupMenuItem(value: '90', child: Text('90 分钟')),
+              PopupMenuDivider(),
+              PopupMenuItem(value: 'cancel', child: Text('关闭')),
+            ],
+            child: _buildSleepTimerButton(),
+          ),
         ],
       ),
       body: song == null
@@ -280,6 +308,35 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           },
         ),
       ],
+    );
+  }
+
+
+  /// 睡眠定时器按钮：关闭时显示图标，倒计时中显示剩余时间
+  Widget _buildSleepTimerButton() {
+    final cs = Theme.of(context).colorScheme;
+    final remaining = ref.watch(sleepTimerProvider);
+    if (remaining == null) {
+      return const Icon(Icons.bedtime_outlined);
+    }
+    final minutes = remaining.inMinutes;
+    final seconds = remaining.inSeconds % 60;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$minutes:${seconds.toString().padLeft(2, '0')}',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: cs.primary),
+          ),
+          const SizedBox(width: AppSpacing.s4),
+          const Icon(Icons.bedtime_rounded),
+        ],
+      ),
     );
   }
 

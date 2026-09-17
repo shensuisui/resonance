@@ -1153,6 +1153,73 @@ abstract class _$ThemeModeNotifier extends $Notifier<ThemeMode> {
   }
 }
 
+/// 睡眠定时器状态：倒计时剩余时间（null = 关闭）
+///
+/// 到点自动暂停播放（player.pause）；仅内存状态，不持久化。
+
+@ProviderFor(SleepTimerNotifier)
+final sleepTimerProvider = SleepTimerNotifierProvider._();
+
+/// 睡眠定时器状态：倒计时剩余时间（null = 关闭）
+///
+/// 到点自动暂停播放（player.pause）；仅内存状态，不持久化。
+final class SleepTimerNotifierProvider
+    extends $NotifierProvider<SleepTimerNotifier, Duration?> {
+  /// 睡眠定时器状态：倒计时剩余时间（null = 关闭）
+  ///
+  /// 到点自动暂停播放（player.pause）；仅内存状态，不持久化。
+  SleepTimerNotifierProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'sleepTimerProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$sleepTimerNotifierHash();
+
+  @$internal
+  @override
+  SleepTimerNotifier create() => SleepTimerNotifier();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(Duration? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<Duration?>(value),
+    );
+  }
+}
+
+String _$sleepTimerNotifierHash() =>
+    r'e1554c3dfcb6ea680e4fd28882a0385e5fb6b52b';
+
+/// 睡眠定时器状态：倒计时剩余时间（null = 关闭）
+///
+/// 到点自动暂停播放（player.pause）；仅内存状态，不持久化。
+
+abstract class _$SleepTimerNotifier extends $Notifier<Duration?> {
+  Duration? build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<Duration?, Duration?>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<Duration?, Duration?>,
+              Duration?,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
 /// 主题种子色状态（settings key = seed_color，'#RRGGBB' 文本）
 ///
 /// build 先返回默认色，异步加载 settings 后更新；颜色变化驱动

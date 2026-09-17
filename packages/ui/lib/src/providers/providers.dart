@@ -334,6 +334,47 @@ class ThemeModeNotifier extends _$ThemeModeNotifier {
   }
 }
 
+// ==================== 睡眠定时器 ====================
+
+/// 睡眠定时器状态：倒计时剩余时间（null = 关闭）
+///
+/// 到点自动暂停播放（player.pause）；仅内存状态，不持久化。
+@Riverpod(keepAlive: true)
+class SleepTimerNotifier extends _$SleepTimerNotifier {
+  Timer? _timer;
+
+  @override
+  Duration? build() => null;
+
+  /// 启动睡眠定时器（覆盖已有倒计时）
+  void start(Duration duration) {
+    _timer?.cancel();
+    state = duration;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final remain = state;
+      if (remain == null) {
+        _timer?.cancel();
+        return;
+      }
+      final next = remain - const Duration(seconds: 1);
+      if (next <= Duration.zero) {
+        _timer?.cancel();
+        state = null;
+        // 到点暂停播放
+        ref.read(playerProvider).pause();
+      } else {
+        state = next;
+      }
+    });
+  }
+
+  /// 取消睡眠定时器
+  void cancel() {
+    _timer?.cancel();
+    state = null;
+  }
+}
+
 // ==================== 主题外观参数 ====================
 
 /// 主题种子色状态（settings key = seed_color，'#RRGGBB' 文本）
