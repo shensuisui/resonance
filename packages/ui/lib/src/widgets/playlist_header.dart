@@ -194,9 +194,20 @@ class _PlaylistHeaderViewState extends State<PlaylistHeaderView> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis),
                         ],
-                        const SizedBox(height: AppSpacing.s8),
+                        const SizedBox(height: AppSpacing.s12),
+                        // 播放全部（大号按钮，对齐 PixelPlayer 悬浮播放按钮观感）
                         FilledButton.icon(
-                          icon: const Icon(Icons.play_arrow_rounded),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.s20,
+                                vertical: AppSpacing.s12),
+                            textStyle: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          icon: const Icon(Icons.play_arrow_rounded,
+                              size: 26),
                           label: const Text('播放全部'),
                           onPressed: widget.onPlayAll,
                         ),
@@ -281,8 +292,19 @@ class _PlaylistHeaderViewState extends State<PlaylistHeaderView> {
                               overflow: TextOverflow.ellipsis),
                         ],
                         const SizedBox(height: AppSpacing.s16),
+                        // 播放全部（大号按钮）
                         FilledButton.icon(
-                          icon: const Icon(Icons.play_arrow_rounded),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.s20,
+                                vertical: AppSpacing.s12),
+                            textStyle: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          icon: const Icon(Icons.play_arrow_rounded,
+                              size: 26),
                           label: const Text('播放全部'),
                           onPressed: widget.onPlayAll,
                         ),
