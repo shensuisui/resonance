@@ -4,6 +4,7 @@
 /// 颜色用 Theme.colorScheme，间距用 AppSpacing。
 library;
 
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,6 +47,9 @@ class _LyricsViewState extends ConsumerState<LyricsView> {
     final cs = Theme.of(context).colorScheme;
     final lyrics = ref.watch(lyricsProvider);
     final position = ref.watch(playbackPositionProvider);
+    // 当前歌曲封面（歌词背景模糊源）
+    final song = ref.watch(currentSongProvider);
+    final coverUrl = song?.coverUrl;
 
     if (lyrics == null) {
       return Center(
@@ -70,33 +74,62 @@ class _LyricsViewState extends ConsumerState<LyricsView> {
       }
     });
 
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.s48),
-      itemCount: lyrics.lines.length,
-      itemBuilder: (context, index) {
-        final line = lyrics.lines[index];
-        final isCurrent = index == currentIndex;
-        return SizedBox(
-          height: _lineHeight,
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
-              child: Text(
-                line.text.isEmpty ? '♪' : line.text,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: isCurrent ? 18 : 14,
-                  fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
-                  color: isCurrent ? cs.primary : cs.onSurfaceVariant,
-                ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 封面模糊背景（沉浸增强）
+        if (coverUrl != null && coverUrl.isNotEmpty)
+          Positioned.fill(
+            child: ImageFiltered(
+              imageFilter: ui.ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+              child: Image.network(
+                coverUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
           ),
-        );
-      },
+        // 表面色半透明罩：让主题色透出，保证文字对比度
+        Positioned.fill(
+          child: Container(color: cs.surface.withValues(alpha: 0.6)),
+        ),
+        // 歌词列表
+        ListView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.s48),
+          itemCount: lyrics.lines.length,
+          itemBuilder: (context, index) {
+            final line = lyrics.lines[index];
+            final isCurrent = index == currentIndex;
+            return SizedBox(
+              height: _lineHeight,
+              child: Center(
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
+                  child: AnimatedDefaultTextStyle(
+                    // 当前行字号/字重/颜色平滑过渡
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    style: TextStyle(
+                      fontSize: isCurrent ? 18 : 14,
+                      fontWeight:
+                          isCurrent ? FontWeight.w600 : FontWeight.normal,
+                      color: isCurrent ? cs.primary : cs.onSurfaceVariant,
+                    ),
+                    child: Text(
+                      line.text.isEmpty ? '♪' : line.text,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
