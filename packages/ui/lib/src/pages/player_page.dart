@@ -12,8 +12,8 @@ import '../widgets/cover_background.dart';
 import '../widgets/pressable_scale.dart';
 import '../widgets/scrollable_text.dart';
 import '../widgets/wavy_progress_bar.dart';
+import '../widgets/queue_sheet.dart';
 import 'artist_page.dart';
-import 'queue_page.dart';
 
 class PlayerPage extends ConsumerStatefulWidget {
   /// 嵌入模式（PlayerOverlay 全屏面板）：leading 下拉按钮收起覆盖层
@@ -56,13 +56,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               : () => Navigator.pop(context),
         ),
         actions: [
-          // 播放队列
+          // 播放队列（底部 Sheet：排序/删除/撤销）
           IconButton(
             icon: const Icon(Icons.queue_music_rounded),
             tooltip: '播放队列',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const QueuePage()),
-            ),
+            onPressed: () => showQueueSheet(context),
           ),
           // 封面/歌词切换
           IconButton(
