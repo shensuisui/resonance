@@ -393,6 +393,64 @@ class CornerRadiusNotifier extends _$CornerRadiusNotifier {
   }
 }
 
+// ==================== 播放器覆盖层（迷你条/全屏 Sheet） ====================
+
+/// 播放器覆盖层展开状态
+enum PlayerOverlayState { hidden, mini, expanded }
+
+/// 展开/收起拖动阈值（px）：上拉超过该值松手后展开全屏
+const double kPlayerOverlayExpandThreshold = 120;
+
+/// 播放器覆盖层状态机（M1：状态与 provider）
+///
+/// 与 [playerProvider] 完全解耦（只读其状态）：负责迷你条 ↔ 全屏
+/// 播放器的展开/收起/拖动偏移。UI 由 AppShell 顶层 PlayerOverlay 消费。
+/// 拖动偏移不落入 state（避免与目标状态耦合），用 notifyListeners 驱动重建。
+@Riverpod(keepAlive: true)
+class PlayerOverlayNotifier extends _$PlayerOverlayNotifier {
+  @override
+  PlayerOverlayState build() => PlayerOverlayState.mini;
+
+  /// 拖动中的偏移（px）：mini 时向上为负（展开预览）、向下为正（下拉）
+  double _dragOffset = 0;
+
+  /// 当前拖动偏移（px）
+  double get dragOffset => _dragOffset;
+
+  /// 更新拖动偏移（M2 手势回调），触发重建
+  void setDragOffset(double offset) {
+    _dragOffset = offset;
+    ref.notifyListeners();
+  }
+
+  /// 展开为全屏播放器
+  void expand() {
+    _dragOffset = 0;
+    state = PlayerOverlayState.expanded;
+  }
+
+  /// 收起为迷你条
+  void collapse() {
+    _dragOffset = 0;
+    state = PlayerOverlayState.mini;
+  }
+
+  /// 隐藏（无歌曲播放时不显示迷你条）
+  void hide() {
+    _dragOffset = 0;
+    state = PlayerOverlayState.hidden;
+  }
+
+  /// 拖动结束：按偏移距离决定展开或收起（M2 松手调用）
+  void settle() {
+    if (_dragOffset < -kPlayerOverlayExpandThreshold) {
+      expand();
+    } else {
+      collapse();
+    }
+  }
+}
+
 // ==================== 搜索状态 ====================
 
 /// 搜索结果的单个来源分组

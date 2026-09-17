@@ -1290,6 +1290,81 @@ abstract class _$CornerRadiusNotifier extends $Notifier<int> {
   }
 }
 
+/// 播放器覆盖层状态机（M1：状态与 provider）
+///
+/// 与 [playerProvider] 完全解耦（只读其状态）：负责迷你条 ↔ 全屏
+/// 播放器的展开/收起/拖动偏移。UI 由 AppShell 顶层 PlayerOverlay 消费。
+/// 拖动偏移不落入 state（避免与目标状态耦合），用 notifyListeners 驱动重建。
+
+@ProviderFor(PlayerOverlayNotifier)
+final playerOverlayProvider = PlayerOverlayNotifierProvider._();
+
+/// 播放器覆盖层状态机（M1：状态与 provider）
+///
+/// 与 [playerProvider] 完全解耦（只读其状态）：负责迷你条 ↔ 全屏
+/// 播放器的展开/收起/拖动偏移。UI 由 AppShell 顶层 PlayerOverlay 消费。
+/// 拖动偏移不落入 state（避免与目标状态耦合），用 notifyListeners 驱动重建。
+final class PlayerOverlayNotifierProvider
+    extends $NotifierProvider<PlayerOverlayNotifier, PlayerOverlayState> {
+  /// 播放器覆盖层状态机（M1：状态与 provider）
+  ///
+  /// 与 [playerProvider] 完全解耦（只读其状态）：负责迷你条 ↔ 全屏
+  /// 播放器的展开/收起/拖动偏移。UI 由 AppShell 顶层 PlayerOverlay 消费。
+  /// 拖动偏移不落入 state（避免与目标状态耦合），用 notifyListeners 驱动重建。
+  PlayerOverlayNotifierProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'playerOverlayProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$playerOverlayNotifierHash();
+
+  @$internal
+  @override
+  PlayerOverlayNotifier create() => PlayerOverlayNotifier();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(PlayerOverlayState value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<PlayerOverlayState>(value),
+    );
+  }
+}
+
+String _$playerOverlayNotifierHash() =>
+    r'e7438dde69a28472118ad1213268f2fb998b7856';
+
+/// 播放器覆盖层状态机（M1：状态与 provider）
+///
+/// 与 [playerProvider] 完全解耦（只读其状态）：负责迷你条 ↔ 全屏
+/// 播放器的展开/收起/拖动偏移。UI 由 AppShell 顶层 PlayerOverlay 消费。
+/// 拖动偏移不落入 state（避免与目标状态耦合），用 notifyListeners 驱动重建。
+
+abstract class _$PlayerOverlayNotifier extends $Notifier<PlayerOverlayState> {
+  PlayerOverlayState build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<PlayerOverlayState, PlayerOverlayState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<PlayerOverlayState, PlayerOverlayState>,
+              PlayerOverlayState,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
 /// 搜索历史（持久化，新→旧，去重移顶，上限 [SearchHistory._maxEntries]）
 
 @ProviderFor(SearchHistory)
