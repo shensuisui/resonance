@@ -17,7 +17,10 @@ import 'cover_background.dart';
 import 'scrollable_text.dart';
 
 class MiniPlayer extends ConsumerWidget {
-  const MiniPlayer({super.key});
+  /// 点击回调（null 时默认 push 全屏播放页；PlayerOverlay 传入展开回调接管）
+  final VoidCallback? onTap;
+
+  const MiniPlayer({super.key, this.onTap});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -46,11 +49,12 @@ class MiniPlayer extends ConsumerWidget {
           child: Material(
             type: MaterialType.transparency,
             child: InkWell(
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const PlayerPage()),
-                );
-              },
+              onTap: onTap ??
+                  () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const PlayerPage()),
+                    );
+                  },
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.s12,

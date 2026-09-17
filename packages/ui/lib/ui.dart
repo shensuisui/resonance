@@ -24,6 +24,7 @@ export 'src/widgets/color_picker_dialog.dart';
 export 'src/widgets/cover_background.dart';
 export 'src/widgets/pressable_scale.dart';
 export 'src/widgets/scrollable_text.dart';
+export 'src/widgets/player_overlay.dart';
 
 // 页面
 export 'src/pages/app_shell.dart';

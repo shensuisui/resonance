@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
-import '../widgets/mini_player.dart';
+import '../widgets/player_overlay.dart';
 import 'search_page.dart';
 import 'recent_plays_page.dart';
 import 'playlist_list_page.dart';
@@ -88,51 +88,55 @@ class _AppShellState extends ConsumerState<AppShell> {
     return OrientationBuilder(
       builder: (context, orientation) {
         final isWide = orientation == Orientation.landscape;
-        if (isWide) {
-          return Row(
-            children: [
-              NavigationRail(
-                selectedIndex: _currentIndex,
-                onDestinationSelected: (i) =>
-                    setState(() => _currentIndex = i),
-                labelType: NavigationRailLabelType.all,
-                destinations: _railDestinations,
-              ),
-              const VerticalDivider(width: 1),
-              Expanded(
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: IndexedStack(
-                        index: _currentIndex,
-                        children: _pages,
-                      ),
+        // 迷你条停靠位置：竖屏在底部导航上方，横屏贴底
+        final navH = Theme.of(context).navigationBarTheme.height ?? 80;
+        final bottomInset = MediaQuery.paddingOf(context).bottom;
+        final miniBarBottom = isWide ? 0.0 : navH + bottomInset;
+
+        final main = isWide
+            ? Row(
+                children: [
+                  NavigationRail(
+                    selectedIndex: _currentIndex,
+                    onDestinationSelected: (i) =>
+                        setState(() => _currentIndex = i),
+                    labelType: NavigationRailLabelType.all,
+                    destinations: _railDestinations,
+                  ),
+                  const VerticalDivider(width: 1),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: IndexedStack(
+                            index: _currentIndex,
+                            children: _pages,
+                          ),
+                        ),
+                      ],
                     ),
-                    // 迷你播放器固定在内容底部（与窄屏一致）
-                    const MiniPlayer(),
-                  ],
+                  ),
+                ],
+              )
+            : Scaffold(
+                body: IndexedStack(
+                  index: _currentIndex,
+                  children: _pages,
                 ),
-              ),
-            ],
-          );
-        }
-        return Scaffold(
-          body: IndexedStack(
-            index: _currentIndex,
-            children: _pages,
-          ),
-          bottomNavigationBar: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const MiniPlayer(),
-              NavigationBar(
-                selectedIndex: _currentIndex,
-                onDestinationSelected: (i) =>
-                    setState(() => _currentIndex = i),
-                destinations: _barDestinations,
-              ),
-            ],
-          ),
+                bottomNavigationBar: NavigationBar(
+                  selectedIndex: _currentIndex,
+                  onDestinationSelected: (i) =>
+                      setState(() => _currentIndex = i),
+                  destinations: _barDestinations,
+                ),
+              );
+
+        // 主界面 + 播放器覆盖层（迷你条/全屏播放器拖动切换）
+        return Stack(
+          children: [
+            Positioned.fill(child: main),
+            PlayerOverlay(miniBarBottom: miniBarBottom),
+          ],
         );
       },
     );

@@ -15,7 +15,13 @@ import 'artist_page.dart';
 import 'queue_page.dart';
 
 class PlayerPage extends ConsumerStatefulWidget {
-  const PlayerPage({super.key});
+  /// 嵌入模式（PlayerOverlay 全屏面板）：leading 下拉按钮收起覆盖层
+  final bool embedded;
+
+  /// 嵌入模式下的收起回调（null 时下拉按钮无操作）
+  final VoidCallback? onCollapse;
+
+  const PlayerPage({super.key, this.embedded = false, this.onCollapse});
 
   @override
   ConsumerState<PlayerPage> createState() => _PlayerPageState();
@@ -44,7 +50,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         title: Text(_showLyrics ? '歌词' : song?.title ?? '正在播放'),
         leading: IconButton(
           icon: const Icon(Icons.keyboard_arrow_down_rounded),
-          onPressed: () => Navigator.pop(context),
+          onPressed: widget.embedded
+              ? (widget.onCollapse ?? () {})
+              : () => Navigator.pop(context),
         ),
         actions: [
           // 播放队列
