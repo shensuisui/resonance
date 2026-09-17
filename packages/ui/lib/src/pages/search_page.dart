@@ -1,5 +1,6 @@
 /// 搜索页 —— 跨源聚合搜索
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
@@ -21,6 +22,33 @@ class SearchPage extends ConsumerStatefulWidget {
 
 class _SearchPageState extends ConsumerState<SearchPage> {
   final _controller = TextEditingController();
+
+  /// 多选模式：已选歌曲全局键
+  final Set<String> _selected = {};
+
+  /// 是否处于多选模式
+  bool get _selectionMode => _selected.isNotEmpty;
+
+  /// 多选模式下切换勾选；非多选时按语义走 onTap 外层逻辑
+  void _toggleSelect(Song song) {
+    setState(() {
+      if (!_selected.add(song.globalKey)) {
+        _selected.remove(song.globalKey);
+      }
+    });
+  }
+
+  /// 长按进入多选
+  void _onLongPress(Song song) {
+    setState(() => _selected.add(song.globalKey));
+  }
+
+  /// 清空多选
+  void _clearSelection() => setState(_selected.clear);
+
+  /// 已选歌曲集合（按当前全部结果顺序）
+  List<Song> _selectedSongs(List<Song> all) =>
+      all.where((s) => _selected.contains(s.globalKey)).toList();
 
   @override
   void dispose() {
@@ -47,8 +75,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     }
   }
 
-  /// 将歌曲加入歌单
-  Future<void> _addToPlaylist(Song song) async {
+  /// 弹出歌单选择器，返回选中的歌单（无歌单/取消返回 null）
+  Future<Playlist?> _pickPlaylist() async {
     final dao = ref.read(playlistDaoProvider);
     final playlists = await dao.getAllPlaylists();
 
@@ -58,10 +86,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           const SnackBar(content: Text('还没有歌单，请先在歌单页创建')),
         );
       }
-      return;
+      return null;
     }
 
-    // 弹出歌单选择器
     final selected = await showModalBottomSheet<String>(
       context: context,
       builder: (context) {
@@ -72,7 +99,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             children: [
               Padding(
                 padding: const EdgeInsets.all(AppSpacing.s16),
-                child: Text('加入歌单', style: Theme.of(context).textTheme.titleMedium),
+                child: Text('加入歌单',
+                    style: Theme.of(context).textTheme.titleMedium),
               ),
               const Divider(height: 1),
               Flexible(
@@ -81,15 +109,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   itemCount: playlists.length,
                   itemBuilder: (context, index) {
                     final pl = playlists[index];
-                    final alreadyHas = pl.songKeys.contains(song.globalKey);
                     return ListTile(
                       leading: Icon(Icons.queue_music_rounded,
                           color: cs.onSurfaceVariant),
                       title: Text(pl.name),
                       subtitle: Text('${pl.songKeys.length} 首'),
-                      trailing: alreadyHas
-                          ? Icon(Icons.check_rounded, color: cs.primary)
-                          : null,
                       onTap: () => Navigator.pop(context, pl.id),
                     );
                   },
@@ -101,10 +125,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       },
     );
 
-    if (selected == null) return;
-    final pl = playlists.firstWhere((p) => p.id == selected);
-    final alreadyHas = pl.songKeys.contains(song.globalKey);
+    if (selected == null) return null;
+    return playlists.firstWhere((p) => p.id == selected);
+  }
 
+  /// 将歌曲写入歌单（去重），返回是否已在歌单中
+  Future<bool> _addSongToPlaylist(Song song, Playlist pl) async {
+    final dao = ref.read(playlistDaoProvider);
+    final alreadyHas = pl.songKeys.contains(song.globalKey);
     if (!alreadyHas) {
       // 写入歌曲快照：规则源详情不返回元数据，快照保证歌单列表/详情有名字
       final newSnapshots = Map<String, Song>.from(pl.songSnapshots)
@@ -116,7 +144,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ),
       );
     }
+    return alreadyHas;
+  }
 
+  /// 将歌曲加入歌单
+  Future<void> _addToPlaylist(Song song) async {
+    final pl = await _pickPlaylist();
+    if (pl == null) return;
+    final alreadyHas = await _addSongToPlaylist(song, pl);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -124,6 +159,46 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               ? '已在该歌单中'
               : '已加入「${pl.name}」'),
         ),
+      );
+    }
+  }
+
+  /// 批量：已选歌曲加入歌单
+  Future<void> _addSelectedToPlaylist(List<Song> all) async {
+    final songs = _selectedSongs(all);
+    if (songs.isEmpty) return;
+    final pl = await _pickPlaylist();
+    if (pl == null) return;
+    var added = 0;
+    for (final s in songs) {
+      if (!await _addSongToPlaylist(s, pl)) added++;
+    }
+    _clearSelection();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已加入 $added 首到「${pl.name}」')),
+      );
+    }
+  }
+
+  /// 批量：已选歌曲下载
+  Future<void> _downloadSelected(List<Song> all) async {
+    final songs = _selectedSongs(all);
+    if (songs.isEmpty) return;
+    final manager = ref.read(downloadManagerProvider);
+    var ok = 0;
+    for (final s in songs) {
+      try {
+        await manager.download(s);
+        ok++;
+      } catch (_) {
+        // 单曲失败不影响批量继续
+      }
+    }
+    _clearSelection();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已下载 $ok/${songs.length} 首')),
       );
     }
   }
@@ -264,33 +339,54 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     return DefaultTabController(
       length: state.groups.length + 1,
       child: Scaffold(
-        appBar: AppBar(
-          title: TextField(
-            controller: _controller,
-            decoration: const InputDecoration(
-              hintText: '搜索歌曲、歌手',
-              border: InputBorder.none,
-            ),
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => _onSearch(),
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.search_rounded),
-              onPressed: _onSearch,
-            ),
-          ],
-          bottom: showTabs
-              ? TabBar(
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  tabs: [
-                    const Tab(text: '全部'),
-                    ...state.groups.map((g) => Tab(text: g.sourceName)),
-                  ],
-                )
-              : null,
-        ),
+        appBar: _selectionMode
+            ? AppBar(
+                leading: IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  tooltip: '退出多选',
+                  onPressed: _clearSelection,
+                ),
+                title: Text('已选 ${_selected.length} 首'),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.playlist_add_rounded),
+                    tooltip: '批量加入歌单',
+                    onPressed: () => _addSelectedToPlaylist(state.allResults),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.download_rounded),
+                    tooltip: '批量下载',
+                    onPressed: () => _downloadSelected(state.allResults),
+                  ),
+                ],
+              )
+            : AppBar(
+                title: TextField(
+                  controller: _controller,
+                  decoration: const InputDecoration(
+                    hintText: '搜索歌曲、歌手',
+                    border: InputBorder.none,
+                  ),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _onSearch(),
+                ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.search_rounded),
+                    onPressed: _onSearch,
+                  ),
+                ],
+                bottom: showTabs
+                    ? TabBar(
+                        isScrollable: true,
+                        tabAlignment: TabAlignment.start,
+                        tabs: [
+                          const Tab(text: '全部'),
+                          ...state.groups.map((g) => Tab(text: g.sourceName)),
+                        ],
+                      )
+                    : null,
+              ),
         body: state.loading
             ? const Center(child: CircularProgressIndicator())
             : state.keyword.isEmpty
@@ -312,29 +408,64 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   /// 歌单曲目列表（搜索结果通用渲染）
   Widget _buildSongList(BuildContext context, List<Song> songs) {
+    final cs = Theme.of(context).colorScheme;
     return ListView.builder(
       itemCount: songs.length,
       itemBuilder: (context, index) {
         final song = songs[index];
-        return SongTile(
+        final selected = _selected.contains(song.globalKey);
+
+        final tile = SongTile(
           song: song,
-          onTap: () => _onPlaySong(song),
-          onArtistTap: (artist) => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ArtistPage(artistName: artist),
-            ),
+          onTap: _selectionMode
+              ? () => _toggleSelect(song)
+              : () => _onPlaySong(song),
+          onLongPress: () => _onLongPress(song),
+          onArtistTap: _selectionMode
+              ? null
+              : (artist) => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ArtistPage(artistName: artist),
+                    ),
+                  ),
+          trailing: _selectionMode
+              // 多选：勾选指示
+              ? Icon(
+                  selected
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  color: selected ? cs.primary : cs.onSurfaceVariant,
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DownloadButton(song: song),
+                    IconButton(
+                      icon: const Icon(Icons.playlist_add_rounded),
+                      tooltip: '加入歌单',
+                      onPressed: () => _addToPlaylist(song),
+                    ),
+                  ],
+                ),
+        );
+
+        // 非多选：左滑快速「加入歌单」（弹回列表项，仅触发动作）
+        if (_selectionMode) return tile;
+        return Dismissible(
+          key: ValueKey('search_dismiss_${song.globalKey}'),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            color: cs.primaryContainer,
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: AppSpacing.s24),
+            child: Icon(Icons.playlist_add_rounded,
+                color: cs.onPrimaryContainer),
           ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DownloadButton(song: song),
-              IconButton(
-                icon: const Icon(Icons.playlist_add_rounded),
-                tooltip: '加入歌单',
-                onPressed: () => _addToPlaylist(song),
-              ),
-            ],
-          ),
+          confirmDismiss: (_) {
+            unawaited(_addToPlaylist(song));
+            return Future.value(false);
+          },
+          child: tile,
         );
       },
     );

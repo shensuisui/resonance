@@ -20,6 +20,10 @@ import 'cover_image.dart';
 class SongTile extends ConsumerWidget {
   final Song song;
   final VoidCallback? onTap;
+
+  /// 长按回调（进入多选模式等）
+  final VoidCallback? onLongPress;
+
   final Widget? trailing;
 
   /// 歌手名点击回调（传入歌手名），null 则不可点
@@ -29,6 +33,7 @@ class SongTile extends ConsumerWidget {
     super.key,
     required this.song,
     this.onTap,
+    this.onLongPress,
     this.trailing,
     this.onArtistTap,
   });
@@ -47,6 +52,7 @@ class SongTile extends ConsumerWidget {
 
     return ListTile(
       onTap: onTap,
+      onLongPress: onLongPress,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.s16,
         vertical: AppSpacing.s4,

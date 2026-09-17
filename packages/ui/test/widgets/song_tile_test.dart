@@ -169,6 +169,17 @@ void main() {
       expect(tapped, 1);
     });
 
+    testWidgets('长按触发 onLongPress（多选入口）', (tester) async {
+      var longPressed = 0;
+      await tester.pumpWidget(wrap(SongTile(
+        song: song,
+        onLongPress: () => longPressed++,
+      )));
+
+      await tester.longPress(find.byType(ListTile));
+      expect(longPressed, 1);
+    });
+
     testWidgets('提供 onArtistTap 时点击歌手名回调歌手名', (tester) async {
       String? tappedArtist;
       await tester.pumpWidget(wrap(SongTile(
