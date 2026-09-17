@@ -118,7 +118,7 @@ class _PlayerOverlayState extends ConsumerState<PlayerOverlay>
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: widget.miniBarBottom + (1 - value) * miniH,
+                bottom: widget.miniBarBottom + value * miniH,
                 child: Opacity(
                   opacity: (1 - value).clamp(0.0, 1.0),
                   child: GestureDetector(

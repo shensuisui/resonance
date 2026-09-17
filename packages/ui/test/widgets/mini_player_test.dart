@@ -86,7 +86,7 @@ void main() {
       await pumpMiniPlayer(tester);
 
       // currentSong == null → SizedBox.shrink：无进度条、无按钮、零尺寸
-      expect(find.byType(WavyProgressBar), findsNothing);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
       expect(find.byType(IconButton), findsNothing);
       expect(tester.getSize(find.byType(MiniPlayer)), Size.zero);
     });
@@ -105,16 +105,17 @@ void main() {
         duration: const Duration(seconds: 60),
       );
 
-      // WavyProgressBar（CustomPaint 绘制）渲染存在且无异常
-      expect(find.byType(WavyProgressBar), findsOneWidget);
-      expect(tester.takeException(), isNull);
+      final indicator = tester.widget<LinearProgressIndicator>(
+          find.byType(LinearProgressIndicator));
+      expect(indicator.value, 0.5);
     });
 
     testWidgets('duration 为 0 时进度取 0（除零边界）', (tester) async {
       await pumpMiniPlayer(tester, currentSong: song);
 
-      // duration 为 0 → progress 0：渲染无异常
-      expect(find.byType(WavyProgressBar), findsOneWidget);
+      final indicator = tester.widget<LinearProgressIndicator>(
+          find.byType(LinearProgressIndicator));
+      expect(indicator.value, 0.0);
       expect(tester.takeException(), isNull);
     });
   });

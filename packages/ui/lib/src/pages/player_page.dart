@@ -11,7 +11,6 @@ import '../widgets/lyrics_view.dart';
 import '../widgets/cover_background.dart';
 import '../widgets/pressable_scale.dart';
 import '../widgets/scrollable_text.dart';
-import '../widgets/wavy_progress_bar.dart';
 import '../widgets/queue_sheet.dart';
 import '../widgets/cover_image.dart';
 import 'artist_page.dart';
@@ -56,6 +55,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               ? (widget.onCollapse ?? () {})
               : () => Navigator.pop(context),
         ),
+        // 嵌入全屏面板时隐藏 AppBar 阴影，配合封面渐变背景
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         actions: [
           // 播放队列（底部 Sheet：排序/删除/撤销）
           IconButton(
@@ -103,7 +106,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       ),
       body: song == null
           ? Center(child: Text('暂无播放', style: tt.bodyLarge))
-          : CoverBackground(
+          : SafeArea(
+              // 底部安全区：控制区不贴系统手势条
+              top: false,
+              child: CoverBackground(
               // 播放页沉浸背景：封面主色(顶部淡色) → 表面色(底部)
               coverUrl: song.coverUrl,
               fallback: cs.surface,
@@ -128,6 +134,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 ),
               ),
             ),
+              ),
     );
   }
 
@@ -205,17 +212,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        WavyProgressBar(
+        Slider(
           value: progress.clamp(0.0, 1.0),
-          isPlaying: isPlaying,
-          height: 6,
-          onSeek: (v) {
-            // 拖动/点按结束轻触觉反馈
-            HapticFeedback.selectionClick();
-            final pos =
-                Duration(milliseconds: (v * dur.inMilliseconds).toInt());
+          onChanged: (v) {
+            final pos = Duration(milliseconds: (v * dur.inMilliseconds).toInt());
             ref.read(playerProvider).seek(pos);
           },
+          // 拖动结束轻触觉反馈
+          onChangeEnd: (_) => HapticFeedback.selectionClick(),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),

@@ -16,7 +16,6 @@ import '../pages/player_page.dart';
 import 'cover_background.dart';
 import 'cover_image.dart';
 import 'scrollable_text.dart';
-import 'wavy_progress_bar.dart';
 
 class MiniPlayer extends ConsumerWidget {
   /// 点击回调（null 时默认 push 全屏播放页；PlayerOverlay 传入展开回调接管）
@@ -85,12 +84,10 @@ class MiniPlayer extends ConsumerWidget {
                             ],
                           ),
                           const SizedBox(height: AppSpacing.s4),
-                          WavyProgressBar(
+                          LinearProgressIndicator(
                             value: progress,
-                            isPlaying: isPlaying,
-                            height: 2,
-                            showThumb: false,
-                            trackColor: cs.surfaceContainerHighest,
+                            minHeight: 2,
+                            backgroundColor: cs.surfaceContainerHighest,
                           ),
                         ],
                       ),
