@@ -15,6 +15,7 @@ import 'package:core/core.dart';
 import '../providers/providers.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
+import 'cover_image.dart';
 
 class SongTile extends ConsumerWidget {
   final Song song;
@@ -135,15 +136,11 @@ class SongTile extends ConsumerWidget {
   }
 
   Widget _networkCover(ColorScheme cs) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.s8),
-      child: Image.network(
-        song.coverUrl!,
-        width: 48,
-        height: 48,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _defaultCover(cs),
-      ),
+    return CoverImage(
+      url: song.coverUrl,
+      width: 48,
+      height: 48,
+      radius: AppRadius.s8,
     );
   }
 

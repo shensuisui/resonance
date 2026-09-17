@@ -13,6 +13,7 @@ import '../widgets/pressable_scale.dart';
 import '../widgets/scrollable_text.dart';
 import '../widgets/wavy_progress_bar.dart';
 import '../widgets/queue_sheet.dart';
+import '../widgets/cover_image.dart';
 import 'artist_page.dart';
 
 class PlayerPage extends ConsumerStatefulWidget {
@@ -144,13 +145,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   Widget _buildCover(Song song, ColorScheme cs) {
     final size = 280.0;
     if (song.coverUrl != null && song.coverUrl!.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.s24),
-        child: Image.network(
-          song.coverUrl!,
-          width: size, height: size, fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _defaultCover(cs, size),
-        ),
+      return CoverImage(
+        url: song.coverUrl,
+        width: size,
+        height: size,
+        radius: AppRadius.s24,
       );
     }
     return _defaultCover(cs, size);

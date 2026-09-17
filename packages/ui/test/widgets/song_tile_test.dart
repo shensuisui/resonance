@@ -24,8 +24,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:core/core.dart';
 import 'package:ui/ui.dart';
+import '../support/fake_path_provider.dart';
 
 void main() {
+  setUp(() => setupFakePathProvider());
   /// 用 MaterialApp + ProviderScope 包裹被测 Widget（SongTile 依赖 Theme + provider）
   Widget wrap(Widget child) => ProviderScope(
         child: MaterialApp(home: Scaffold(body: child)),
@@ -78,12 +80,15 @@ void main() {
 
     testWidgets('封面加载失败时回退默认封面', (tester) async {
       // flutter_test 环境拦截所有网络请求（返回 400），
-      // Image.network 触发 errorBuilder → 应显示默认音符封面
+      // CachedNetworkImage 触发 errorWidget → 应显示默认音符封面
       final withCover = song.copyWith(coverUrl: 'https://example.com/c.jpg');
-      await tester.pumpWidget(wrap(SongTile(song: withCover)));
-      await tester.pumpAndSettle();
+      await tester.runAsync(() async {
+        await tester.pumpWidget(wrap(SongTile(song: withCover)));
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        await tester.pump();
+      });
 
-      expect(find.byIcon(Icons.music_note), findsOneWidget);
+      expect(find.byIcon(Icons.music_note_rounded), findsOneWidget);
     });
 
     testWidgets('trailing 组件原样渲染', (tester) async {

@@ -14,6 +14,7 @@ import '../theme/app_radius.dart';
 import '../providers/providers.dart';
 import '../pages/player_page.dart';
 import 'cover_background.dart';
+import 'cover_image.dart';
 import 'scrollable_text.dart';
 import 'wavy_progress_bar.dart';
 
@@ -122,13 +123,11 @@ class MiniPlayer extends ConsumerWidget {
 
   Widget _buildCover(Song song, ColorScheme cs) {
     if (song.coverUrl != null && song.coverUrl!.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.s8),
-        child: Image.network(
-          song.coverUrl!,
-          width: 40, height: 40, fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => _defaultCover(cs),
-        ),
+      return CoverImage(
+        url: song.coverUrl,
+        width: 40,
+        height: 40,
+        radius: AppRadius.s8,
       );
     }
     return _defaultCover(cs);

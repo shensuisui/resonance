@@ -15,6 +15,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/playlist_header.dart';
 import '../widgets/cover_palette.dart';
 import '../widgets/pressable_scale.dart';
+import '../widgets/cover_image.dart';
 
 class DiscoverPage extends ConsumerWidget {
   const DiscoverPage({super.key});
@@ -157,15 +158,10 @@ class _PlaylistCard extends StatelessWidget {
   Widget _buildCover(Playlist playlist, ColorScheme cs) {
     final coverUrl = playlist.coverUrl;
     if (coverUrl != null && coverUrl.isNotEmpty) {
-      return Image.network(
-        coverUrl,
+      return CoverImage(
+        url: coverUrl,
         fit: BoxFit.cover,
-        loadingBuilder: (context, child, progress) {
-          // 加载中显示占位，避免空白
-          if (progress == null) return child;
-          return _defaultCover(cs);
-        },
-        errorBuilder: (_, _, _) => _defaultCover(cs),
+        radius: AppRadius.s12,
       );
     }
     return _defaultCover(cs);

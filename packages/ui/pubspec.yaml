@@ -16,6 +16,7 @@ dependencies:
   path_provider: ^2.1.5
   path: ^1.9.0
   card_settings_ui: ^2.0.1
+  cached_network_image: ^3.4.1
   core:
     path: ../core
   crawler:

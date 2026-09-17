@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import 'cover_palette.dart';
+import 'cover_image.dart';
 
 /// 头部模式
 enum PlaylistHeaderMode {
@@ -323,19 +324,11 @@ class _PlaylistHeaderViewState extends State<PlaylistHeaderView> {
     final url = widget.coverUrl;
     if (url == null || url.isEmpty) return placeholder;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.s16),
-      child: Image.network(
-        url,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, progress) {
-          if (progress == null) return child;
-          return placeholder;
-        },
-        errorBuilder: (_, _, _) => placeholder,
-      ),
+    return CoverImage(
+      url: url,
+      width: size,
+      height: size,
+      radius: AppRadius.s16,
     );
   }
 }
