@@ -11,6 +11,7 @@ import '../widgets/lyrics_view.dart';
 import '../widgets/cover_background.dart';
 import '../widgets/pressable_scale.dart';
 import '../widgets/scrollable_text.dart';
+import '../widgets/wavy_progress_bar.dart';
 import 'artist_page.dart';
 import 'queue_page.dart';
 
@@ -90,7 +91,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                         : _buildCoverSection(song, cs, tt),
                     const SizedBox(height: AppSpacing.s16),
                     // 进度条
-                    _buildProgress(position, duration, progress, cs, ref),
+                    _buildProgress(position, duration, progress, isPlaying, cs, ref),
                     const SizedBox(height: AppSpacing.s16),
                     // 控制按钮
                     _buildControls(isPlaying, playMode, ref, cs,
@@ -169,7 +170,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   }
 
   Widget _buildProgress(Duration pos, Duration dur, double progress,
-      ColorScheme cs, WidgetRef ref) {
+      bool isPlaying, ColorScheme cs, WidgetRef ref) {
     String _fmt(Duration d) {
       final m = d.inMinutes;
       final s = (d.inSeconds % 60).toString().padLeft(2, '0');
@@ -179,14 +180,17 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Slider(
+        WavyProgressBar(
           value: progress.clamp(0.0, 1.0),
-          onChanged: (v) {
-            final pos = Duration(milliseconds: (v * dur.inMilliseconds).toInt());
+          isPlaying: isPlaying,
+          height: 6,
+          onSeek: (v) {
+            // 拖动/点按结束轻触觉反馈
+            HapticFeedback.selectionClick();
+            final pos =
+                Duration(milliseconds: (v * dur.inMilliseconds).toInt());
             ref.read(playerProvider).seek(pos);
           },
-          // 拖动结束轻触觉反馈
-          onChangeEnd: (_) => HapticFeedback.selectionClick(),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),

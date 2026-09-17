@@ -25,6 +25,7 @@ export 'src/widgets/cover_background.dart';
 export 'src/widgets/pressable_scale.dart';
 export 'src/widgets/scrollable_text.dart';
 export 'src/widgets/player_overlay.dart';
+export 'src/widgets/wavy_progress_bar.dart';
 
 // 页面
 export 'src/pages/app_shell.dart';
