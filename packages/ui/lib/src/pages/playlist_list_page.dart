@@ -188,11 +188,16 @@ class _PlaylistListPageState extends ConsumerState<PlaylistListPage> {
                 const Divider(height: 1),
                 // 用户歌单列表
                 if (_playlists.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: AppSpacing.s48),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.s48),
                     child: EmptyState(
                       icon: Icons.queue_music_rounded,
-                      message: '还没有歌单，点击 + 创建',
+                      message: '还没有歌单',
+                      hint: '创建歌单，收藏喜欢的音乐',
+                      actionLabel: '新建歌单',
+                      actionIcon: Icons.add_rounded,
+                      onAction: _createPlaylist,
                     ),
                   )
                 else

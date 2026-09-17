@@ -194,7 +194,21 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     );
     if (confirmed == true) {
       final newKeys = [...pl.songKeys]..removeAt(index);
+      final removedSong = _songs[index];
       await _save(pl.copyWith(songKeys: newKeys));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已移除「${removedSong.title}」'),
+            duration: const Duration(seconds: 2),
+            action: SnackBarAction(
+              label: '撤销',
+              // pl 为移除前的歌单快照，恢复原 songKeys
+              onPressed: () => _save(pl.copyWith(songKeys: pl.songKeys)),
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -253,8 +267,24 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       ),
     );
     if (confirmed == true) {
+      final deleted = pl;
       await ref.read(playlistDaoProvider).deletePlaylist(pl.id);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        final messenger = ScaffoldMessenger.of(context);
+        Navigator.pop(context);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('已删除「${deleted.name}」'),
+            duration: const Duration(seconds: 2),
+            action: SnackBarAction(
+              label: '撤销',
+              onPressed: () {
+                ref.read(playlistDaoProvider).insertPlaylist(deleted);
+              },
+            ),
+          ),
+        );
+      }
     }
   }
 

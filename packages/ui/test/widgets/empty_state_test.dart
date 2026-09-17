@@ -65,5 +65,31 @@ void main() {
 
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('hint 与主操作按钮展示并触发回调', (tester) async {
+      var tapped = 0;
+      await tester.pumpWidget(wrap(EmptyState(
+        icon: Icons.history_rounded,
+        message: '还没有播放记录',
+        hint: '播放过的歌曲会出现在这里',
+        actionLabel: '去搜索',
+        onAction: () => tapped++,
+      )));
+
+      expect(find.text('还没有播放记录'), findsOneWidget);
+      expect(find.text('播放过的歌曲会出现在这里'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '去搜索'), findsOneWidget);
+
+      await tester.tap(find.text('去搜索'));
+      expect(tapped, 1);
+    });
+
+    testWidgets('未提供 onAction 时不显示按钮', (tester) async {
+      await tester.pumpWidget(wrap(const EmptyState(
+        message: '空',
+        actionLabel: '不应出现',
+      )));
+      expect(find.text('不应出现'), findsNothing);
+    });
   });
 }
