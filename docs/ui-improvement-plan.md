@@ -237,7 +237,21 @@ fm 的 UI 架构（Riverpod + Material 3 + 常量主题 + 响应式导航）方�
 - 新增：`packages/ui/lib/src/widgets/color_picker_dialog.dart`、`packages/ui/lib/src/widgets/cover_background.dart`、`packages/ui/lib/src/widgets/pressable_scale.dart`、`packages/ui/lib/src/widgets/scrollable_text.dart`、`packages/ui/test/theme_settings_test.dart`（17 用例）、`packages/ui/test/widgets/cover_background_test.dart`（3 用例）、`packages/ui/test/widgets/pressable_scale_test.dart`（2 用例）、`packages/ui/test/widgets/scrollable_text_test.dart`（2 用例）
 - 验证：ui 包全量 72 测试通过；ui / fm_app analyze 无 error/warning。
 
-**阶段一全部完成。** 下一步：阶段二（播放 Sheet 立项，已确认后置先状态机）。
+**阶段一全部完成。**
+
+### 已完成（阶段二）
+
+- **[x] 6 播放 Sheet**（已立项，M1→M2→M3 推进）：
+  - M1 `PlayerOverlayNotifier` 状态机（hidden/mini/expanded + dragOffset + settle 阈值 120px），与 playerProvider 解耦
+  - M2 `PlayerOverlay` 覆盖层：迷你条↔全屏播放器拖动切换（AnimationController 展开进度 0~1，上滑跟手/松手 settle，迷你条点击展开替代 push），AppShell Stack 挂载（竖屏迷你条停靠导航上方）
+  - M3 接入：封面渐层背景（阶段一 4）、跑马灯（8）、波浪进度条（7）、队列 Sheet（10）
+- **[x] 7 波浪进度条**：`WavyProgressBar` 播放中正弦波浪律动、拖动 thumb 放大、点按/拖动 seek（播放页/迷你条接入）
+- **[x] 9 歌词增强**：封面模糊背景 + 表面色半透明罩 + 当前行 200ms 字号过渡
+- **[x] 10 队列 Sheet**：`QueueSheet` 拖拽排序 + 左滑删除 + SnackBar 撤销（播放页入口改 Sheet）
+- 新增测试：player_overlay_test（6+4）、wavy_progress_bar_test（4）、lyrics_view_test（4）、queue_sheet_test（3）
+- 验证：ui 包全量 93 测试通过；analyze 无 error/warning。
+
+**阶段二全部完成。** 下一步：阶段三（11 封面缓存 / 12 滑动多选 / 13 空态撤销 / 14 睡眠定时器 / 15 首页化）。
 
 ### 待做（阶段一）
 
