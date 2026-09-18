@@ -499,8 +499,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   children: [
                     DownloadButton(song: song),
                     IconButton(
-                      icon: const Icon(Icons.playlist_add_rounded),
+                      // 次要操作：图标缩小并使用次级色，避免与内容抢视觉
+                      icon: Icon(
+                        Icons.playlist_add_rounded,
+                        size: 20,
+                        color: cs.onSurfaceVariant,
+                      ),
                       tooltip: '加入歌单',
+                      visualDensity: VisualDensity.compact,
                       onPressed: () => _addToPlaylist(song),
                     ),
                   ],
