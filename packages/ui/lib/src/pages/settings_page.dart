@@ -352,6 +352,8 @@ class _SettingsGroupDetailPageState
           SettingsSection(
             title: Text('外观', style: tt.titleSmall?.copyWith(color: cs.primary)),
             tiles: [
+              // 子标题：与下方单选卡片分组，避免与分组标题「外观」重复出现同名层级
+              _subHeader(cs, tt, '主题模式'),
               SettingsTile.radioTile(
                 radioValue: ThemeMode.system,
                 groupValue: themeMode,
@@ -373,6 +375,8 @@ class _SettingsGroupDetailPageState
                 leading: const Icon(Icons.dark_mode_rounded),
                 title: const Text('暗色'),
               ),
+              _dividerTile(),
+              _subHeader(cs, tt, '主题色'),
               // 与 SettingsTile 卡片保持同一容器风格（surfaceContainerLow + 圆角）
               CustomSettingsTile(
                 child: (info) => _settingsCard(
@@ -380,6 +384,7 @@ class _SettingsGroupDetailPageState
                   child: _buildSeedColorPicker(cs, tt),
                 ),
               ),
+              _subHeader(cs, tt, '全局圆角'),
               CustomSettingsTile(
                 child: (info) => _settingsCard(
                   cs,
@@ -543,11 +548,39 @@ class _SettingsGroupDetailPageState
     );
   }
 
+  /// 组内分隔线（分隔相邻小节，宽度与卡片一致）
+  CustomSettingsTile _dividerTile() {
+    return CustomSettingsTile(
+      child: (info) => const Padding(
+        padding: EdgeInsets.symmetric(
+            horizontal: AppSpacing.s12 + AppSpacing.s16, vertical: AppSpacing.s8),
+        child: Divider(height: 1),
+      ),
+    );
+  }
+
+  /// 子标题（分组内小节名，左对齐到卡片内容）
+  CustomSettingsTile _subHeader(ColorScheme cs, TextTheme tt, String text) {
+    return CustomSettingsTile(
+      child: (info) => Padding(
+        // 左内边距 = 卡片外边距 s12 + 卡内 padding s16，与卡片内容左对齐
+        padding: const EdgeInsets.only(
+          left: AppSpacing.s12 + AppSpacing.s16,
+          right: AppSpacing.s12,
+          top: AppSpacing.s12,
+          bottom: AppSpacing.s4,
+        ),
+        child: Text(text, style: tt.labelLarge?.copyWith(color: cs.primary)),
+      ),
+    );
+  }
+
   /// 设置项卡片容器（与 card_settings_ui 的 SettingsTile 卡片同风格）
   Widget _settingsCard(ColorScheme cs, {required Widget child}) {
     return Container(
+      // 卡片间距 s8：大于卡内 padding 的视觉分隔，分组更清晰
       margin: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.s12, vertical: AppSpacing.s4),
+          horizontal: AppSpacing.s12, vertical: AppSpacing.s8),
       padding: const EdgeInsets.all(AppSpacing.s16),
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
@@ -565,8 +598,6 @@ class _SettingsGroupDetailPageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('主题色', style: tt.titleSmall?.copyWith(color: cs.primary)),
-        const SizedBox(height: AppSpacing.s16),
         // 色块自适应间距：窄屏（如 444）下缩小间距，避免 6+2 换行时过于松散
         LayoutBuilder(
           builder: (context, cons) {
@@ -647,31 +678,33 @@ class _SettingsGroupDetailPageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('全局圆角', style: tt.titleSmall?.copyWith(color: cs.primary)),
-        const SizedBox(height: AppSpacing.s8),
-        // 滑杆与数值同行：数值紧贴滑杆右端，避免视线来回跳跃
-        Row(
-          children: [
-            Expanded(
-              child: Slider(
-                value: radius.toDouble(),
-                min: kCornerRadiusMin.toDouble(),
-                max: kCornerRadiusMax.toDouble(),
-                divisions: kCornerRadiusMax - kCornerRadiusMin,
-                label: '$radius',
-                onChanged: (v) => ref
-                    .read(cornerRadiusProvider.notifier)
-                    .setCornerRadius(v.round()),
+        // 滑杆 + 数值整体限宽 380：数值紧贴滑杆右端，避免视线来回跳跃
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Row(
+            children: [
+              Expanded(
+                child: Slider(
+                  value: radius.toDouble(),
+                  min: kCornerRadiusMin.toDouble(),
+                  max: kCornerRadiusMax.toDouble(),
+                  divisions: kCornerRadiusMax - kCornerRadiusMin,
+                  label: '$radius',
+                  onChanged: (v) => ref
+                      .read(cornerRadiusProvider.notifier)
+                      .setCornerRadius(v.round()),
+                ),
               ),
-            ),
-            SizedBox(
-              width: 32,
-              child: Text('$radius',
-                  textAlign: TextAlign.center,
-                  style: tt.bodyMedium?.copyWith(
-                      color: cs.onSurface, fontWeight: FontWeight.w600)),
-            ),
-          ],
+              const SizedBox(width: AppSpacing.s8),
+              SizedBox(
+                width: 32,
+                child: Text('$radius',
+                    textAlign: TextAlign.right,
+                    style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurface, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: AppSpacing.s4),
         Text('作用于卡片、对话框、底部弹层',
