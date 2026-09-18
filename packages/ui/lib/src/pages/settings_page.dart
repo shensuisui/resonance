@@ -567,19 +567,36 @@ class _SettingsGroupDetailPageState
       children: [
         Text('主题色', style: tt.titleSmall?.copyWith(color: cs.primary)),
         const SizedBox(height: AppSpacing.s16),
-        Wrap(
-          spacing: AppSpacing.s16,
-          runSpacing: AppSpacing.s16,
-          children: [
-            for (final p in kSeedColorPresets)
-              _seedSwatch(
-                cs,
-                color: p.color,
-                selected: p.color.toARGB32() == current.toARGB32(),
-                onTap: () =>
-                    ref.read(seedColorProvider.notifier).setSeedColor(p.color),
-              ),
-          ],
+        // 色块自适应间距：窄屏（如 444）下缩小间距，避免 6+2 换行时过于松散
+        LayoutBuilder(
+          builder: (context, cons) {
+            const swatch = 44.0;
+            const maxSpacing = 16.0;
+            const minSpacing = 8.0;
+            // 计算一行能放几个（含间距），据此选间距
+            final count = kSeedColorPresets.length;
+            final total = cons.maxWidth;
+            var spacing = maxSpacing;
+            while (spacing > minSpacing &&
+                count * swatch + (count - 1) * spacing > total) {
+              spacing -= 1;
+            }
+            return Wrap(
+              spacing: spacing,
+              runSpacing: AppSpacing.s12,
+              children: [
+                for (final p in kSeedColorPresets)
+                  _seedSwatch(
+                    cs,
+                    color: p.color,
+                    selected: p.color.toARGB32() == current.toARGB32(),
+                    onTap: () => ref
+                        .read(seedColorProvider.notifier)
+                        .setSeedColor(p.color),
+                  ),
+              ],
+            );
+          },
         ),
         const SizedBox(height: AppSpacing.s8),
         TextButton.icon(
