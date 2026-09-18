@@ -144,6 +144,7 @@ class _PlaylistListPageState extends ConsumerState<PlaylistListPage> {
           ),
           IconButton(
             icon: const Icon(Icons.add_rounded),
+            tooltip: '新建歌单',
             onPressed: _createPlaylist,
           ),
         ],

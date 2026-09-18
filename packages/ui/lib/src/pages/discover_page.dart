@@ -62,9 +62,19 @@ class DiscoverPage extends ConsumerWidget {
               hasScrollBody: false,
               child: _buildEmpty(cs, tt, state.error),
             )
-          else
+          else ...[
+            // 小节标题：与「最近播放」「热门推荐」同一层级样式
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.s16,
+                    AppSpacing.s24, AppSpacing.s16, AppSpacing.s8),
+                child: Text('推荐歌单',
+                    style: tt.titleSmall?.copyWith(color: cs.primary)),
+              ),
+            ),
             SliverPadding(
-              padding: const EdgeInsets.all(AppSpacing.s16),
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.s16, 0, AppSpacing.s16, AppSpacing.s16),
               sliver: SliverGrid(
                 gridDelegate:
                     const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -85,6 +95,7 @@ class DiscoverPage extends ConsumerWidget {
                 ),
               ),
             ),
+          ],
         ],
       ),
     );
