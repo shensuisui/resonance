@@ -3,6 +3,7 @@
 /// 显示所有下载任务（下载中/已完成/失败/已取消），
 /// 支持取消、删除缓存。
 /// 颜色用 Theme.colorScheme，间距用 AppSpacing。
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,7 +36,7 @@ class DownloadQueuePage extends ConsumerWidget {
           return ListView.separated(
             padding: const EdgeInsets.all(AppSpacing.s16),
             itemCount: tasks.length,
-            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.s8),
+            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.s8),
             itemBuilder: (context, index) {
               final task = tasks[index];
               return _TaskCard(task: task, manager: manager);
@@ -81,11 +82,15 @@ class _TaskCard extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 主标题：优先展示歌名（来自本地歌曲表快照），失败时回退技术键
+                  _SongTitle(songKey: songKey, fallback: _formatKey(songKey)),
+                  const SizedBox(height: AppSpacing.s2),
                   Text(
                     _formatKey(songKey),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium,
+                    style: theme.textTheme.labelSmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
                   ),
                   const SizedBox(height: AppSpacing.s4),
                   _statusRow(cs, theme),
@@ -121,8 +126,8 @@ class _TaskCard extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(right: AppSpacing.s8),
             child: SizedBox(
-              width: 14,
-              height: 14,
+              width: AppSpacing.s16,
+              height: AppSpacing.s16,
               child: CircularProgressIndicator(
                 value: task.progress > 0 ? task.progress : null,
                 strokeWidth: 2,
@@ -178,10 +183,71 @@ class _TaskCard extends ConsumerWidget {
     }
   }
 
-  /// 格式化 songKey 为可读文本
+    /// 格式化 songKey 为可读文本（技术键，作为副文案）
   String _formatKey(String songKey) {
     final parts = songKey.split(':');
     if (parts.length == 2) return '${parts[1]} (${parts[0]})';
     return songKey;
   }
 }
+
+
+/// 下载任务主标题：按 songKey 查本地歌曲快照，展示歌名 + 歌手
+///
+/// 下载任务的 songKey 形如 "sourceId:id"，直接展示是技术键、用户不可读；
+/// 这里异步查本地歌曲表，查不到时回退传入的 [fallback] 文本。
+class _SongTitle extends ConsumerWidget {
+  final String songKey;
+  final String fallback;
+
+  const _SongTitle({required this.songKey, required this.fallback});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final parts = songKey.split(':');
+    if (parts.length != 2) {
+      return _titleText(theme, fallback, null);
+    }
+    final songAsync = ref.watch(_songByKeyProvider((sourceId: parts[0], id: parts[1])));
+    return songAsync.maybeWhen(
+      data: (song) => song == null
+          ? _titleText(theme, fallback, null)
+          : _titleText(theme, song.title, song.artist),
+      orElse: () => _titleText(theme, fallback, null),
+    );
+  }
+
+  /// 标题（歌名 + 可选歌手）
+  Widget _titleText(ThemeData theme, String title, String? artist) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodyMedium
+              ?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        if (artist != null && artist.isNotEmpty)
+          Text(
+            artist,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+      ],
+    );
+  }
+}
+
+/// 按 (sourceId, id) 查本地歌曲（下载任务标题用，带缓存）
+final _songByKeyProvider =
+    FutureProvider.family<Song?, ({String sourceId, String id})>((ref, key) async {
+  final dao = ref.watch(songDaoProvider);
+  return dao.getSong(key.id, key.sourceId);
+});
+
