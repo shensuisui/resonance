@@ -69,7 +69,10 @@ class EmptyState extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final showAction = actionLabel != null && onAction != null;
+    // 错误态：重试按钮由 onRetry 决定；普通态由 actionLabel + onAction 决定
+    final label = isError ? (onRetry == null ? null : '重试') : actionLabel;
+    final action = isError ? onRetry : onAction;
+    final showAction = label != null && action != null;
     // 错误态副提示展示异常详情；普通态展示 hint
     final subText = isError ? detail : hint;
 
@@ -120,9 +123,11 @@ class EmptyState extends StatelessWidget {
             if (showAction) ...[
               const SizedBox(height: AppSpacing.s20),
               FilledButton.tonalIcon(
-                icon: Icon(actionIcon ?? Icons.arrow_forward_rounded),
-                label: Text(actionLabel!),
-                onPressed: onAction,
+                icon: Icon(isError
+                    ? Icons.refresh_rounded
+                    : (actionIcon ?? Icons.arrow_forward_rounded)),
+                label: Text(label),
+                onPressed: action,
               ),
             ],
           ],
