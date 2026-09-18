@@ -268,10 +268,17 @@ fm 的 UI 架构（Riverpod + Material 3 + 常量主题 + 响应式导航）方�
 
 按 PixelPlayer 对照逐页核对后的统一收口，逐轮真机截图 + 布局扫描回归：
 
-- **[x] 设置页层级**：分组内新增小节标题（主题模式/主题色/全局圆角）与分隔线，消除「外观」重复层级；圆角滑杆整行限宽 380 并右对齐数值。
-- **[x] 歌单列表页卡片化**：ListTile 改为与 SongTile 同款卡片容器（surfaceContainerLow + 圆角 16 + 50 封面位 + 主副标题），「我最喜欢」用 primaryContainer 高亮，与歌曲卡片视觉统一。
-- **[x] 队列 Sheet 卡片化**：抽出 QueueSongRow（卡片 + 序号/EQ + 标题/歌手 + trailing 拖拽手柄），队列 Sheet 与队列页共用，当前播放 primaryContainer 高亮。
-- 验证：ui 包全量 112 测试通过（新增 queue_song_row_test.dart 4 用例）；布局扫描 11/11 通过；analyze 无 error/warning。
+- **[x] 设置页层级**：分组内新增小节标题（主题模式/主题色/全局圆角）与分隔线，消除「外观」重复层级；小节标题缩进对齐卡片内容起点 32、字号统一 titleSmall；圆角滑杆整行限宽 380 并右对齐数值。
+- **[x] 歌单列表页卡片化**：ListTile 改为与 SongTile 同款卡片容器（surfaceContainerLow + 圆角 16 + 50 封面位 + 主副标题），「我最喜欢」用 primaryContainer 高亮。
+- **[x] 队列行统一**：抽出 QueueSongRow（卡片 + 序号/EQ + 标题/歌手 + trailing 拖拽手柄），队列 Sheet 与队列页共用；margin/圆角对齐 SongTile（s16/s16）。
+- **[x] 空态/错误态收口**：EmptyState 新增 error 命名构造（错误图标 + 详情 + 重试），替换 artist/album/queue/download/source_management/source_log/queue_sheet/lyrics 共 8 处手写空态与裸异常错误态；暗色主题圆底自适应、矮屏可滚动不溢出。
+- **[x] 专辑页三态补 AppBar**：加载/错误/空三态此前没有返回按钮，现补常驻 AppBar；头部高度与歌单详情页统一（320/264），宽屏补 RefreshIndicator。
+- **[x] 迷你条可读性**：CoverBackground 改用 Color.alphaBlend 消除半透明穿透（浮层不再透出下层列表）；横屏补底部安全区 inset；播放键补 tooltip；进度 clamp。
+- **[x] 列表底部留白**：recent/search/queue/artist/album/playlist_detail/queue_sheet 统一补偿浮层迷你条遮挡。
+- **[x] 歌词页**：自动滚动改为真正视口居中（并只在行号变化时触发）、空态走 EmptyState、长句放开 2 行、封面走 CoverImage。
+- **[x] 日志页可读性**：警告色硬编码橙（浅色面对比度 ≈2.7:1）改主题 tertiary；去 dense、副文本 2 行、sourceId 胶囊可收缩；空态禁用清空按钮。
+- **[x] 魔法数字收口**：circular(999)→AppRadius.full、circular(20/8/4/2) 与 fontSize 6 全部替换；search 页热门歌单封面 Image.network → CoverImage（带缓存与解码尺寸）。
+- 验证：ui 包全量 117 测试通过（新增 empty_state_extra_test 5 用例）；布局扫描 11/11 通过；analyze 无 error/warning；逐页真机截图核对（设置/歌单/最近/播放/迷你条/歌单详情）。
 
 ### 待做（阶段一）
 

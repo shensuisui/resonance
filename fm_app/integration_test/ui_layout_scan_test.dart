@@ -216,6 +216,47 @@ void main() {
       report(tester, '竖屏/专辑页', find.byType(AlbumPage));
       checkOverflow('竖屏/专辑页');
     });
+
+    testWidgets('歌手页（空态 + 头部对齐）', (tester) async {
+      final container = await pumpApp(tester, size: size);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: ArtistPage(artistName: '不存在的歌手'),
+        ),
+      ));
+      await tester.pump(const Duration(milliseconds: 1200));
+      report(tester, '竖屏/歌手页/AppBar', find.byType(AppBar));
+      report(tester, '竖屏/歌手页/空态', find.byType(EmptyState));
+      checkOverflow('竖屏/歌手页');
+    });
+
+    testWidgets('队列 Sheet（空队列空态）', (tester) async {
+      // 复用 pumpApp 的 container（QueueSheet 依赖 playQueueProvider 等）
+      final container = await pumpApp(tester, size: size);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: QueueSheet())),
+      ));
+      await tester.pump(const Duration(milliseconds: 600));
+      report(tester, '竖屏/队列Sheet/空态', find.byType(EmptyState));
+      checkOverflow('竖屏/队列 Sheet');
+    });
+
+    testWidgets('专辑页空态带 AppBar（三态返回入口回归）', (tester) async {
+      final container = await pumpApp(tester, size: size);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: AlbumPage(albumName: '不存在的专辑', artistName: '不存在的歌手'),
+        ),
+      ));
+      await tester.pump(const Duration(milliseconds: 1200));
+      // 修复点：三态（加载/错误/空）此前没有 AppBar，导致无返回按钮
+      report(tester, '竖屏/专辑页空态/AppBar', find.byType(AppBar));
+      report(tester, '竖屏/专辑页空态/空态组件', find.byType(EmptyState));
+      checkOverflow('竖屏/专辑页空态');
+    });
   });
 
   // ==================== 宽屏 1200x700（NavigationRail） ====================
