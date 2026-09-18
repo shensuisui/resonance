@@ -552,8 +552,8 @@ class _SettingsGroupDetailPageState
   CustomSettingsTile _dividerTile() {
     return CustomSettingsTile(
       child: (info) => const Padding(
-        padding: EdgeInsets.symmetric(
-            horizontal: AppSpacing.s12 + AppSpacing.s16, vertical: AppSpacing.s8),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.s16 + AppSpacing.s16, vertical: AppSpacing.s8),
         child: Divider(height: 1),
       ),
     );
@@ -564,13 +564,15 @@ class _SettingsGroupDetailPageState
     return CustomSettingsTile(
       child: (info) => Padding(
         // 左内边距 = 卡片外边距 s12 + 卡内 padding s16，与卡片内容左对齐
+        // 左内边距 = SettingsSection 外边距 s16 + SettingsTile 内边距 s16，
+        // 与卡片内文字起点（32）严格对齐
         padding: const EdgeInsets.only(
-          left: AppSpacing.s12 + AppSpacing.s16,
-          right: AppSpacing.s12,
+          left: AppSpacing.s16 + AppSpacing.s16,
+          right: AppSpacing.s16,
           top: AppSpacing.s12,
           bottom: AppSpacing.s4,
         ),
-        child: Text(text, style: tt.labelLarge?.copyWith(color: cs.primary)),
+        child: Text(text, style: tt.titleSmall?.copyWith(color: cs.primary)),
       ),
     );
   }

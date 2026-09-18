@@ -53,19 +53,20 @@ class QueueSongRow extends StatelessWidget {
         : cs.onSurfaceVariant;
 
     return Container(
+      // 与歌曲卡片 SongTile 完全对齐：横向 s16、圆角 s16
       margin: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.s12,
+        horizontal: AppSpacing.s16,
         vertical: AppSpacing.s4,
       ),
       decoration: BoxDecoration(
         color: containerColor,
-        borderRadius: BorderRadius.circular(AppRadius.s12),
+        borderRadius: BorderRadius.circular(AppRadius.s16),
       ),
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(AppRadius.s12),
+          borderRadius: BorderRadius.circular(AppRadius.s16),
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.s12,

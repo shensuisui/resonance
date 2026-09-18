@@ -94,7 +94,7 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
     if (widget.artistName != null && widget.artistName!.isNotEmpty) {
       parts.add(widget.artistName!);
     }
-    parts.add('${_songs.length} 首');
+    parts.add('${_songs.length} 首歌曲');
     return parts.join(' · ');
   }
 
@@ -111,7 +111,11 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
+    // 加载/错误/空三态没有 SliverAppBar，需补常驻 AppBar 提供标题与返回按钮
+    final needBar = _loading || _error != null || _songs.isEmpty;
+
     return Scaffold(
+      appBar: needBar ? AppBar(title: Text(widget.albumName)) : null,
       body: _buildBody(cs, tt),
     );
   }
@@ -121,17 +125,11 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline_rounded, size: 48, color: cs.error),
-            const SizedBox(height: AppSpacing.s16),
-            Text('加载失败', style: tt.titleMedium),
-            const SizedBox(height: AppSpacing.s8),
-            FilledButton.tonal(onPressed: _load, child: const Text('重试')),
-          ],
-        ),
+      // 错误态统一走 EmptyState.error（图标 + 文案 + 重试三件套）
+      return EmptyState.error(
+        message: '加载失败',
+        detail: _error,
+        onRetry: _load,
       );
     }
     if (_songs.isEmpty) {
@@ -161,8 +159,8 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
         slivers: [
           SliverAppBar(
             pinned: true,
-            // 无封面时降低头部高度，避免大面积空白
-            expandedHeight: (_firstCoverUrl != null) ? 300 : 264,
+            // 头部高度与歌单详情页统一（有封面 320 / 无封面 264）
+            expandedHeight: (_firstCoverUrl != null) ? 320 : 264,
             backgroundColor: headerBg,
             foregroundColor: _headerColor == null
                 ? null
@@ -194,6 +192,10 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
               childCount: _songs.length,
             ),
           ),
+          // 底部留白：浮层迷你条遮挡补偿
+          const SliverToBoxAdapter(
+            child: SizedBox(height: AppSpacing.s64 + AppSpacing.s8),
+          ),
         ],
       ),
     );
@@ -218,12 +220,17 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
         ),
         const VerticalDivider(width: 1),
         Expanded(
-          child: ListView.builder(
-            itemCount: _songs.length,
-            itemBuilder: (context, index) {
-              final song = _songs[index];
-              return SongTile(song: song);
-            },
+          // 宽屏同样支持下拉刷新，与竖屏能力一致
+          child: RefreshIndicator(
+            onRefresh: _load,
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: _songs.length,
+              itemBuilder: (context, index) {
+                final song = _songs[index];
+                return SongTile(song: song);
+              },
+            ),
           ),
         ),
       ],

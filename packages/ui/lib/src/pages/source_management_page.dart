@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
 import '../providers/providers.dart';
+import '../widgets/empty_state.dart';
 
 class SourceManagementPage extends ConsumerWidget {
   const SourceManagementPage({super.key});
@@ -24,16 +25,22 @@ class SourceManagementPage extends ConsumerWidget {
       appBar: AppBar(title: const Text('音乐源')),
       body: sourcesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('加载失败: $e')),
+        // 错误态/空态统一走 EmptyState，避免裸异常文本
+        error: (e, _) => EmptyState.error(
+          message: '源列表加载失败',
+          detail: '$e',
+          onRetry: () => ref.invalidate(sourceListProvider),
+        ),
         data: (sources) {
           if (sources.isEmpty) {
-            return Center(
-              child: Text('暂无已注册源', style: tt.bodyLarge?.copyWith(
-                color: cs.onSurfaceVariant,
-              )),
+            return const EmptyState(
+              icon: Icons.cloud_off_rounded,
+              message: '暂无已注册源',
+              hint: '可通过订阅或导入插件文件添加',
             );
           }
           return ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s8),
             itemCount: sources.length,
             itemBuilder: (context, index) {
               final source = sources[index];
@@ -46,11 +53,16 @@ class SourceManagementPage extends ConsumerWidget {
                   horizontal: AppSpacing.s16,
                   vertical: AppSpacing.s4,
                 ),
+                // 整行可点：与设置页开关行习惯一致（点行=切换启用）
+                onTap: () => ref
+                    .read(sourceEnabledProvider.notifier)
+                    .toggle(info.id, !isEnabled),
                 leading: Container(
-                  width: 40, height: 40,
+                  width: AppSpacing.s32 + AppSpacing.s8,
+                  height: AppSpacing.s32 + AppSpacing.s8,
                   decoration: BoxDecoration(
                     color: cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(20),
+                    shape: BoxShape.circle,
                   ),
                   child: Icon(_typeIcon(info.type), color: cs.onSurfaceVariant),
                 ),

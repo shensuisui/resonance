@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../providers/providers.dart';
 import '../theme/app_spacing.dart';
+import 'empty_state.dart';
 import 'queue_song_row.dart';
 
 /// 弹出播放队列 Sheet
@@ -83,18 +84,10 @@ class QueueSheet extends ConsumerWidget {
             const Divider(height: 1),
             Expanded(
               child: queue.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.queue_music_rounded,
-                              size: 48, color: cs.onSurfaceVariant),
-                          const SizedBox(height: AppSpacing.s12),
-                          Text('队列为空',
-                              style: tt.bodyMedium
-                                  ?.copyWith(color: cs.onSurfaceVariant)),
-                        ],
-                      ),
+                  ? const EmptyState(
+                      icon: Icons.queue_music_rounded,
+                      message: '队列为空',
+                      hint: '播放歌曲后自动加入队列',
                     )
                   : ReorderableListView.builder(
                       buildDefaultDragHandles: false,

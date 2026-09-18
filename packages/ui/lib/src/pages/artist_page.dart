@@ -9,6 +9,7 @@ import 'package:core/core.dart';
 import '../providers/providers.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/empty_state.dart';
 
 class ArtistPage extends ConsumerStatefulWidget {
   final String artistName;
@@ -20,6 +21,9 @@ class ArtistPage extends ConsumerStatefulWidget {
 }
 
 class _ArtistPageState extends ConsumerState<ArtistPage> {
+  /// 歌手头像半径（40，直径 80）
+  static const double _avatarRadius = AppSpacing.s32 + AppSpacing.s8;
+
   List<Song> _songs = [];
   bool _loading = true;
   String? _error;
@@ -74,23 +78,18 @@ class _ArtistPageState extends ConsumerState<ArtistPage> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline_rounded, size: 48, color: cs.error),
-            const SizedBox(height: AppSpacing.s16),
-            Text('加载失败', style: tt.titleMedium),
-            const SizedBox(height: AppSpacing.s8),
-            FilledButton.tonal(onPressed: _load, child: const Text('重试')),
-          ],
-        ),
+      // 错误态统一走 EmptyState.error（图标 + 文案 + 重试三件套）
+      return EmptyState.error(
+        message: '加载失败',
+        detail: _error,
+        onRetry: _load,
       );
     }
     if (_songs.isEmpty) {
-      return Center(
-        child: Text('未找到相关歌曲',
-            style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+      return EmptyState(
+        icon: Icons.person_off_rounded,
+        message: '未找到「${widget.artistName}」的相关歌曲',
+        hint: '换个关键词再搜一次',
       );
     }
 
@@ -102,14 +101,16 @@ class _ArtistPageState extends ConsumerState<ArtistPage> {
           // 歌手头部
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.s24),
+              // 左右 s16 与下方 SongTile 卡片左边缘对齐（卡片 margin s16）
+              padding: const EdgeInsets.fromLTRB(AppSpacing.s16,
+                  AppSpacing.s24, AppSpacing.s16, AppSpacing.s16),
               child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 40,
+                    radius: _avatarRadius,
                     backgroundColor: cs.surfaceContainerHighest,
                     child: Icon(Icons.person_rounded,
-                        size: 40, color: cs.onSurfaceVariant),
+                        size: _avatarRadius, color: cs.onSurfaceVariant),
                   ),
                   const SizedBox(width: AppSpacing.s16),
                   Expanded(
@@ -117,7 +118,8 @@ class _ArtistPageState extends ConsumerState<ArtistPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(widget.artistName,
-                            style: tt.headlineSmall,
+                            style: tt.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.bold),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                         const SizedBox(height: AppSpacing.s4),
@@ -141,6 +143,10 @@ class _ArtistPageState extends ConsumerState<ArtistPage> {
               },
               childCount: _songs.length,
             ),
+          ),
+          // 底部留白：浮层迷你条遮挡补偿
+          const SliverToBoxAdapter(
+            child: SizedBox(height: AppSpacing.s64 + AppSpacing.s8),
           ),
         ],
       ),

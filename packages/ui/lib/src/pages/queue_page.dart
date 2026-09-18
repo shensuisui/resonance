@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../providers/providers.dart';
 import '../theme/app_spacing.dart';
+import '../widgets/empty_state.dart';
 import '../widgets/queue_song_row.dart';
 
 class QueuePage extends ConsumerWidget {
@@ -14,31 +15,21 @@ class QueuePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
     final queue = ref.watch(playQueueProvider);
     final current = ref.watch(currentSongProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text('播放队列 (${queue.length})')),
       body: queue.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.queue_music_rounded,
-                      size: 64, color: cs.onSurfaceVariant),
-                  const SizedBox(height: AppSpacing.s16),
-                  Text('队列为空', style: tt.titleMedium),
-                  const SizedBox(height: AppSpacing.s8),
-                  Text('播放歌曲后自动加入队列',
-                      style:
-                          tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                ],
-              ),
+          ? const EmptyState(
+              icon: Icons.queue_music_rounded,
+              message: '队列为空',
+              hint: '播放歌曲后自动加入队列',
             )
           : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s8),
+              // 底部留白：浮层迷你条高约 65，避免末项被永久遮挡
+              padding: const EdgeInsets.only(
+                  top: AppSpacing.s8, bottom: AppSpacing.s64 + AppSpacing.s8),
               itemCount: queue.length,
               itemBuilder: (context, index) {
                 final song = queue[index];

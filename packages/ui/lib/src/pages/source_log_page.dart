@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
 import '../providers/providers.dart';
+import '../widgets/empty_state.dart';
 
 class SourceLogPage extends ConsumerWidget {
   const SourceLogPage({super.key});
@@ -14,8 +16,6 @@ class SourceLogPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(sourceLogProvider);
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -30,20 +30,10 @@ class SourceLogPage extends ConsumerWidget {
         ],
       ),
       body: state.entries.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.article_outlined,
-                      size: 64, color: cs.onSurfaceVariant),
-                  const SizedBox(height: AppSpacing.s16),
-                  Text('暂无日志', style: tt.titleMedium),
-                  const SizedBox(height: AppSpacing.s8),
-                  Text('搜索、播放等操作会记录各源执行情况',
-                      style: tt.bodySmall
-                          ?.copyWith(color: cs.onSurfaceVariant)),
-                ],
-              ),
+          ? const EmptyState(
+              icon: Icons.article_outlined,
+              message: '暂无日志',
+              hint: '搜索、播放等操作会记录各源执行情况',
             )
           : ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.s8),
@@ -102,7 +92,7 @@ class _LogTile extends StatelessWidget {
                 const EdgeInsets.symmetric(horizontal: AppSpacing.s8, vertical: 2),
             decoration: BoxDecoration(
               color: cs.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(AppRadius.s4),
             ),
             child: Text(
               entry.sourceId,

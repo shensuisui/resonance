@@ -9,14 +9,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../providers/providers.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
+import '../widgets/empty_state.dart';
 
 class DownloadQueuePage extends ConsumerWidget {
   const DownloadQueuePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
     final manager = ref.watch(downloadManagerProvider);
     final tasksAsync = ref.watch(downloadTasksProvider);
 
@@ -25,7 +25,12 @@ class DownloadQueuePage extends ConsumerWidget {
       body: tasksAsync.when(
         data: (tasks) {
           if (tasks.isEmpty) {
-            return _emptyState(context, cs, theme);
+            // 空态统一走公共 EmptyState（插画圆底 + 主/副文案）
+            return const EmptyState(
+              icon: Icons.download_done_rounded,
+              message: '暂无下载任务',
+              hint: '在搜索或歌单中点下载按钮开始下载',
+            );
           }
           return ListView.separated(
             padding: const EdgeInsets.all(AppSpacing.s16),
@@ -38,31 +43,15 @@ class DownloadQueuePage extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Text('加载下载任务失败: $e',
-              style: TextStyle(color: cs.error)),
+        error: (e, _) => EmptyState.error(
+          message: '下载任务加载失败',
+          detail: '$e',
+          onRetry: () => ref.invalidate(downloadTasksProvider),
         ),
       ),
     );
   }
 
-  Widget _emptyState(BuildContext context, ColorScheme cs, ThemeData theme) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.download_done_rounded,
-              size: 64, color: cs.onSurfaceVariant),
-          const SizedBox(height: AppSpacing.s16),
-          Text('暂无下载任务', style: theme.textTheme.titleMedium),
-          const SizedBox(height: AppSpacing.s4),
-          Text('在搜索或歌单中点下载按钮开始下载',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant)),
-        ],
-      ),
-    );
-  }
 }
 
 /// 单个下载任务卡片
@@ -78,8 +67,12 @@ class _TaskCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final songKey = task.songKey;
 
-    return Card(
-      margin: EdgeInsets.zero,
+    // 统一卡片容器：固定圆角 s16，不随全局圆角设置变化（与 SongTile 同族）
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.s16),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.s12),
         child: Row(
