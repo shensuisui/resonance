@@ -28,6 +28,7 @@ export 'src/widgets/player_overlay.dart';
 export 'src/widgets/queue_sheet.dart';
 export 'src/widgets/cover_image.dart';
 export 'src/widgets/shimmer_box.dart';
+export 'src/widgets/horizontal_fade.dart';
 
 // 页面
 export 'src/pages/app_shell.dart';

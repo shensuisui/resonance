@@ -10,6 +10,7 @@ import '../providers/providers.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/download_button.dart';
+import '../widgets/horizontal_fade.dart';
 import 'artist_page.dart';
 import 'discover_page.dart';
 
@@ -261,15 +262,28 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       ));
       sections.add(SizedBox(
         height: 180,
-        child: ListView.separated(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
-          scrollDirection: Axis.horizontal,
-          itemCount: discover.playlists.length,
-          separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.s12),
-          itemBuilder: (context, index) {
-            final pl = discover.playlists[index];
-            return _buildHotPlaylist(pl, cs, tt);
-          },
+        child: Stack(
+          children: [
+            ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
+              scrollDirection: Axis.horizontal,
+              itemCount: discover.playlists.length,
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: AppSpacing.s12),
+              itemBuilder: (context, index) {
+                final pl = discover.playlists[index];
+                return _buildHotPlaylist(pl, cs, tt);
+              },
+            ),
+            // 右缘渐隐：提示横向内容可继续滑动
+            if (discover.playlists.length > 3)
+              Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                child: HorizontalFade(color: cs.surface),
+              ),
+          ],
         ),
       ));
     }

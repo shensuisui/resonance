@@ -17,6 +17,7 @@ import '../widgets/playlist_header.dart';
 import '../widgets/cover_palette.dart';
 import '../widgets/pressable_scale.dart';
 import '../widgets/cover_image.dart';
+import '../widgets/horizontal_fade.dart';
 
 class DiscoverPage extends ConsumerWidget {
   const DiscoverPage({super.key});
@@ -130,19 +131,34 @@ class DiscoverPage extends ConsumerWidget {
         ),
         SizedBox(
           height: 118,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
-            itemCount: items.length,
-            separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.s12),
-            itemBuilder: (context, index) {
-              final song = items[index];
-              return _RecentSongCard(
-                song: song,
-                onTap: () =>
-                    ref.read(playbackControllerProvider.notifier).playSong(song),
-              );
-            },
+          child: Stack(
+            children: [
+              ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
+                itemCount: items.length,
+                separatorBuilder: (_, _) =>
+                    const SizedBox(width: AppSpacing.s12),
+                itemBuilder: (context, index) {
+                  final song = items[index];
+                  return _RecentSongCard(
+                    song: song,
+                    onTap: () => ref
+                        .read(playbackControllerProvider.notifier)
+                        .playSong(song),
+                  );
+                },
+              ),
+              // 右缘渐隐：提示横向内容可继续滑动
+              if (items.length > 3)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: HorizontalFade(color: cs.surface),
+                ),
+            ],
           ),
         ),
       ],

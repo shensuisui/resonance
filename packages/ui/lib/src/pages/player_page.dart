@@ -124,6 +124,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                             ? const LyricsView()
                             : _buildCoverArea(song, cs, isPlaying),
                       ),
+                      const SizedBox(height: AppSpacing.s16),
                       // 2. 元信息（左对齐）+ 歌词切换
                       _buildMetadataRow(song, cs),
                       const SizedBox(height: AppSpacing.s4),
@@ -222,6 +223,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   Widget _buildMetadataRow(Song song, ColorScheme cs) {
     final tt = Theme.of(context).textTheme;
     return SizedBox(
+      // 与 PixelPlayer 一致：元信息行最小高度 70，保证标题/歌手有稳定节奏
       width: double.infinity,
       child: Row(
         children: [
