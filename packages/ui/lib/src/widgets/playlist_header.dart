@@ -84,13 +84,13 @@ class _PlaylistHeaderViewState extends State<PlaylistHeaderView> {
       CoverPalette.extract(info.image).then((color) {
         if (!mounted) return;
         setState(() => _dominant = color);
-        widget.onColorExtracted?.call(color);
+        _notifyColor(color);
       });
     },
     onError: (Object _, StackTrace? _) {
       if (!mounted) return;
       setState(() => _dominant = null);
-      widget.onColorExtracted?.call(null);
+      _notifyColor(null);
     },
   );
 
@@ -125,12 +125,25 @@ class _PlaylistHeaderViewState extends State<PlaylistHeaderView> {
     _dominant = null;
     final provider = _provider;
     if (provider == null) {
-      widget.onColorExtracted?.call(null);
+      _notifyColor(null);
       return;
     }
     final stream = provider.resolve(ImageConfiguration.empty);
     _stream = stream;
     stream.addListener(_listener);
+  }
+
+  /// 帧后派发主色回调
+  ///
+  /// 回调由页面用于 setState 同步折叠态配色；若在 initState/build 期间同步
+  /// 调用会触发 "setState() called during build" 红屏，故统一 post-frame 派发。
+  void _notifyColor(Color? color) {
+    final cb = widget.onColorExtracted;
+    if (cb == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      cb(color);
+    });
   }
 
   /// 背景主色：封面主题色或主题默认色
@@ -265,8 +278,10 @@ class _PlaylistHeaderViewState extends State<PlaylistHeaderView> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
               child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.s16),
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.s16, AppSpacing.s16, AppSpacing.s16, AppSpacing.s24),
                 child: Column(
+                  // 内容靠底部：标题区贴近列表，符合折叠头视觉预期
                   mainAxisAlignment: MainAxisAlignment.end,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
