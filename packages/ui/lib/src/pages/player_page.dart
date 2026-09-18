@@ -189,17 +189,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         // stretch：左右两列等高，内部 Center 才能真正垂直居中
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 左：正方形封面（边长取可用高度与一半宽度较小者），居中
+          // 左：歌词模式显示歌词；否则正方形封面（边长取可用高度与一半宽度较小者）
           Expanded(
-            child: LayoutBuilder(
-              builder: (context, cons) {
-                final side = math.min(
-                  cons.maxHeight * 0.82,
-                  cons.maxWidth - AppSpacing.s16,
-                );
-                return Center(child: _buildCover(song, cs, side));
-              },
-            ),
+            child: _showLyrics
+                ? const LyricsView()
+                : LayoutBuilder(
+                    builder: (context, cons) {
+                      final side = math.min(
+                        cons.maxHeight * 0.82,
+                        cons.maxWidth - AppSpacing.s16,
+                      );
+                      return Center(child: _buildCover(song, cs, side));
+                    },
+                  ),
           ),
           const SizedBox(width: AppSpacing.s24),
           // 右：控制列（限宽 460 居中，避免宽屏下控件被拉伸成药丸）
