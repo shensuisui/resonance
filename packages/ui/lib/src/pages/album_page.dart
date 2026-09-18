@@ -161,7 +161,8 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
         slivers: [
           SliverAppBar(
             pinned: true,
-            expandedHeight: 300,
+            // 无封面时降低头部高度，避免大面积空白
+            expandedHeight: (_firstCoverUrl != null) ? 300 : 264,
             backgroundColor: headerBg,
             foregroundColor: _headerColor == null
                 ? null

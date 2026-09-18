@@ -426,7 +426,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         // 背景为封面主题色渐变，折叠后标题配色同步主题色
         SliverAppBar(
           pinned: true,
-          expandedHeight: 320,
+          // 无封面（含「我最喜欢」）时降低头部高度，避免大面积空白
+          expandedHeight: (pl.coverUrl?.isNotEmpty ?? false) ? 320 : 264,
           backgroundColor: headerBg,
           foregroundColor: _headerColor == null
               ? null

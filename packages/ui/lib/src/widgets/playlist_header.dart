@@ -287,8 +287,8 @@ class _PlaylistHeaderViewState extends State<PlaylistHeaderView> {
                   children: [
                     if (widget.isFavorite) ...[
                       Container(
-                        width: 72,
-                        height: 72,
+                        width: 56,
+                        height: 56,
                         decoration: BoxDecoration(
                           color: Theme.of(context)
                               .colorScheme
@@ -301,10 +301,10 @@ class _PlaylistHeaderViewState extends State<PlaylistHeaderView> {
                           color: Theme.of(context)
                               .colorScheme
                               .onPrimaryContainer,
-                          size: 32,
+                          size: 26,
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.s12),
+                      const SizedBox(height: AppSpacing.s8),
                     ],
                     Text(
                       widget.name,

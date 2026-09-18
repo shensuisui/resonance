@@ -477,7 +477,9 @@ class _DiscoverPlaylistPageState extends ConsumerState<DiscoverPlaylistPage> {
         // 唯一顶部栏（复用公共 PlaylistHeaderView），背景为封面主题色渐变
         SliverAppBar(
           pinned: true,
-          expandedHeight: 320,
+          // 无封面时降低头部高度，避免大面积空白
+          expandedHeight:
+              (widget.playlist.coverUrl?.isNotEmpty ?? false) ? 320 : 264,
           backgroundColor: headerBg,
           foregroundColor: _headerColor == null
               ? null
