@@ -12,7 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../providers/providers.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_radius.dart';
+import 'queue_song_row.dart';
 
 /// 弹出播放队列 Sheet
 Future<void> showQueueSheet(BuildContext context) {
@@ -120,90 +120,24 @@ class QueueSheet extends ConsumerWidget {
                           ),
                           onDismissed: (_) =>
                               _removeWithUndo(context, ref, index, queue),
-                          child: Container(
-                            // 与 SongTile 同款卡片容器：当前播放用 primaryContainer
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.s12,
-                              vertical: AppSpacing.s4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isCurrent
-                                  ? cs.primaryContainer
-                                  : cs.surfaceContainerLow,
-                              borderRadius:
-                                  BorderRadius.circular(AppRadius.s12),
-                            ),
-                            child: InkWell(
-                              onTap: () => ref
-                                  .read(playbackControllerProvider.notifier)
-                                  .jumpTo(index),
-                              borderRadius:
-                                  BorderRadius.circular(AppRadius.s12),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.s12,
-                                  vertical: AppSpacing.s8,
-                                ),
-                                child: Row(
-                                  children: [
-                                    SizedBox(
-                                      width: 24,
-                                      child: isCurrent
-                                          ? Icon(Icons.graphic_eq_rounded,
-                                              size: 18,
-                                              color: cs.onPrimaryContainer)
-                                          : Text('${index + 1}',
-                                              textAlign: TextAlign.center,
-                                              style: tt.bodySmall?.copyWith(
-                                                  color: cs.onSurfaceVariant)),
-                                    ),
-                                    const SizedBox(width: AppSpacing.s12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            song.title,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: tt.bodyMedium?.copyWith(
-                                              color: isCurrent
-                                                  ? cs.onPrimaryContainer
-                                                  : cs.onSurface,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          const SizedBox(
-                                              height: AppSpacing.s2),
-                                          Text(
-                                            song.artist,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: tt.bodySmall?.copyWith(
-                                              color: isCurrent
-                                                  ? cs.onPrimaryContainer
-                                                      .withValues(alpha: 0.7)
-                                                  : cs.onSurfaceVariant,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    ReorderableDragStartListener(
-                                      index: index,
-                                      child: Icon(
-                                        Icons.drag_handle_rounded,
-                                        size: 20,
-                                        color: isCurrent
-                                            ? cs.onPrimaryContainer
-                                                .withValues(alpha: 0.7)
-                                            : cs.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                          // 卡片样式复用 QueueSongRow，与队列页保持一致
+                          child: QueueSongRow(
+                            index: index,
+                            title: song.title,
+                            artist: song.artist,
+                            isCurrent: isCurrent,
+                            onTap: () => ref
+                                .read(playbackControllerProvider.notifier)
+                                .jumpTo(index),
+                            trailing: ReorderableDragStartListener(
+                              index: index,
+                              child: Icon(
+                                Icons.drag_handle_rounded,
+                                size: 20,
+                                color: isCurrent
+                                    ? cs.onPrimaryContainer
+                                        .withValues(alpha: 0.7)
+                                    : cs.onSurfaceVariant,
                               ),
                             ),
                           ),

@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../providers/providers.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_radius.dart';
+import '../widgets/queue_song_row.dart';
 
 class QueuePage extends ConsumerWidget {
   const QueuePage({super.key});
@@ -75,40 +75,13 @@ class _QueueTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return ListTile(
+    // 卡片样式复用 QueueSongRow，与队列 Sheet 保持一致
+    return QueueSongRow(
+      index: index,
+      title: song.title,
+      artist: song.artist,
+      isCurrent: isCurrent,
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16),
-      leading: SizedBox(
-        width: 24,
-        child: Center(
-          child: isCurrent
-              ? Icon(Icons.graphic_eq_rounded,
-                  size: 20, color: cs.primary)
-              : Text('${index + 1}',
-                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-        ),
-      ),
-      title: Text(
-        song.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: tt.bodyLarge?.copyWith(
-          color: isCurrent ? cs.primary : null,
-          fontWeight: isCurrent ? FontWeight.w600 : null,
-        ),
-      ),
-      subtitle: Text(
-        song.artist,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.s8),
-      ),
     );
   }
 }
