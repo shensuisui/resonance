@@ -479,6 +479,10 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             itemBuilder: (context, index) =>
                 _buildSongRow(index, pl, cs),
           ),
+        // 底部留白：补偿浮层迷你条遮挡
+        const SliverToBoxAdapter(
+          child: SizedBox(height: AppSpacing.s64 + AppSpacing.s8),
+        ),
       ],
     );
   }

@@ -90,6 +90,9 @@ class QueueSheet extends ConsumerWidget {
                       hint: '播放歌曲后自动加入队列',
                     )
                   : ReorderableListView.builder(
+                      // 底部留白：最后一项不贴 Sheet 底边
+                      padding: const EdgeInsets.only(
+                          top: AppSpacing.s4, bottom: AppSpacing.s16),
                       buildDefaultDragHandles: false,
                       onReorder: (oldI, newI) =>
                           _onReorder(ref, queue, oldI, newI),

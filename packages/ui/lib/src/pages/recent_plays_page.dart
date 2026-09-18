@@ -49,8 +49,9 @@ class _RecentPlaysPageState extends ConsumerState<RecentPlaysPage> {
               message: '还没有播放记录',
             )
           : ListView.builder(
-              // 顶部留白：标题与首张卡片之间呼吸空间
-              padding: const EdgeInsets.only(top: AppSpacing.s8),
+              // 顶部留白：标题与首张卡片之间呼吸空间；底部留白补偿浮层迷你条
+              padding: const EdgeInsets.only(
+                  top: AppSpacing.s8, bottom: AppSpacing.s64 + AppSpacing.s8),
               itemCount: songs.length,
               itemBuilder: (context, index) {
                 return SongTile(

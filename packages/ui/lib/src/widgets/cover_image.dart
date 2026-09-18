@@ -41,11 +41,21 @@ class CoverImage extends StatelessWidget {
     final u = url;
     if (u == null || u.isEmpty) return _placeholder(context);
 
+    // 按显示尺寸解码：列表 50、迷你条 40 的小图不再按原图（常 640+）进内存缓存
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final cacheW = width != null && width!.isFinite
+        ? (width! * dpr).round()
+        : (height != null && height!.isFinite ? (height! * dpr).round() : null);
+
     return CachedNetworkImage(
       imageUrl: u,
       width: width,
       height: height,
       fit: fit,
+      memCacheWidth: cacheW,
+      // 列表快速滚动时骨架淡出拖沓：缩短淡入、去掉淡出
+      fadeInDuration: const Duration(milliseconds: 200),
+      fadeOutDuration: Duration.zero,
       imageBuilder: (context, imageProvider) => ClipRRect(
         borderRadius: BorderRadius.circular(radius),
         child: Image(
@@ -73,7 +83,8 @@ class CoverImage extends StatelessWidget {
           height: height,
           color: cs.surfaceContainerHighest,
           child: Icon(Icons.music_note_rounded,
-              size: (height ?? 48) * 0.45, color: cs.onSurfaceVariant),
+              size: (height ?? width ?? 48) * 0.45,
+              color: cs.onSurfaceVariant),
         );
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),

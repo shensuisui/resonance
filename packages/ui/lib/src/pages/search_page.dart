@@ -475,6 +475,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   Widget _buildSongList(BuildContext context, List<Song> songs) {
     final cs = Theme.of(context).colorScheme;
     return ListView.builder(
+      // 底部留白：补偿浮层迷你条，避免末项被遮挡
+      padding: const EdgeInsets.only(
+          top: AppSpacing.s8, bottom: AppSpacing.s64 + AppSpacing.s8),
       itemCount: songs.length,
       itemBuilder: (context, index) {
         final song = songs[index];

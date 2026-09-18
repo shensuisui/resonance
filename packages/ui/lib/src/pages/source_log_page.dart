@@ -24,8 +24,10 @@ class SourceLogPage extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.delete_sweep_rounded),
             tooltip: '清空日志',
-            onPressed: () =>
-                ref.read(sourceLogProvider.notifier).clear(),
+            // 无日志时禁用，避免点了没反应
+            onPressed: state.entries.isEmpty
+                ? null
+                : () => ref.read(sourceLogProvider.notifier).clear(),
           ),
         ],
       ),
@@ -60,10 +62,10 @@ class _LogTile extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    // 级别颜色：错误红、警告橙、信息默认
+    // 级别颜色：错误红、警告用主题 tertiary（硬编码橙在浅色面对比度不足）、信息主色
     final levelColor = switch (entry.level) {
       SourceLogLevel.error => cs.error,
-      SourceLogLevel.warn => Colors.orange.shade700,
+      SourceLogLevel.warn => cs.tertiary,
       SourceLogLevel.info => cs.primary,
     };
     // 级别图标
@@ -78,7 +80,7 @@ class _LogTile extends StatelessWidget {
         horizontal: AppSpacing.s16,
         vertical: AppSpacing.s4,
       ),
-      dense: true,
+      // 不用 dense：日志副文本最多两行，密集行会让列表节奏跳动
       leading: Icon(levelIcon, size: 20, color: levelColor),
       title: Row(
         children: [
@@ -87,18 +89,23 @@ class _LogTile extends StatelessWidget {
             style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
           ),
           const SizedBox(width: AppSpacing.s8),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: AppSpacing.s8, vertical: 2),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(AppRadius.s4),
-            ),
-            child: Text(
-              entry.sourceId,
-              style: tt.bodySmall?.copyWith(
-                color: levelColor,
-                fontWeight: FontWeight.w600,
+          // 胶囊可收缩：sourceId 过长时省略，不挤掉右侧 [action]
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.s8, vertical: AppSpacing.s2),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(AppRadius.s4),
+              ),
+              child: Text(
+                entry.sourceId,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: tt.bodySmall?.copyWith(
+                  color: levelColor,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -119,7 +126,7 @@ class _LogTile extends StatelessWidget {
       subtitle: Text(
         entry.detail,
         style: tt.bodyMedium,
-        maxLines: 3,
+        maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ),
     );
