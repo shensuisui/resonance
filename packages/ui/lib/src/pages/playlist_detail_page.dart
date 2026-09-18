@@ -509,17 +509,24 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         Expanded(
           child: Column(
             children: [
-              // 操作区
+              // 操作区：左侧「播放全部」由左面板大按钮承担，这里只放
+              // 歌单级操作（导出/重命名/删除）与歌曲数，避免重复按钮
               Padding(
-                padding: const EdgeInsets.all(AppSpacing.s16),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.s16, vertical: AppSpacing.s8),
                 child: Row(
                   children: [
-                    FilledButton.icon(
-                      icon: const Icon(Icons.play_arrow_rounded),
-                      label: const Text('播放全部'),
-                      onPressed: _songs.isEmpty ? null : _playAll,
+                    Text(
+                      '${_songs.length} 首歌曲',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant),
                     ),
-                    const SizedBox(width: AppSpacing.s12),
+                    const Spacer(),
                     if (!_isFavorite)
                       IconButton(
                         icon: const Icon(Icons.ios_share_rounded),

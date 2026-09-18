@@ -134,8 +134,14 @@ class _PlaylistHeaderViewState extends State<PlaylistHeaderView> {
   }
 
   /// 背景主色：封面主题色或主题默认色
-  Color get _bg =>
-      _dominant ?? Theme.of(context).colorScheme.surfaceContainerLow;
+  ///
+  /// 无封面时回落**主题主色系**（primaryContainer 派生），避免出现
+  /// 一片灰面板与右侧列表形成生硬分隔（对齐 PixelPlayer 的主题色氛围）。
+  Color get _bg {
+    if (_dominant != null) return _dominant!;
+    final cs = Theme.of(context).colorScheme;
+    return Color.lerp(cs.primaryContainer, cs.surface, 0.35)!;
+  }
 
   /// 无封面场景的前景色：按主色亮度自动黑/白
   Color get _fg => CoverPalette.foreground(_bg);

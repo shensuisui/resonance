@@ -149,25 +149,22 @@ class DiscoverPage extends ConsumerWidget {
     );
   }
 
-  /// 最近播放横滑卡片
+  /// 快捷入口：紧凑图标按钮（低视觉权重，不与「最近播放」抢焦点）
   Widget _buildQuickActions(BuildContext context, ColorScheme cs, TextTheme tt) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-          AppSpacing.s16, AppSpacing.s8, AppSpacing.s16, AppSpacing.s4),
-      child: Row(
-        children: [
-          Expanded(
-            child: _QuickActionCard(
-              icon: Icons.cloud_outlined,
-              label: '音乐源管理',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const SourceManagementPage(),
-                ),
-              ),
+          AppSpacing.s16, AppSpacing.s4, AppSpacing.s16, AppSpacing.s4),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: _QuickActionCard(
+          icon: Icons.cloud_outlined,
+          label: '音乐源管理',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const SourceManagementPage(),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -261,7 +258,7 @@ class _RecentSongCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     return SizedBox(
-      width: 72,
+      width: 76,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.s12),
@@ -270,19 +267,36 @@ class _RecentSongCard extends StatelessWidget {
           children: [
             CoverImage(
               url: song.coverUrl,
-              width: 72,
-              height: 72,
+              width: 76,
+              height: 76,
               radius: AppRadius.s12,
             ),
-            const SizedBox(height: AppSpacing.s4),
-            Text(song.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: tt.bodySmall),
-            Text(song.artist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            const SizedBox(height: AppSpacing.s8),
+            // 标题与歌手统一两行高度，避免与相邻卡片底部参差
+            SizedBox(
+              height: 34,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Text(
+                    song.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: tt.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  Text(
+                    song.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -308,18 +322,19 @@ class _QuickActionCard extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     return Material(
       color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(AppRadius.s12),
+      borderRadius: BorderRadius.circular(999),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.s12),
+        borderRadius: BorderRadius.circular(999),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.s12),
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.s12, vertical: AppSpacing.s8),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 20, color: cs.primary),
+              Icon(icon, size: 18, color: cs.primary),
               const SizedBox(width: AppSpacing.s8),
-              Text(label, style: tt.bodyMedium),
+              Text(label, style: tt.bodySmall),
             ],
           ),
         ),

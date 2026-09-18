@@ -12,6 +12,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_driver/driver_extension.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import 'package:crawler/crawler.dart';
@@ -26,7 +27,24 @@ late RecentPlaysService gRecentPlaysService;
 late Player gPlayer;
 late DownloadManager gDownloadManager;
 
+/// 是否启用 Flutter Driver 扩展（UI 自动化/端到端测试用）
+///
+/// 默认关闭，仅通过 --dart-define=FM_DRIVER=true（或 =1）显式开启，
+/// 避免生产启动暴露驱动通道。
+///
+/// 注意：bool.fromEnvironment 只认 true/false，故用字符串兼容 1。
+const String _fmDriverFlag = String.fromEnvironment('FM_DRIVER');
+const bool kEnableFlutterDriver =
+    _fmDriverFlag == '1' || _fmDriverFlag == 'true' || _fmDriverFlag == 'TRUE';
+
 Future<void> main() async {
+  // UI 自动化：Flutter Driver 扩展必须在 WidgetsFlutterBinding 初始化之前注册
+  // （enableFlutterDriverExtension 内部会初始化 binding，重复初始化会断言失败）。
+  // 仅通过 --dart-define=FM_DRIVER=true/1 显式开启，生产默认关闭。
+  if (kEnableFlutterDriver) {
+    enableFlutterDriverExtension();
+  }
+
   WidgetsFlutterBinding.ensureInitialized();
 
   // 全局替换 dart:io 默认 User-Agent 为浏览器 UA

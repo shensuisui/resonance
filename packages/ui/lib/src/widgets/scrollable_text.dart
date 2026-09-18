@@ -92,12 +92,13 @@ class _ScrollableTextState extends State<ScrollableText>
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxWidth = constraints.maxWidth;
+        // 先测量文本尺寸（宽度用于溢出判断，高度用于约束滚动层）
+        final painter = TextPainter(
+          text: TextSpan(text: widget.text, style: style),
+          maxLines: 1,
+          textDirection: TextDirection.ltr,
+        )..layout();
         if (maxWidth.isFinite && maxWidth > 0) {
-          final painter = TextPainter(
-            text: TextSpan(text: widget.text, style: style),
-            maxLines: 1,
-            textDirection: TextDirection.ltr,
-          )..layout();
           _overflow = painter.width - maxWidth;
         } else {
           _overflow = 0;
@@ -114,19 +115,25 @@ class _ScrollableTextState extends State<ScrollableText>
         }
 
         _start();
-        return _buildScrolling(style);
+        // 用测量到的行高约束滚动层（避免无界高度）
+        return _buildScrolling(style, painter.height);
       },
     );
   }
 
   /// 滚动文本 + 两端渐变遮罩
-  Widget _buildScrolling(TextStyle style) {
+  ///
+  /// 注意：必须给定明确高度（[lineHeight]）。父级若为高度无界的 Column，
+  /// Stack + Positioned(top/bottom) 会强制无限高度并触发布局断言。
+  Widget _buildScrolling(TextStyle style, double lineHeight) {
     const fadeWidth = 24.0;
     final fade = widget.fadeColor;
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
+    return SizedBox(
+      height: lineHeight,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
         // 滚动文本（位移 0 → -overflow 往返）
         AnimatedBuilder(
           animation: _controller,
@@ -180,6 +187,7 @@ class _ScrollableTextState extends State<ScrollableText>
           ),
         ),
       ],
+      ),
     );
   }
 }

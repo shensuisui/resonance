@@ -49,6 +49,10 @@ dev_dependencies:
     sdk: flutter
   integration_test:
     sdk: flutter
+  # Flutter Driver 扩展（enableFlutterDriverExtension）：仅 --dart-define=FM_DRIVER=1
+  # 时在入口启用，供 MCP flutter_driver_command / flutter drive 驱动 UI 与取诊断树
+  flutter_driver:
+    sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package

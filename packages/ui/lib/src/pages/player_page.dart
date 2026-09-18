@@ -134,7 +134,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                       _buildTransportRow(isPlaying, cs),
                       const SizedBox(height: AppSpacing.s12),
                       _buildToggleRow(playMode, cs, song.globalKey),
-                      const SizedBox(height: AppSpacing.s8),
+                      // 底部留白：避免开关行贴住系统手势条
+                      const SizedBox(height: AppSpacing.s24),
                     ],
                   ),
                 ),
