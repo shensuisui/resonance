@@ -12,6 +12,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/download_button.dart';
 import '../widgets/horizontal_fade.dart';
 import 'artist_page.dart';
+import 'album_page.dart';
 import 'discover_page.dart';
 
 class SearchPage extends ConsumerStatefulWidget {
@@ -484,6 +485,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               : (artist) => Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => ArtistPage(artistName: artist),
+                    ),
+                  ),
+          // 专辑入口：点副标题中的专辑名进入专辑页
+          onAlbumTap: _selectionMode
+              ? null
+              : (album) => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => AlbumPage(
+                        albumName: album,
+                        artistName: song.artist,
+                      ),
                     ),
                   ),
           trailing: _selectionMode

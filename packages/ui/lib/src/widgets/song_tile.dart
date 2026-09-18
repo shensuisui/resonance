@@ -31,6 +31,9 @@ class SongTile extends ConsumerWidget {
   /// 歌手名点击回调（传入歌手名），null 则不可点
   final ValueChanged<String>? onArtistTap;
 
+  /// 专辑名点击回调（传入专辑名），null 则不显示专辑入口
+  final ValueChanged<String>? onAlbumTap;
+
   const SongTile({
     super.key,
     required this.song,
@@ -38,6 +41,7 @@ class SongTile extends ConsumerWidget {
     this.onLongPress,
     this.trailing,
     this.onArtistTap,
+    this.onAlbumTap,
   });
 
   @override
@@ -166,6 +170,25 @@ class SongTile extends ConsumerWidget {
             ),
           ),
         ),
+        if (onAlbumTap != null &&
+            song.album != null &&
+            song.album!.isNotEmpty) ...[
+          Text(' · ', style: baseStyle),
+          Flexible(
+            child: GestureDetector(
+              onTap: () => onAlbumTap!(song.album!),
+              child: Text(
+                song.album!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: baseStyle?.copyWith(
+                  decoration: TextDecoration.underline,
+                  decorationColor: subtitleColor,
+                ),
+              ),
+            ),
+          ),
+        ],
         Text(
           ' · ${song.sourceId}',
           maxLines: 1,
