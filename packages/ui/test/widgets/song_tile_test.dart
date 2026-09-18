@@ -74,7 +74,7 @@ void main() {
     testWidgets('无封面时显示默认音符图标', (tester) async {
       await tester.pumpWidget(wrap(SongTile(song: song)));
 
-      expect(find.byIcon(Icons.music_note), findsOneWidget);
+      expect(find.byIcon(Icons.music_note_rounded), findsOneWidget);
       expect(find.byType(Image), findsNothing);
     });
 
@@ -101,50 +101,63 @@ void main() {
     });
   });
 
-  group('SongTile 播放状态覆盖层', () {
-    testWidgets('非当前歌曲无覆盖层', (tester) async {
+  group('SongTile 播放状态（容器高亮 + EQ）', () {
+    testWidgets('非当前歌曲：无 EQ、无 loading 圈', (tester) async {
       await pumpWithState(tester,
           currentSong: song.copyWith(id: 'other'),
           isPlaying: true);
       await tester.pump();
 
-      // 覆盖层 Stack 带专属 Key，避免命中 ListTile 内部 Stack
-      expect(find.byKey(const Key('song_tile_playing_overlay')), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      // EQ 竖条（宽 3 高 16 圆角容器）不应出现
+      expect(
+        find.byWidgetPredicate((w) =>
+            w is Container &&
+            w.decoration is BoxDecoration &&
+            (w.decoration as BoxDecoration).color == Colors.white),
+        findsNothing,
+      );
     });
 
-    testWidgets('当前歌曲播放中：黑罩 + 跳动动画', (tester) async {
-      await pumpWithState(tester, currentSong: song, isPlaying: true);
+    testWidgets('当前歌曲播放中：容器高亮 + 跳动 EQ', (tester) async {
+      final container =
+          await pumpWithState(tester, currentSong: song, isPlaying: true);
       await tester.pump();
       // 让动画跑一帧（repeat 动画 pump 一帧可见）
       await tester.pump(const Duration(milliseconds: 100));
 
-      // 覆盖层出现（封面 + 黑罩 + 动画三层）
-      final stack = tester.widget<Stack>(
-          find.byKey(const Key('song_tile_playing_overlay')));
-      expect(stack.children.length, greaterThanOrEqualTo(2));
-      // loading 圈圈不应出现（播放中用跳动条）
+      final cs = Theme.of(tester.element(find.byType(SongTile))).colorScheme;
+      // 卡片容器为 primaryContainer 高亮
+      final card = tester.widgetList<Container>(find.descendant(
+        of: find.byType(SongTile),
+        matching: find.byType(Container),
+      )).firstWhere((c) =>
+          c.decoration is BoxDecoration &&
+          (c.decoration as BoxDecoration).color == cs.primaryContainer);
+      expect(card, isNotNull);
+      // loading 圈不应出现（播放中用跳动条）
       expect(find.byType(CircularProgressIndicator), findsNothing);
-      // 跳动动画容器（白色竖条）存在
+      // EQ 竖条用当前内容色（onPrimaryContainer）
       expect(
         find.byWidgetPredicate((w) =>
-            w is Container && w.decoration is BoxDecoration &&
-            (w.decoration as BoxDecoration).color == Colors.white),
+            w is Container &&
+            w.decoration is BoxDecoration &&
+            (w.decoration as BoxDecoration).color == cs.onPrimaryContainer),
         findsWidgets,
       );
+      expect(container.read(isPlayingProvider), isTrue);
     });
 
-    testWidgets('当前歌曲 loading：黑罩 + 白色圈圈', (tester) async {
+    testWidgets('当前歌曲 loading：显示小圈', (tester) async {
       await pumpWithState(tester,
           currentSong: song, loadingKey: song.globalKey);
       await tester.pump();
 
+      final cs = Theme.of(tester.element(find.byType(SongTile))).colorScheme;
       final indicator = tester.widget<CircularProgressIndicator>(
         find.byType(CircularProgressIndicator),
       );
-      expect(indicator.color, Colors.white);
-      // 覆盖层存在
-      expect(find.byKey(const Key('song_tile_playing_overlay')),
-          findsOneWidget);
+      expect(indicator.color, cs.onPrimaryContainer);
     });
 
     testWidgets('其他歌曲 loading 不影响本项', (tester) async {
@@ -152,7 +165,6 @@ void main() {
           currentSong: song, loadingKey: 'other_src:99');
       await tester.pump();
 
-      expect(find.byKey(const Key('song_tile_playing_overlay')), findsNothing);
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
   });
@@ -165,7 +177,7 @@ void main() {
         onTap: () => tapped++,
       )));
 
-      await tester.tap(find.byType(ListTile));
+      await tester.tap(find.byType(InkWell));
       expect(tapped, 1);
     });
 
@@ -176,7 +188,7 @@ void main() {
         onLongPress: () => longPressed++,
       )));
 
-      await tester.longPress(find.byType(ListTile));
+      await tester.longPress(find.byType(InkWell));
       expect(longPressed, 1);
     });
 

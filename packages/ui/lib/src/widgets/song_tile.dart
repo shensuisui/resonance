@@ -1,11 +1,11 @@
-/// 歌曲列表项 Widget
+/// 歌曲列表项 Widget —— 卡片式（对齐 PixelPlayer EnhancedSongListItem）
 ///
-/// 显示封面、标题、歌手、来源标签，点击播放。
-/// 所有颜色用 Theme.colorScheme，间距用 AppSpacing。
+/// 视觉：圆角卡片容器（surfaceContainerLow），封面 + 标题/歌手·来源 + 尾部操作。
+/// 播放状态：
+/// - 当前播放：容器变 primaryContainer、封面变圆形、标题用跑马灯、右侧跳动 EQ
+/// - 请求播放 URL（loading）：右侧小圈动画
 ///
-/// 播放状态：内部 watch 全局播放状态——
-/// - 当前正在播放的歌曲：封面盖 0.8 黑色 + 白色跳动均衡器动画
-/// - 正在请求播放 URL（loading）：封面盖 0.8 黑色 + 白色圈圈动画
+/// 颜色用 Theme.colorScheme，间距用 AppSpacing。
 library;
 
 import 'package:flutter/material.dart';
@@ -16,6 +16,7 @@ import '../providers/providers.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import 'cover_image.dart';
+import 'scrollable_text.dart';
 
 class SongTile extends ConsumerWidget {
   final Song song;
@@ -43,39 +44,110 @@ class SongTile extends ConsumerWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
-    // 播放状态：当前歌曲 + 播放中 → 跳动动画；请求播放 URL 中 → loading
+    // 播放状态：当前歌曲 + 播放中 → EQ；请求播放 URL 中 → loading
     final currentKey = ref.watch(currentSongProvider)?.globalKey;
     final isPlaying = ref.watch(isPlayingProvider);
     final loadingKey = ref.watch(playbackLoadingProvider);
     final isCurrent = currentKey == song.globalKey;
-    final showOverlay = isCurrent && (isPlaying || loadingKey == song.globalKey);
+    final isLoading = isCurrent && loadingKey == song.globalKey;
+    final showEq = isCurrent && isPlaying;
 
-    return ListTile(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.s16,
+    // 卡片配色：当前播放用 primaryContainer 高亮（对齐 PixelPlayer）
+    final containerColor =
+        isCurrent ? cs.primaryContainer : cs.surfaceContainerLow;
+    final titleColor = isCurrent ? cs.onPrimaryContainer : cs.onSurface;
+    final subtitleColor = (isCurrent ? cs.onPrimaryContainer : cs.onSurface)
+        .withValues(alpha: 0.7);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s12,
         vertical: AppSpacing.s4,
       ),
-      leading: _buildCover(cs, showOverlay, isCurrent && loadingKey == song.globalKey, isCurrent && isPlaying),
-      title: Text(
-        song.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.bodyLarge,
+      decoration: BoxDecoration(
+        color: containerColor,
+        borderRadius: BorderRadius.circular(AppRadius.s16),
       ),
-      subtitle: _buildSubtitle(theme.textTheme, cs),
-      trailing: trailing,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          borderRadius: BorderRadius.circular(AppRadius.s16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.s12,
+              vertical: AppSpacing.s8,
+            ),
+            child: Row(
+              children: [
+                _buildCover(cs, isCurrent),
+                const SizedBox(width: AppSpacing.s12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 当前播放：跑马灯标题；其余：单行省略
+                      if (showEq)
+                        ScrollableText(
+                          text: song.title,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: titleColor,
+                          ),
+                          fadeColor: containerColor,
+                        )
+                      else
+                        Text(
+                          song.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: titleColor,
+                          ),
+                        ),
+                      const SizedBox(height: AppSpacing.s4),
+                      _buildSubtitle(theme.textTheme, subtitleColor),
+                    ],
+                  ),
+                ),
+                // 播放状态指示（EQ / loading）
+                if (showEq) ...[
+                  const SizedBox(width: AppSpacing.s8),
+                  _PlayingBarsIndicator(color: titleColor),
+                ] else if (isLoading) ...[
+                  const SizedBox(width: AppSpacing.s8),
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: titleColor,
+                    ),
+                  ),
+                ],
+                if (trailing != null) ...[
+                  const SizedBox(width: AppSpacing.s4),
+                  trailing!,
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
   /// 副标题：歌手（可点击跳转歌手页）· 来源
-  Widget _buildSubtitle(TextTheme theme, ColorScheme cs) {
-    final baseStyle = theme.bodySmall?.copyWith(
-      color: cs.onSurfaceVariant,
-    );
+  Widget _buildSubtitle(TextTheme theme, Color subtitleColor) {
+    final baseStyle = theme.bodySmall?.copyWith(color: subtitleColor);
     final artistStyle = onArtistTap != null
-        ? baseStyle?.copyWith(color: cs.primary)
+        ? baseStyle?.copyWith(
+            decoration: TextDecoration.underline,
+            decorationColor: subtitleColor,
+          )
         : baseStyle;
 
     return Row(
@@ -102,72 +174,36 @@ class SongTile extends ConsumerWidget {
     );
   }
 
-  /// 封面：叠加播放状态层
-  ///
-  /// [showOverlay] 无状态时不叠加；[isLoading] 显示白色圈圈；
-  /// [isPlaying] 显示白色跳动均衡器动画。
-  Widget _buildCover(ColorScheme cs, bool showOverlay, bool isLoading, bool isPlaying) {
-    final base = song.coverUrl != null && song.coverUrl!.isNotEmpty
-        ? _networkCover(cs)
-        : _defaultCover(cs);
-
-    if (!showOverlay) return base;
-
-    return Stack(
-      key: const Key('song_tile_playing_overlay'),
-      alignment: Alignment.center,
-      children: [
-        base,
-        // 0.8 黑色遮罩
-        Positioned.fill(
-          child: Container(
-            color: Colors.black.withValues(alpha: 0.8),
-            child: null,
-          ),
-        ),
-        // 白色状态动画
-        if (isLoading)
-          const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.5,
-              color: Colors.white,
-            ),
-          )
-        else if (isPlaying)
-          const _PlayingBarsIndicator(),
-      ],
-    );
-  }
-
-  Widget _networkCover(ColorScheme cs) {
-    return CoverImage(
-      url: song.coverUrl,
-      width: 48,
-      height: 48,
-      radius: AppRadius.s8,
-    );
-  }
-
-  Widget _defaultCover(ColorScheme cs) {
+  /// 封面：50×50 圆角 10（当前播放变圆形，对齐 PixelPlayer）
+  Widget _buildCover(ColorScheme cs, bool isCurrent) {
+    final radius = isCurrent ? 25.0 : AppRadius.s12;
+    if (song.coverUrl != null && song.coverUrl!.isNotEmpty) {
+      return CoverImage(
+        url: song.coverUrl,
+        width: 50,
+        height: 50,
+        radius: radius,
+      );
+    }
     return Container(
-      width: 48,
-      height: 48,
+      width: 50,
+      height: 50,
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(AppRadius.s8),
+        borderRadius: BorderRadius.circular(radius),
       ),
-      child: Icon(Icons.music_note, color: cs.onSurfaceVariant, size: 24),
+      child: Icon(Icons.music_note_rounded,
+          size: 24, color: cs.onSurfaceVariant),
     );
   }
 }
 
-/// 播放中的跳动均衡器动画（白色三条竖条）
-///
-/// 用 AnimationController 让三条竖条高度正弦摆动，模拟音乐播放跳动。
+/// 播放中的跳动均衡器动画（三条竖条）
 class _PlayingBarsIndicator extends StatefulWidget {
-  const _PlayingBarsIndicator();
+  /// 竖条颜色（跟随当前内容色）
+  final Color color;
+
+  const _PlayingBarsIndicator({required this.color});
 
   @override
   State<_PlayingBarsIndicator> createState() => _PlayingBarsIndicatorState();
@@ -227,7 +263,7 @@ class _PlayingBarsIndicatorState extends State<_PlayingBarsIndicator>
       width: 3,
       height: 16 * heightFactor,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: widget.color,
         borderRadius: BorderRadius.circular(2),
       ),
     );
@@ -268,7 +304,7 @@ Widget songTileNoCoverPreview() {
   );
 }
 
-/// Widget 预览：当前正在播放的歌曲（封面黑罩 + 跳动动画）
+/// Widget 预览：当前正在播放的歌曲（容器高亮 + 封面圆形 + 跳动 EQ）
 @Preview(name: 'SongTile 播放中', group: 'SongTile')
 Widget songTilePlayingPreview() {
   final song = Song(
@@ -285,7 +321,7 @@ Widget songTilePlayingPreview() {
   );
 }
 
-/// Widget 预览：正在请求播放 URL（封面黑罩 + 白圈）
+/// Widget 预览：正在请求播放 URL（loading 小圈）
 @Preview(name: 'SongTile 播放加载中', group: 'SongTile')
 Widget songTileLoadingPreview() {
   final song = Song(

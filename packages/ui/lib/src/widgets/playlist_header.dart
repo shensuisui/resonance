@@ -1,17 +1,19 @@
-/// 歌单详情头部公共组件（StatefulWidget）
+/// 歌单/专辑详情头部公共组件（StatefulWidget）
 ///
-/// 供本地歌单（PlaylistDetailPage）与远程歌单（DiscoverPlaylistPage）
-/// 复用，保证两端头部视觉一致。组件需真实挂载进 widget 树
-/// （State 生命周期驱动封面主色提取）：
-/// - [PlaylistHeaderMode.flexible]：竖屏 SliverAppBar 折叠头——
-///   背景用封面主题色渐变，内容宽度约束（maxWidth 560 居中），
-///   row[封面(96), col(名称,描述,播放全部)]，折叠后仅 AppBar 标题保留。
-/// - [PlaylistHeaderMode.wide]：宽屏左侧完整面板——
-///   顶部返回条（AppBar 只占左列）+ 封面按面板宽度充满 + 名称/描述 + 播放全部。
+/// 供本地歌单（PlaylistDetailPage）、远程歌单（DiscoverPlaylistPage）与
+/// 专辑页（AlbumPage）复用，保证三端头部视觉一致。
+/// 组件需真实挂载进 widget 树（State 生命周期驱动封面主色提取）。
+///
+/// 视觉参考 PixelPlayer CollapsingAlbumTopBar：
+/// - 大封面图铺满头部（BoxFit.cover）+ 底部垂直渐变遮罩过渡到表面色
+/// - 顶部状态栏遮罩；标题/副标题左对齐靠底部；大号「播放全部」按钮
+/// - 无封面时回落封面主色渐变 + 自适应前景色
+///
+/// - [PlaylistHeaderMode.flexible]：竖屏 SliverAppBar 折叠头（flexibleSpace 内容）
+/// - [PlaylistHeaderMode.wide]：宽屏左侧完整面板（含顶部返回条）
 ///
 /// 封面主色提取：封面加载完成后用 [CoverPalette.extract] 异步提取，
 /// 通过 [onColorExtracted] 回传，供页面同步 SliverAppBar 折叠态配色。
-/// 无封面/favorite/加载失败时回落主题默认色。
 /// 颜色用 Theme.colorScheme，间距用 AppSpacing。
 library;
 
@@ -30,15 +32,15 @@ enum PlaylistHeaderMode {
   wide,
 }
 
-/// 歌单详情头部（内部负责封面主色提取与主题色渲染）
+/// 歌单/专辑详情头部（内部负责封面主色提取与主题色渲染）
 class PlaylistHeaderView extends StatefulWidget {
-  /// 歌单名
+  /// 名称（歌单名/专辑名）
   final String name;
 
-  /// 封面 URL（null 或无 cover 来源时显示占位图）
+  /// 封面 URL（null 或无 cover 来源时回落主色渐变）
   final String? coverUrl;
 
-  /// 描述文案（如「N 首歌曲」/ 错误信息）
+  /// 描述文案（如「N 首歌曲」/ 歌手 · N 首 / 错误信息）
   final String? subtitle;
 
   /// 是否「我最喜欢」虚拟歌单（心形封面）
@@ -135,8 +137,15 @@ class _PlaylistHeaderViewState extends State<PlaylistHeaderView> {
   Color get _bg =>
       _dominant ?? Theme.of(context).colorScheme.surfaceContainerLow;
 
-  /// 前景色：按背景亮度自动黑/白
+  /// 无封面场景的前景色：按主色亮度自动黑/白
   Color get _fg => CoverPalette.foreground(_bg);
+
+  /// 是否有可用封面大图背景
+  bool get _hasArtwork {
+    if (widget.isFavorite) return false;
+    final url = widget.coverUrl;
+    return url != null && url.isNotEmpty;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -146,211 +155,256 @@ class _PlaylistHeaderViewState extends State<PlaylistHeaderView> {
     };
   }
 
-  // ==================== 手机/竖屏：SliverAppBar 折叠头 ====================
+  // ==================== 背景层（封面大图 / 主色渐变 + 遮罩） ====================
 
-  /// 完整 flexibleSpace 内容（含主题色渐变背景 + 宽度约束）
-  ///
-  /// 折叠后 SliverAppBar 标题由页面承担（背景色/前景色经
-  /// [onColorExtracted] 同步）。
-  Widget _buildFlexibleSpace(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final bg = _bg;
-    final fg = _fg;
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [bg, CoverPalette.darken(bg, 0.28)],
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Center(
-          child: ConstrainedBox(
-            // 头部内容宽度适宜：平板竖屏不撑满
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.s16),
-              child: Row(
-                children: [
-                  _cover(context, size: 96),
-                  const SizedBox(width: AppSpacing.s16),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(widget.name,
-                            style: tt.titleLarge?.copyWith(color: fg),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis),
-                        if (widget.subtitle != null) ...[
-                          const SizedBox(height: AppSpacing.s4),
-                          Text(widget.subtitle!,
-                              style: tt.bodySmall
-                                  ?.copyWith(color: fg.withValues(alpha: 0.75)),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
-                        ],
-                        const SizedBox(height: AppSpacing.s12),
-                        // 播放全部（大号按钮，对齐 PixelPlayer 悬浮播放按钮观感）
-                        FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.s20,
-                                vertical: AppSpacing.s12),
-                            textStyle: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                          icon: const Icon(Icons.play_arrow_rounded,
-                              size: 26),
-                          label: const Text('播放全部'),
-                          onPressed: widget.onPlayAll,
-                        ),
-                      ],
-                    ),
-                  ),
+  /// 背景：封面大图或主色渐变；上方叠加底部渐变遮罩过渡到表面色
+  Widget _buildBackground(BuildContext context, {required bool withTopScrim}) {
+    final cs = Theme.of(context).colorScheme;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 1. 底图
+        if (_hasArtwork)
+          CoverImage(
+            url: widget.coverUrl,
+            fit: BoxFit.cover,
+            radius: 0,
+          )
+        else
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [_bg, CoverPalette.darken(_bg, 0.3)],
+              ),
+            ),
+          ),
+        // 2. 底部渐变遮罩：封面自然过渡到列表背景（对齐 PixelPlayer headerOverlayBrush）
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: const [0.0, 0.45, 0.75, 1.0],
+                colors: [
+                  Colors.transparent,
+                  cs.surface.withValues(alpha: 0.30),
+                  cs.surface.withValues(alpha: 0.90),
+                  cs.surface,
                 ],
               ),
             ),
           ),
         ),
-      ),
+        // 3. 顶部状态栏遮罩（保证返回按钮/状态栏可读）
+        if (withTopScrim)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 96,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    cs.surface.withValues(alpha: 0.55),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// 标题/副标题文字色：有封面遮罩时用表面色体系；纯主色背景用自适应前景
+  Color get _titleColor =>
+      _hasArtwork ? Theme.of(context).colorScheme.onSurface : _fg;
+
+  Color get _subtitleColor => _hasArtwork
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : _fg.withValues(alpha: 0.75);
+
+  // ==================== 手机/竖屏：SliverAppBar 折叠头 ====================
+
+  Widget _buildFlexibleSpace(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _buildBackground(context, withTopScrim: false),
+        // 内容：标题区靠底部（对齐 PixelPlayer 头部文字位置）
+        SafeArea(
+          bottom: false,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.s16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (widget.isFavorite) ...[
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primaryContainer,
+                          borderRadius:
+                              BorderRadius.circular(AppRadius.s16),
+                        ),
+                        child: Icon(
+                          Icons.favorite_rounded,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onPrimaryContainer,
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.s12),
+                    ],
+                    Text(
+                      widget.name,
+                      style: tt.headlineSmall?.copyWith(
+                        color: _titleColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (widget.subtitle != null) ...[
+                      const SizedBox(height: AppSpacing.s4),
+                      Text(
+                        widget.subtitle!,
+                        style: tt.bodyMedium?.copyWith(color: _subtitleColor),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.s16),
+                    // 播放全部（大号按钮，对齐 PixelPlayer 播放按钮观感）
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.s20,
+                            vertical: AppSpacing.s12),
+                        textStyle: tt.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      icon:
+                          const Icon(Icons.play_arrow_rounded, size: 26),
+                      label: const Text('播放全部'),
+                      onPressed: widget.onPlayAll,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   // ==================== 宽屏：左侧完整面板 ====================
 
-  /// 宽屏左侧面板：顶部返回条 + 封面充满 + 名称/描述 + 播放全部
-  ///
-  /// 背景为封面主题色渐变（上浅下深），整个面板形成独立视觉区块，
-  /// 顶部返回条只占左列（右侧列表区无 AppBar）。
   Widget _buildWidePanel(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final bg = _bg;
-    final fg = _fg;
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [bg, CoverPalette.darken(bg, 0.35)],
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            // 顶部返回条：AppBar 只占左列
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s4),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: widget.onBack,
-                    tooltip: '返回',
-                    icon: Icon(Icons.arrow_back_rounded, color: fg),
-                  ),
-                  Expanded(
-                    child: Text(widget.name,
-                        style: tt.titleMedium?.copyWith(color: fg),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: fg.withValues(alpha: 0.2)),
-            // 内容区：封面充满面板宽度
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, cons) {
-                  final coverSize = (cons.maxWidth - AppSpacing.s16 * 2)
-                      .clamp(120.0, 320.0)
-                      .toDouble();
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.all(AppSpacing.s16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _cover(context, size: coverSize),
-                        const SizedBox(height: AppSpacing.s16),
-                        Text(widget.name,
-                            style: tt.headlineSmall?.copyWith(color: fg),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis),
-                        if (widget.subtitle != null) ...[
-                          const SizedBox(height: AppSpacing.s8),
-                          Text(widget.subtitle!,
-                              style: tt.bodyMedium
-                                  ?.copyWith(color: fg.withValues(alpha: 0.75)),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis),
-                        ],
-                        const SizedBox(height: AppSpacing.s16),
-                        // 播放全部（大号按钮）
-                        FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.s20,
-                                vertical: AppSpacing.s12),
-                            textStyle: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                          icon: const Icon(Icons.play_arrow_rounded,
-                              size: 26),
-                          label: const Text('播放全部'),
-                          onPressed: widget.onPlayAll,
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ==================== 封面 ====================
-
-  Widget _cover(BuildContext context, {required double size}) {
     final cs = Theme.of(context).colorScheme;
 
-    // 占位：favorite 用心形主题封面，否则音符占位
-    final placeholder = Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: widget.isFavorite
-            ? cs.primaryContainer
-            : cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(AppRadius.s16),
-      ),
-      child: Icon(
-        widget.isFavorite ? Icons.favorite_rounded : Icons.queue_music_rounded,
-        color: widget.isFavorite ? cs.onPrimaryContainer : cs.onSurfaceVariant,
-        size: size * 0.4,
-      ),
-    );
-
-    if (widget.isFavorite) return placeholder;
-    final url = widget.coverUrl;
-    if (url == null || url.isEmpty) return placeholder;
-
-    return CoverImage(
-      url: url,
-      width: size,
-      height: size,
-      radius: AppRadius.s16,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _buildBackground(context, withTopScrim: true),
+        SafeArea(
+          child: Column(
+            children: [
+              // 顶部返回条（仅左列）
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.s12, vertical: AppSpacing.s4),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: widget.onBack,
+                      tooltip: '返回',
+                      style: IconButton.styleFrom(
+                        backgroundColor: cs.surfaceContainerLow,
+                        foregroundColor: cs.onSurface,
+                      ),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                    ),
+                    const SizedBox(width: AppSpacing.s8),
+                    Expanded(
+                      child: Text(
+                        widget.name,
+                        style: tt.titleMedium?.copyWith(
+                          color: _titleColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // 底部标题区 + 播放全部
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.s16),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.name,
+                        style: tt.headlineSmall?.copyWith(
+                          color: _titleColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (widget.subtitle != null) ...[
+                        const SizedBox(height: AppSpacing.s4),
+                        Text(
+                          widget.subtitle!,
+                          style:
+                              tt.bodyMedium?.copyWith(color: _subtitleColor),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.s16),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.s20,
+                              vertical: AppSpacing.s12),
+                          textStyle: tt.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        icon: const Icon(Icons.play_arrow_rounded, size: 26),
+                        label: const Text('播放全部'),
+                        onPressed: widget.onPlayAll,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
