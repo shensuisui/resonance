@@ -88,10 +88,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     return OrientationBuilder(
       builder: (context, orientation) {
         final isWide = orientation == Orientation.landscape;
-        // 迷你条停靠位置：竖屏在底部导航上方，横屏贴底
+        // 迷你条停靠位置：竖屏在底部导航上方，横屏贴底但需保留底部安全区
         final navH = Theme.of(context).navigationBarTheme.height ?? 80;
         final bottomInset = MediaQuery.paddingOf(context).bottom;
-        final miniBarBottom = isWide ? 0.0 : navH + bottomInset;
+        final miniBarBottom = isWide ? bottomInset : navH + bottomInset;
 
         final main = isWide
             ? Row(

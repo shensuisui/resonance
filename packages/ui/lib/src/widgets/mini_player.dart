@@ -33,8 +33,9 @@ class MiniPlayer extends ConsumerWidget {
     final duration = ref.watch(playbackDurationProvider);
     final cs = Theme.of(context).colorScheme;
 
+    // 进度 clamp：position 流偶尔会略大于 duration
     final progress = duration.inMilliseconds > 0
-        ? position.inMilliseconds / duration.inMilliseconds
+        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
         : 0.0;
 
     return Column(
@@ -78,6 +79,7 @@ class MiniPlayer extends ConsumerWidget {
                                   text: '${song.title} - ${song.artist}',
                                   style:
                                       Theme.of(context).textTheme.bodyMedium,
+                                  // 渐变遮罩与迷你条真实底色一致（封面主色混合后的表面色）
                                   fadeColor: cs.surfaceContainerLow,
                                 ),
                               ),
@@ -95,6 +97,7 @@ class MiniPlayer extends ConsumerWidget {
                     const SizedBox(width: AppSpacing.s8),
                     // 播放/暂停（触觉反馈）
                     IconButton(
+                      tooltip: isPlaying ? '暂停' : '播放',
                       icon: Icon(isPlaying
                           ? Icons.pause_rounded
                           : Icons.play_arrow_rounded),

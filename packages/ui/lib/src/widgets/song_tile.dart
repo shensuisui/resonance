@@ -293,7 +293,7 @@ class _PlayingBarsIndicatorState extends State<_PlayingBarsIndicator>
       height: 16 * heightFactor,
       decoration: BoxDecoration(
         color: widget.color,
-        borderRadius: BorderRadius.circular(2),
+        borderRadius: BorderRadius.circular(AppRadius.s4),
       ),
     );
   }

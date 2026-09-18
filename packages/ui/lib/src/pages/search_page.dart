@@ -8,6 +8,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../providers/providers.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/cover_image.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/download_button.dart';
 import '../widgets/horizontal_fade.dart';
@@ -325,9 +326,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   Widget _buildHotCover(Playlist pl, ColorScheme cs) {
     final url = pl.coverUrl;
     if (url != null && url.isNotEmpty) {
-      return Image.network(url,
-          width: 120, height: 120, fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _defaultHotCover(cs));
+      // 统一走 CoverImage（缓存 + 骨架 + 失败占位）
+      return CoverImage(
+        url: url,
+        width: 120,
+        height: 120,
+        fit: BoxFit.cover,
+        radius: AppRadius.s12,
+      );
     }
     return _defaultHotCover(cs);
   }
@@ -390,7 +396,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       color: Theme.of(context)
                           .colorScheme
                           .surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: BorderRadius.circular(AppRadius.full),
                     ),
                     child: Row(
                       children: [

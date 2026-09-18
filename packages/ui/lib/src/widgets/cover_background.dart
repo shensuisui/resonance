@@ -67,10 +67,16 @@ class _CoverBackgroundState extends State<CoverBackground> {
 
   @override
   Widget build(BuildContext context) {
-    final top = _color?.withValues(alpha: widget.topOpacity) ?? widget.fallback;
+    // 顶部主色与 fallback 做 alphaBlend：结果不透明，避免浮层（迷你条）穿透看到下层列表
+    final top = _color == null
+        ? widget.fallback
+        : Color.alphaBlend(
+            _color!.withValues(alpha: widget.topOpacity), widget.fallback);
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       decoration: BoxDecoration(
+        // 兜底底色：任何情况下都不透明
+        color: widget.fallback,
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,

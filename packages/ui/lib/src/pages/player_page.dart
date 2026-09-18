@@ -488,7 +488,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         height: double.infinity,
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(AppRadius.full),
         ),
         child: Icon(icon, size: iconSize, color: foreground),
       ),
@@ -510,7 +510,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       padding: const EdgeInsets.all(AppSpacing.s4),
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(AppRadius.full),
       ),
       child: Row(
         children: [
@@ -596,7 +596,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             color: active
                 ? activeBackground
                 : cs.onSurface.withValues(alpha: 0.07),
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(AppRadius.full),
           ),
           child: Icon(
             icon,

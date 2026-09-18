@@ -350,10 +350,10 @@ class _QuickActionCard extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     return Material(
       color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(AppRadius.full),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(AppRadius.full),
         child: Padding(
           padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.s12, vertical: AppSpacing.s8),

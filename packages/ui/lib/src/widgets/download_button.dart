@@ -12,6 +12,7 @@ import 'package:flutter/widget_previews.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../providers/providers.dart';
+import '../theme/app_spacing.dart';
 
 class DownloadButton extends ConsumerWidget {
   final Song song;
@@ -63,8 +64,9 @@ class DownloadButton extends ConsumerWidget {
     final progress = (task.progress * 100).round();
     return IconButton(
       icon: SizedBox(
-        width: 22,
-        height: 22,
+        // 24 圆环 + 可读的百分比字号（原 22/6px 数字几乎不可辨认）
+        width: AppSpacing.s24,
+        height: AppSpacing.s24,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -76,7 +78,11 @@ class DownloadButton extends ConsumerWidget {
             Center(
               child: Text(
                 '$progress%',
-                style: TextStyle(fontSize: 6, color: cs.onSurfaceVariant),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      height: 1.0,
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
             ),
           ],

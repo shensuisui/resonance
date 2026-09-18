@@ -264,6 +264,15 @@ fm 的 UI 架构（Riverpod + Material 3 + 常量主题 + 响应式导航）方�
 
 **阶段三全部完成。** 本期 UI 改进（阶段一~三）已全部落地。
 
+### 已完成（阶段四：视觉一致性打磨）
+
+按 PixelPlayer 对照逐页核对后的统一收口，逐轮真机截图 + 布局扫描回归：
+
+- **[x] 设置页层级**：分组内新增小节标题（主题模式/主题色/全局圆角）与分隔线，消除「外观」重复层级；圆角滑杆整行限宽 380 并右对齐数值。
+- **[x] 歌单列表页卡片化**：ListTile 改为与 SongTile 同款卡片容器（surfaceContainerLow + 圆角 16 + 50 封面位 + 主副标题），「我最喜欢」用 primaryContainer 高亮，与歌曲卡片视觉统一。
+- **[x] 队列 Sheet 卡片化**：抽出 QueueSongRow（卡片 + 序号/EQ + 标题/歌手 + trailing 拖拽手柄），队列 Sheet 与队列页共用，当前播放 primaryContainer 高亮。
+- 验证：ui 包全量 112 测试通过（新增 queue_song_row_test.dart 4 用例）；布局扫描 11/11 通过；analyze 无 error/warning。
+
 ### 待做（阶段一）
 
 - 全部完成 ✅（1 主题色 / 3 圆角 / 4 封面渐层 / 5 转场微交互 / 8 跑马灯）

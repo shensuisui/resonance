@@ -5,6 +5,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../theme/app_radius.dart';
 
 /// 是否处于 UI 自动化（flutter_driver）模式
 ///
@@ -49,7 +50,7 @@ class _ShimmerBoxState extends State<ShimmerBox>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final radius = widget.radius ?? BorderRadius.circular(8);
+    final radius = widget.radius ?? BorderRadius.circular(AppRadius.s8);
     final base = cs.surfaceContainerHighest;
     final highlight = cs.surfaceContainerHigh;
 
