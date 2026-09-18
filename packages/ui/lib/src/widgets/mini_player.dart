@@ -17,6 +17,12 @@ import 'cover_background.dart';
 import 'cover_image.dart';
 import 'scrollable_text.dart';
 
+/// 迷你条总高度（1 分隔线 + s8 上下内边距 + 48 播放按钮）
+///
+/// 单一来源：PlayerOverlay 展开动画的位移量与此保持一致，
+/// 避免两处各写一个近似值导致收起时错位。
+const double kMiniPlayerHeight = 1 + AppSpacing.s8 * 2 + 48;
+
 class MiniPlayer extends ConsumerWidget {
   /// 点击回调（null 时默认 push 全屏播放页；PlayerOverlay 传入展开回调接管）
   final VoidCallback? onTap;

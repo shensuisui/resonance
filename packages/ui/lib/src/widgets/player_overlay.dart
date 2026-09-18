@@ -84,8 +84,8 @@ class _PlayerOverlayState extends ConsumerState<PlayerOverlay>
 
     final overlay = ref.watch(playerOverlayProvider);
     final screenH = MediaQuery.sizeOf(context).height;
-    // 迷你条自身高度（近似，用于上滑时下移淡出）
-    const miniH = 72.0;
+    // 迷你条自身高度：引用 MiniPlayer 的唯一来源，避免与实际高度不符
+    const miniH = kMiniPlayerHeight;
 
     return AnimatedBuilder(
       animation: _controller,
