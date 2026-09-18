@@ -130,8 +130,6 @@ class _PlaylistListPageState extends ConsumerState<PlaylistListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
     // 收藏数（「我最喜欢」歌单副标题，动态刷新）
     final favCount = ref.watch(favoriteCountProvider).value ?? 0;
 
@@ -153,28 +151,16 @@ class _PlaylistListPageState extends ConsumerState<PlaylistListPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s8),
               children: [
                 // 「我最喜欢」特殊歌单：永远第一个，收藏动态驱动
-                ListTile(
+                // 卡片样式与歌曲卡片（SongTile）一致，高亮用 primaryContainer
+                _playlistCard(
                   key: const ValueKey('favorite'),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.s16,
-                    vertical: AppSpacing.s4,
-                  ),
-                  leading: Container(
-                    width: 48, height: 48,
-                    decoration: BoxDecoration(
-                      color: cs.primaryContainer,
-                      borderRadius: BorderRadius.circular(AppRadius.s8),
-                    ),
-                    child: Icon(Icons.favorite_rounded,
-                        color: cs.onPrimaryContainer),
-                  ),
-                  title: Text('我最喜欢', style: tt.bodyLarge),
-                  subtitle: Text('$favCount 首',
-                      style: tt.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      )),
+                  title: '我最喜欢',
+                  subtitle: '$favCount 首',
+                  icon: Icons.favorite_rounded,
+                  highlighted: true,
                   onTap: () {
                     Navigator.push(
                       context,
@@ -185,7 +171,6 @@ class _PlaylistListPageState extends ConsumerState<PlaylistListPage> {
                     );
                   },
                 ),
-                const Divider(height: 1),
                 // 用户歌单列表
                 if (_playlists.isEmpty)
                   Padding(
@@ -202,25 +187,11 @@ class _PlaylistListPageState extends ConsumerState<PlaylistListPage> {
                   )
                 else
                   for (final pl in _playlists)
-                    ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.s16,
-                        vertical: AppSpacing.s4,
-                      ),
-                      leading: Container(
-                        width: 48, height: 48,
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(AppRadius.s8),
-                        ),
-                        child: Icon(Icons.queue_music_rounded,
-                            color: cs.onSurfaceVariant),
-                      ),
-                      title: Text(pl.name, style: tt.bodyLarge),
-                      subtitle: Text('${pl.songKeys.length} 首',
-                          style: tt.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          )),
+                    _playlistCard(
+                      key: ValueKey(pl.id),
+                      title: pl.name,
+                      subtitle: '${pl.songKeys.length} 首',
+                      icon: Icons.queue_music_rounded,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -234,6 +205,98 @@ class _PlaylistListPageState extends ConsumerState<PlaylistListPage> {
                     ),
               ],
             ),
+    );
+  }
+
+  /// 歌单卡片 —— 与 SongTile 同款容器（surfaceContainerLow + 圆角 + 50 封面位）
+  ///
+  /// highlighted=true 用于「我最喜欢」，配色对齐 SongTile 的当前播放态。
+  Widget _playlistCard({
+    Key? key,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required VoidCallback onTap,
+    VoidCallback? onLongPress,
+    bool highlighted = false,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final containerColor =
+        highlighted ? cs.primaryContainer : cs.surfaceContainerLow;
+    final titleColor = highlighted ? cs.onPrimaryContainer : cs.onSurface;
+    final subtitleColor =
+        highlighted ? cs.onPrimaryContainer : cs.onSurfaceVariant;
+
+    return Container(
+      key: key,
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s16,
+        vertical: AppSpacing.s8,
+      ),
+      decoration: BoxDecoration(
+        color: containerColor,
+        borderRadius: BorderRadius.circular(AppRadius.s16),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          borderRadius: BorderRadius.circular(AppRadius.s16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.s12,
+              vertical: AppSpacing.s8,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: highlighted
+                        ? cs.onPrimaryContainer.withValues(alpha: 0.12)
+                        : cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(AppRadius.s12),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: highlighted
+                        ? cs.onPrimaryContainer
+                        : cs.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.s12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: titleColor,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.s4),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.bodySmall?.copyWith(color: subtitleColor),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
