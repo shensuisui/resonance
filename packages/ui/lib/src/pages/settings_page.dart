@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
 import '../theme/app_theme.dart';
 import '../providers/providers.dart';
 import '../widgets/color_picker_dialog.dart';
@@ -372,15 +373,16 @@ class _SettingsGroupDetailPageState
                 leading: const Icon(Icons.dark_mode_rounded),
                 title: const Text('暗色'),
               ),
+              // 与 SettingsTile 卡片保持同一容器风格（surfaceContainerLow + 圆角）
               CustomSettingsTile(
-                child: (info) => Padding(
-                  padding: const EdgeInsets.all(AppSpacing.s16),
+                child: (info) => _settingsCard(
+                  cs,
                   child: _buildSeedColorPicker(cs, tt),
                 ),
               ),
               CustomSettingsTile(
-                child: (info) => Padding(
-                  padding: const EdgeInsets.all(AppSpacing.s16),
+                child: (info) => _settingsCard(
+                  cs,
                   child: _buildCornerRadiusSlider(cs, tt),
                 ),
               ),
@@ -541,6 +543,20 @@ class _SettingsGroupDetailPageState
     );
   }
 
+  /// 设置项卡片容器（与 card_settings_ui 的 SettingsTile 卡片同风格）
+  Widget _settingsCard(ColorScheme cs, {required Widget child}) {
+    return Container(
+      margin: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.s12, vertical: AppSpacing.s4),
+      padding: const EdgeInsets.all(AppSpacing.s16),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.s12),
+      ),
+      child: child,
+    );
+  }
+
   /// 外观：主题色预设色块 + 自定义取色器入口
   Widget _buildSeedColorPicker(ColorScheme cs, TextTheme tt) {
     final current = ref.watch(seedColorProvider);
@@ -550,10 +566,10 @@ class _SettingsGroupDetailPageState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('主题色', style: tt.titleSmall?.copyWith(color: cs.primary)),
-        const SizedBox(height: AppSpacing.s12),
+        const SizedBox(height: AppSpacing.s16),
         Wrap(
-          spacing: AppSpacing.s12,
-          runSpacing: AppSpacing.s12,
+          spacing: AppSpacing.s16,
+          runSpacing: AppSpacing.s16,
           children: [
             for (final p in kSeedColorPresets)
               _seedSwatch(
@@ -565,7 +581,7 @@ class _SettingsGroupDetailPageState
               ),
           ],
         ),
-        const SizedBox(height: AppSpacing.s4),
+        const SizedBox(height: AppSpacing.s8),
         TextButton.icon(
           onPressed: () async {
             final color =
@@ -591,18 +607,18 @@ class _SettingsGroupDetailPageState
       onTap: onTap,
       customBorder: const CircleBorder(),
       child: Container(
-        width: 36,
-        height: 36,
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
           color: color,
           shape: BoxShape.circle,
           border: Border.all(
-            color: selected ? cs.primary : cs.outlineVariant,
-            width: selected ? 2.5 : 1,
+            color: selected ? cs.onSurface : cs.outlineVariant,
+            width: selected ? 3 : 1,
           ),
         ),
         child: selected
-            ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
+            ? const Icon(Icons.check_rounded, size: 22, color: Colors.white)
             : null,
       ),
     );
@@ -614,24 +630,33 @@ class _SettingsGroupDetailPageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text('全局圆角', style: tt.titleSmall?.copyWith(color: cs.primary)),
+        const SizedBox(height: AppSpacing.s8),
+        // 滑杆与数值同行：数值紧贴滑杆右端，避免视线来回跳跃
         Row(
           children: [
-            Text('全局圆角', style: tt.titleSmall?.copyWith(color: cs.primary)),
-            const Spacer(),
-            Text('$radius',
-                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+            Expanded(
+              child: Slider(
+                value: radius.toDouble(),
+                min: kCornerRadiusMin.toDouble(),
+                max: kCornerRadiusMax.toDouble(),
+                divisions: kCornerRadiusMax - kCornerRadiusMin,
+                label: '$radius',
+                onChanged: (v) => ref
+                    .read(cornerRadiusProvider.notifier)
+                    .setCornerRadius(v.round()),
+              ),
+            ),
+            SizedBox(
+              width: 32,
+              child: Text('$radius',
+                  textAlign: TextAlign.center,
+                  style: tt.bodyMedium?.copyWith(
+                      color: cs.onSurface, fontWeight: FontWeight.w600)),
+            ),
           ],
         ),
-        Slider(
-          value: radius.toDouble(),
-          min: kCornerRadiusMin.toDouble(),
-          max: kCornerRadiusMax.toDouble(),
-          divisions: kCornerRadiusMax - kCornerRadiusMin,
-          label: '$radius',
-          onChanged: (v) => ref
-              .read(cornerRadiusProvider.notifier)
-              .setCornerRadius(v.round()),
-        ),
+        const SizedBox(height: AppSpacing.s4),
         Text('作用于卡片、对话框、底部弹层',
             style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
       ],

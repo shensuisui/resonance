@@ -361,18 +361,62 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 ],
               )
             : AppBar(
-                title: TextField(
-                  controller: _controller,
-                  decoration: const InputDecoration(
-                    hintText: '搜索歌曲、歌手',
-                    border: InputBorder.none,
+                // M3 搜索栏：surfaceContainerHigh 圆角容器 + 前导图标 + 内嵌清除
+                titleSpacing: 0,
+                title: Padding(
+                  padding: const EdgeInsets.only(
+                      left: AppSpacing.s16, right: AppSpacing.s12),
+                  child: ConstrainedBox(
+                    // M3 搜索栏不占满整行：右侧为搜索按钮留出呼吸空间
+                    constraints: const BoxConstraints(maxWidth: 560),
+                    child: Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      children: [
+                        const SizedBox(width: AppSpacing.s16),
+                        Icon(Icons.search_rounded,
+                            size: 22,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant),
+                        const SizedBox(width: AppSpacing.s8),
+                        Expanded(
+                          child: TextField(
+                            controller: _controller,
+                            decoration: const InputDecoration(
+                              hintText: '搜索歌曲、歌手',
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
+                            textInputAction: TextInputAction.search,
+                            onSubmitted: (_) => _onSearch(),
+                          ),
+                        ),
+                        if (_controller.text.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 20),
+                            tooltip: '清空',
+                            onPressed: () {
+                              _controller.clear();
+                              setState(() {});
+                            },
+                          ),
+                        const SizedBox(width: AppSpacing.s4),
+                      ],
+                    ),
                   ),
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: (_) => _onSearch(),
+                  ),
                 ),
                 actions: [
                   IconButton(
                     icon: const Icon(Icons.search_rounded),
+                    tooltip: '搜索',
                     onPressed: _onSearch,
                   ),
                 ],
