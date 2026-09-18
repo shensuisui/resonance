@@ -191,6 +191,31 @@ void main() {
       report(tester, '竖屏/播放页/收藏', find.byIcon(Icons.favorite_border_rounded));
       checkOverflow('竖屏/播放页');
     });
+
+    testWidgets('播放页歌词模式（竖屏）', (tester) async {
+      await pumpApp(tester, size: size, withSong: true);
+      await tester.tap(find.byType(MiniPlayer));
+      await tester.pump(const Duration(milliseconds: 800));
+      // 点歌词按钮切到歌词视图
+      await tester.tap(find.byIcon(Icons.lyrics_outlined));
+      await tester.pump(const Duration(milliseconds: 600));
+      report(tester, '竖屏/播放页/歌词视图', find.byType(LyricsView));
+      checkOverflow('竖屏/播放页(歌词)');
+    });
+
+    testWidgets('专辑页（竖屏，加载/空态渲染不崩溃）', (tester) async {
+      final container = await pumpApp(tester, size: size);
+      // 直接以专辑页为根（源管理器已注入，搜索无结果时走空态）
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: AlbumPage(albumName: '测试专辑', artistName: '测试歌手'),
+        ),
+      ));
+      await tester.pump(const Duration(milliseconds: 1200));
+      report(tester, '竖屏/专辑页', find.byType(AlbumPage));
+      checkOverflow('竖屏/专辑页');
+    });
   });
 
   // ==================== 宽屏 1200x700（NavigationRail） ====================
