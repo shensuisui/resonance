@@ -120,49 +120,91 @@ class QueueSheet extends ConsumerWidget {
                           ),
                           onDismissed: (_) =>
                               _removeWithUndo(context, ref, index, queue),
-                          child: ListTile(
-                            onTap: () => ref
-                                .read(playbackControllerProvider.notifier)
-                                .jumpTo(index),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.s8),
-                            leading: SizedBox(
-                              width: 32,
-                              child: Row(
-                                children: [
-                                  isCurrent
-                                      ? Icon(Icons.graphic_eq_rounded,
-                                          size: 20, color: cs.primary)
-                                      : Text('${index + 1}',
-                                          style: tt.bodySmall?.copyWith(
-                                              color: cs.onSurfaceVariant)),
-                                ],
-                              ),
+                          child: Container(
+                            // 与 SongTile 同款卡片容器：当前播放用 primaryContainer
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.s12,
+                              vertical: AppSpacing.s4,
                             ),
-                            title: Text(
-                              song.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: tt.bodyLarge?.copyWith(
-                                color: isCurrent ? cs.primary : null,
-                                fontWeight:
-                                    isCurrent ? FontWeight.w600 : null,
-                              ),
-                            ),
-                            subtitle: Text(
-                              song.artist,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: tt.bodySmall
-                                  ?.copyWith(color: cs.onSurfaceVariant),
-                            ),
-                            trailing: ReorderableDragStartListener(
-                              index: index,
-                              child: const Icon(Icons.drag_handle_rounded),
-                            ),
-                            shape: RoundedRectangleBorder(
+                            decoration: BoxDecoration(
+                              color: isCurrent
+                                  ? cs.primaryContainer
+                                  : cs.surfaceContainerLow,
                               borderRadius:
-                                  BorderRadius.circular(AppRadius.s8),
+                                  BorderRadius.circular(AppRadius.s12),
+                            ),
+                            child: InkWell(
+                              onTap: () => ref
+                                  .read(playbackControllerProvider.notifier)
+                                  .jumpTo(index),
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.s12),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.s12,
+                                  vertical: AppSpacing.s8,
+                                ),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 24,
+                                      child: isCurrent
+                                          ? Icon(Icons.graphic_eq_rounded,
+                                              size: 18,
+                                              color: cs.onPrimaryContainer)
+                                          : Text('${index + 1}',
+                                              textAlign: TextAlign.center,
+                                              style: tt.bodySmall?.copyWith(
+                                                  color: cs.onSurfaceVariant)),
+                                    ),
+                                    const SizedBox(width: AppSpacing.s12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            song.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: tt.bodyMedium?.copyWith(
+                                              color: isCurrent
+                                                  ? cs.onPrimaryContainer
+                                                  : cs.onSurface,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(
+                                              height: AppSpacing.s2),
+                                          Text(
+                                            song.artist,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: tt.bodySmall?.copyWith(
+                                              color: isCurrent
+                                                  ? cs.onPrimaryContainer
+                                                      .withValues(alpha: 0.7)
+                                                  : cs.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    ReorderableDragStartListener(
+                                      index: index,
+                                      child: Icon(
+                                        Icons.drag_handle_rounded,
+                                        size: 20,
+                                        color: isCurrent
+                                            ? cs.onPrimaryContainer
+                                                .withValues(alpha: 0.7)
+                                            : cs.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         );
