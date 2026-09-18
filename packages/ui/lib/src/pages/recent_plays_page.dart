@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import '../providers/providers.dart';
+import '../theme/app_spacing.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/empty_state.dart';
 
@@ -48,6 +49,8 @@ class _RecentPlaysPageState extends ConsumerState<RecentPlaysPage> {
               message: '还没有播放记录',
             )
           : ListView.builder(
+              // 顶部留白：标题与首张卡片之间呼吸空间
+              padding: const EdgeInsets.only(top: AppSpacing.s8),
               itemCount: songs.length,
               itemBuilder: (context, index) {
                 return SongTile(

@@ -163,8 +163,13 @@ class _PlaylistHeaderViewState extends State<PlaylistHeaderView> {
 
   // ==================== 背景层（封面大图 / 主色渐变 + 遮罩） ====================
 
-  /// 背景：封面大图或主色渐变；上方叠加底部渐变遮罩过渡到表面色
-  Widget _buildBackground(BuildContext context, {required bool withTopScrim}) {
+  /// 背景：封面大图或主色渐变。
+  ///
+  /// [blendToSurface] 为 true 时（flexible：下方紧接列表）底部渐隐到表面色，
+  /// 使封面自然过渡进列表；为 false 时（wide：独立左面板）保持整片主题色，
+  /// 避免面板内部出现"上白下紫"的接缝。有封面图时叠加暗色 scrim 保证文字可读。
+  Widget _buildBackground(BuildContext context,
+      {required bool withTopScrim, required bool blendToSurface}) {
     final cs = Theme.of(context).colorScheme;
     return Stack(
       fit: StackFit.expand,
@@ -186,20 +191,29 @@ class _PlaylistHeaderViewState extends State<PlaylistHeaderView> {
               ),
             ),
           ),
-        // 2. 底部渐变遮罩：封面自然过渡到列表背景（对齐 PixelPlayer headerOverlayBrush）
+        // 2. 遮罩：
+        //    - flexible（下方接列表）：底部渐隐到表面色，封面自然过渡进列表
+        //    - wide（独立左面板）：仅叠一层轻 scrim，保持整片主题色、无接缝
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                stops: const [0.0, 0.45, 0.75, 1.0],
-                colors: [
-                  Colors.transparent,
-                  cs.surface.withValues(alpha: 0.30),
-                  cs.surface.withValues(alpha: 0.90),
-                  cs.surface,
-                ],
+                stops: blendToSurface
+                    ? const [0.0, 0.45, 0.75, 1.0]
+                    : const [0.0, 1.0],
+                colors: blendToSurface
+                    ? [
+                        Colors.transparent,
+                        cs.surface.withValues(alpha: 0.30),
+                        cs.surface.withValues(alpha: 0.90),
+                        cs.surface,
+                      ]
+                    : [
+                        Colors.black.withValues(alpha: _hasArtwork ? 0.18 : 0.0),
+                        Colors.black.withValues(alpha: _hasArtwork ? 0.30 : 0.0),
+                      ],
               ),
             ),
           ),
@@ -243,7 +257,7 @@ class _PlaylistHeaderViewState extends State<PlaylistHeaderView> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        _buildBackground(context, withTopScrim: false),
+        _buildBackground(context, withTopScrim: false, blendToSurface: true),
         // 内容：标题区靠底部（对齐 PixelPlayer 头部文字位置）
         SafeArea(
           bottom: false,
@@ -329,7 +343,7 @@ class _PlaylistHeaderViewState extends State<PlaylistHeaderView> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        _buildBackground(context, withTopScrim: true),
+        _buildBackground(context, withTopScrim: true, blendToSurface: false),
         SafeArea(
           child: Column(
             children: [

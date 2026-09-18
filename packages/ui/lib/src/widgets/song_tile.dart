@@ -60,8 +60,9 @@ class SongTile extends ConsumerWidget {
         .withValues(alpha: 0.7);
 
     return Container(
+      // 横向 16 与 AppBar 标题缩进对齐，保证全局左缘一致
       margin: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.s12,
+        horizontal: AppSpacing.s16,
         vertical: AppSpacing.s4,
       ),
       decoration: BoxDecoration(

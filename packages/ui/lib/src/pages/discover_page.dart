@@ -152,8 +152,9 @@ class DiscoverPage extends ConsumerWidget {
   /// 快捷入口：紧凑图标按钮（低视觉权重，不与「最近播放」抢焦点）
   Widget _buildQuickActions(BuildContext context, ColorScheme cs, TextTheme tt) {
     return Padding(
+      // 与上方「最近播放」卡片、下方歌单网格均留出呼吸空间
       padding: const EdgeInsets.fromLTRB(
-          AppSpacing.s16, AppSpacing.s4, AppSpacing.s16, AppSpacing.s4),
+          AppSpacing.s16, AppSpacing.s16, AppSpacing.s16, AppSpacing.s8),
       child: Align(
         alignment: Alignment.centerLeft,
         child: _QuickActionCard(
