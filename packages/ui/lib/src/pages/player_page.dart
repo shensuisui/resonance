@@ -113,7 +113,36 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 coverUrl: song.coverUrl,
                 fallback: cs.surface,
                 topOpacity: 0.35,
-                child: Padding(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // 横屏/宽屏：左封面 + 右控制列（对齐 PixelPlayer 横屏布局），
+                    // 避免竖屏单列在宽屏下被横向拉伸
+                    final isLandscape =
+                        constraints.maxWidth > constraints.maxHeight;
+                    if (isLandscape) {
+                      return _buildLandscapeLayout(
+                          song, cs, isPlaying, position, duration, progress, playMode);
+                    }
+                    return _buildPortraitLayout(
+                        song, cs, isPlaying, position, duration, progress, playMode);
+                  },
+                ),
+              ),
+            ),
+    );
+  }
+
+  /// 竖屏布局：单列（封面 → 元信息 → 进度 → 控制 → 开关）
+  Widget _buildPortraitLayout(
+    Song song,
+    ColorScheme cs,
+    bool isPlaying,
+    Duration position,
+    Duration duration,
+    double progress,
+    PlayMode playMode,
+  ) {
+    return Padding(
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.s24),
                   child: Column(
@@ -139,9 +168,62 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                       const SizedBox(height: AppSpacing.s24),
                     ],
                   ),
+                );
+  }
+
+  /// 横屏布局：左封面（占一半）+ 右控制列（元信息/进度/控制/开关）
+  ///
+  /// 对齐 PixelPlayer FullPlayerLandscapeContent，避免竖屏单列在宽屏下拉伸。
+  Widget _buildLandscapeLayout(
+    Song song,
+    ColorScheme cs,
+    bool isPlaying,
+    Duration position,
+    Duration duration,
+    double progress,
+    PlayMode playMode,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s24),
+      child: Row(
+        // stretch：左右两列等高，内部 Center 才能真正垂直居中
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 左：正方形封面（边长取可用高度与一半宽度较小者），居中
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, cons) {
+                final side = math.min(
+                  cons.maxHeight * 0.82,
+                  cons.maxWidth - AppSpacing.s16,
+                );
+                return Center(child: _buildCover(song, cs, side));
+              },
+            ),
+          ),
+          const SizedBox(width: AppSpacing.s24),
+          // 右：控制列（限宽 460 居中，避免宽屏下控件被拉伸成药丸）
+          Expanded(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildMetadataRow(song, cs),
+                    const SizedBox(height: AppSpacing.s8),
+                    _buildProgress(position, duration, progress, cs),
+                    const SizedBox(height: AppSpacing.s16),
+                    _buildTransportRow(isPlaying, cs),
+                    const SizedBox(height: AppSpacing.s12),
+                    _buildToggleRow(playMode, cs, song.globalKey),
+                  ],
                 ),
               ),
             ),
+          ),
+        ],
+      ),
     );
   }
 

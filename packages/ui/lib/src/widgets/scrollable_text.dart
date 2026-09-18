@@ -8,6 +8,7 @@ library;
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'shimmer_box.dart' show kDriverMode;
 
 class ScrollableText extends StatefulWidget {
   final String text;
@@ -75,7 +76,10 @@ class _ScrollableTextState extends State<ScrollableText>
   }
 
   /// 溢出确认后启动滚动（延迟 initialDelay）
+  ///
+  /// 驱动模式（flutter_driver）下不启动：无限滚动动画会让自动化无法 settle。
   void _start() {
+    if (kDriverMode) return;
     if (_started || _overflow <= 0) return;
     _started = true;
     _timer?.cancel();

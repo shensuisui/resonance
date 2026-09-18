@@ -6,6 +6,12 @@ library;
 
 import 'package:flutter/material.dart';
 
+/// 是否处于 UI 自动化（flutter_driver）模式
+///
+/// 该模式下装饰性无限动画（微光/跳动条/跑马灯）会被静态化：
+/// 无限 repeat 会让 flutter_driver 的 tap/pumpAndSettle 永远无法收敛。
+const bool kDriverMode = bool.fromEnvironment('FM_DRIVER');
+
 class ShimmerBox extends StatefulWidget {
   final double? width;
   final double? height;
@@ -27,7 +33,11 @@ class _ShimmerBoxState extends State<ShimmerBox>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat();
+    );
+    // 驱动模式下保持静态（不 repeat），保证自动化可 settle
+    if (!kDriverMode) {
+      _controller.repeat();
+    }
   }
 
   @override

@@ -17,6 +17,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import 'cover_image.dart';
 import 'scrollable_text.dart';
+import 'shimmer_box.dart' show kDriverMode;
 
 class SongTile extends ConsumerWidget {
   final Song song;
@@ -220,7 +221,11 @@ class _PlayingBarsIndicatorState extends State<_PlayingBarsIndicator>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
-    )..repeat();
+    );
+    // 驱动模式下静态（避免无限动画阻塞自动化 settle）
+    if (!kDriverMode) {
+      _controller.repeat();
+    }
   }
 
   @override
