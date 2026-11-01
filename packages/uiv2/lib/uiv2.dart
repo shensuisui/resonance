@@ -23,6 +23,7 @@ library;
 // 设计层
 export 'src/design/icons.dart';
 export 'src/design/motion.dart';
+export 'src/design/network_image.dart';
 export 'src/design/theme.dart';
 export 'src/design/tokens.dart';
 export 'src/design/typography.dart';

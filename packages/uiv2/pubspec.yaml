@@ -11,6 +11,9 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_riverpod: ^3.4.2
+  # 网络图片：带请求头 + 磁盘缓存（裸 Image.network 只有内存缓存）
+  cached_network_image: ^3.4.1
+  flutter_cache_manager: ^3.4.2
   core:
     path: ../core
   crawler:

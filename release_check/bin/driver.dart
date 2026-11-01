@@ -286,6 +286,15 @@ class _Runner {
         final r = await mcp.callTool('tap', args);
         if (r.isError) throw StateError('tap 失败: ' + r.text);
         await Future<void>.delayed(const Duration(milliseconds: 300));
+      case 'tap_at':
+        final r = await mcp.callTool('tap', {
+          'coordinates': {
+            'x': double.parse(step['x'].toString()),
+            'y': double.parse(step['y'].toString()),
+          },
+        });
+        if (r.isError) throw StateError('tap_at 失败: ' + r.text);
+        await Future<void>.delayed(const Duration(milliseconds: 400));
       case 'enter_text':
         final r = await mcp.callTool('enter_text', {
           'key': step['key'].toString(),

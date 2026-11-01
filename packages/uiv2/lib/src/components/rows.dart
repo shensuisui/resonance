@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/catalog.dart';
 import '../design/icons.dart';
 import '../design/motion.dart';
+import '../design/network_image.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../providers/providers.dart';
@@ -196,6 +197,17 @@ class _RingPainter extends CustomPainter {
 }
 
 /// 封面缩略图（.track__cover / .pb__cover / .pick__cover / .dl__cover 共用外观）
+/// 取某个源的图片请求头（没有就空）
+///
+/// 枫叶等源的封面 CDN 校验 referer，裸 Image.network 会 403 变成灰块。
+Map<String, String> uiV2ImageHeadersFor(WidgetRef ref, String? sourceId) {
+  if (sourceId == null || sourceId.isEmpty) return const <String, String>{};
+  final source = ref.watch(sourceManagerProvider).getSource(sourceId);
+  // Dart 没有交集类型，对不相关接口的 is 判断不做类型提升，这里显式转一次
+  if (source is! ImageHeaderSource) return const <String, String>{};
+  return (source as ImageHeaderSource).imageHeaders;
+}
+
 class UiV2Cover extends ConsumerWidget {
   /// 封面地址：http(s) 网络图 / assets 资产 / 空表示占位
   final String? source;
@@ -252,14 +264,8 @@ class UiV2Cover extends ConsumerWidget {
   }
 
   /// 该源的图片请求头（没有就空）
-  Map<String, String> _headersFor(WidgetRef ref) {
-    final id = sourceId;
-    if (id == null || id.isEmpty) return const <String, String>{};
-    final source = ref.watch(sourceManagerProvider).getSource(id);
-    // Dart 没有交集类型：对不相关接口的 is 判断不做类型提升，这里显式转一次
-    if (source is! ImageHeaderSource) return const <String, String>{};
-    return (source as ImageHeaderSource).imageHeaders;
-  }
+  Map<String, String> _headersFor(WidgetRef ref) =>
+      uiV2ImageHeadersFor(ref, sourceId);
 
   Widget _image(BuildContext context, WidgetRef ref) {
     final src = source!;
@@ -270,12 +276,11 @@ class UiV2Cover extends ConsumerWidget {
           child: UiV2Icon(UiV2Icons.note, size: 22, color: t.textMute),
         );
     if (src.startsWith('http://') || src.startsWith('https://')) {
-      return Image.network(
-        src,
-        // 枫叶等源校验 referer，不带头会 403（封面显示占位）
+      // 统一走带请求头 + 磁盘缓存的组件（裸 Image.network 只有内存缓存）
+      return UiV2NetworkImage(
+        url: src,
         headers: _headersFor(ref),
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => fallback(),
+        fallback: fallback(),
       );
     }
     if (src.startsWith('assets/')) {
@@ -676,12 +681,16 @@ class UiV2Mosaic extends StatelessWidget {
   /// 圆角
   final double radius;
 
+  /// 图片请求头（拼贴格子也要带，否则封面 CDN 会 403）
+  final Map<String, String> headers;
+
   /// 构造拼贴
   const UiV2Mosaic({
     super.key,
     required this.covers,
     required this.fallback,
     this.radius = 12,
+    this.headers = const <String, String>{},
   });
 
   @override
@@ -710,7 +719,13 @@ class UiV2Mosaic extends StatelessWidget {
 
   Widget _cell(String src) {
     if (src.isEmpty) return Container(color: fallback);
-    if (src.startsWith('http')) return Image.network(src, fit: BoxFit.cover);
+    if (src.startsWith('http')) {
+      return UiV2NetworkImage(
+        url: src,
+        headers: headers,
+        fallback: Container(color: fallback),
+      );
+    }
     if (src.startsWith('assets/')) return Image.asset(src, fit: BoxFit.cover);
     return Container(color: fallback);
   }
@@ -942,7 +957,11 @@ class UiV2AlbumCard extends StatelessWidget {
     return UiV2CardShell(
       width: width,
       art: UiV2CardArt(
-        child: UiV2Cover(source: album.coverUrl, size: double.infinity),
+        child: UiV2Cover(
+          source: album.coverUrl,
+          size: double.infinity,
+          sourceId: album.sourceId,
+        ),
         onTap: onTap,
         onPlay: onPlay,
         playLabel: '播放专辑：${album.title}',
@@ -1006,7 +1025,7 @@ class UiV2ArtistCard extends StatelessWidget {
 }
 
 /// 歌单卡片（core [Playlist] + 拼贴封面）
-class UiV2PlaylistCard extends StatelessWidget {
+class UiV2PlaylistCard extends ConsumerWidget {
   /// 歌单
   final Playlist playlist;
 
@@ -1045,11 +1064,30 @@ class UiV2PlaylistCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return UiV2CardShell(
       width: width,
       art: UiV2CardArt(
-        child: UiV2Mosaic(covers: covers, fallback: fallback),
+        // 拼贴优先（多首曲子各一张封面）；没有曲目快照时退回歌单自身的封面；
+        // 再没有才用补位色 —— 远端歌单列表往往没有曲目，只有 coverUrl。
+        child: covers.isNotEmpty
+            ? UiV2Mosaic(
+                covers: covers,
+                fallback: fallback,
+                headers: uiV2ImageHeadersFor(ref, playlist.sourceId),
+              )
+            : (playlist.coverUrl?.isNotEmpty == true
+                ? UiV2Cover(
+                    source: playlist.coverUrl,
+                    size: double.infinity,
+                    radius: 0,
+                    sourceId: playlist.sourceId,
+                  )
+                : UiV2Mosaic(
+                    covers: const <String>[],
+                    fallback: fallback,
+                    headers: uiV2ImageHeadersFor(ref, playlist.sourceId),
+                  )),
         onTap: onTap,
         onPlay: onPlay,
         playLabel: '播放歌单：${playlist.name}',

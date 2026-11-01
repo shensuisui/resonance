@@ -264,12 +264,29 @@ class SettingsPage extends ConsumerWidget {
                   UiV2ListRow(
                     label: '搜索历史',
                     hint: '${history.length} 条',
+                    divider: true,
                     trailing: UiV2GhostMini(
                       label: '清空',
                       danger: true,
                       onTap: () async {
                         await ref.read(searchHistoryProvider.notifier).clear();
                         if (context.mounted) showUiV2Toast(context, '已清空搜索历史');
+                      },
+                    ),
+                  ),
+                  UiV2ListRow(
+                    key: const ValueKey('settings_image_cache'),
+                    label: '图片缓存',
+                    hint: '封面等网络图：磁盘缓存 '
+                        '${kUiV2ImageCachePolicy.maxAgeDays} 天 / 最多 '
+                        '${kUiV2ImageCachePolicy.maxObjects} 个',
+                    divider: false,
+                    trailing: UiV2GhostMini(
+                      label: '清理',
+                      danger: true,
+                      onTap: () async {
+                        await clearUiV2ImageCache();
+                        if (context.mounted) showUiV2Toast(context, '已清理图片缓存');
                       },
                     ),
                   ),

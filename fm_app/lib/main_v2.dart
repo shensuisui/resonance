@@ -52,6 +52,9 @@ Future<void> main() async {
     WidgetsFlutterBinding.ensureInitialized();
   }
 
+  // 网络图片缓存策略（磁盘缓存；集中配置，不在调用点硬编码天数）
+  configureUiV2ImageCache();
+
   // 全局替换 dart:io 默认 User-Agent 为浏览器 UA
   // （网易等 CDN 对 Dart UA 做访问控制返回 403，见 ua_overrides_io.dart）
   applyBrowserUserAgent();

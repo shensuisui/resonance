@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/catalog.dart';
 import '../data/lyrics.dart';
 import '../design/icons.dart';
+import '../design/network_image.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../providers/providers.dart';
@@ -111,7 +112,13 @@ class UiV2NowPlayingScreen extends ConsumerWidget {
         child: Stack(
           children: [
             // 背景：封面放大 + 模糊 + 暗化渐变
-            Positioned.fill(child: _Background(cover: cover, tokens: t)),
+            Positioned.fill(
+              child: _Background(
+                cover: cover,
+                tokens: t,
+                headers: uiV2ImageHeadersFor(ref, song?.sourceId),
+              ),
+            ),
             Positioned.fill(
               child: SafeArea(
                 child: Center(
@@ -154,9 +161,18 @@ class UiV2NowPlayingScreen extends ConsumerWidget {
 /// 背景层（.np__bg）
 class _Background extends StatelessWidget {
   final String? cover;
+
+  /// 图片请求头
+  final Map<String, String> headers;
   final UiV2Tokens tokens;
 
-  const _Background({required this.cover, required this.tokens});
+  const _Background({
+    required this.cover,
+    required this.tokens,
+    this.headers = const <String, String>{},
+  });
+
+  /// 该曲目来源的图片请求头（枫叶需要 referer）
 
   @override
   Widget build(BuildContext context) {
@@ -174,7 +190,7 @@ class _Background extends StatelessWidget {
                   scale: 1.25,
                   child: cover!.startsWith('assets/')
                       ? Image.asset(cover!, fit: BoxFit.cover)
-                      : Image.network(cover!, fit: BoxFit.cover),
+                      : UiV2NetworkImage(url: cover!, headers: headers),
                 ),
               ),
             ),
@@ -337,7 +353,10 @@ class _StageState extends ConsumerState<_Stage> {
                     if (cover != null && cover.isNotEmpty)
                       cover.startsWith('assets/')
                           ? Image.asset(cover, fit: BoxFit.cover)
-                          : Image.network(cover, fit: BoxFit.cover)
+                          : UiV2NetworkImage(
+                              url: cover,
+                              headers: uiV2ImageHeadersFor(ref, song?.sourceId),
+                            )
                     else
                       Center(
                         child: UiV2Icon(
