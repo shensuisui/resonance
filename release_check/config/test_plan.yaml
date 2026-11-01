@@ -1,0 +1,198 @@
+# 功能用例（单尺寸：桌面）
+# 约定：
+#   - target 一律用 key 或元素文本；按钮文案拿不到时补 key（见 skill §5 补 key 判据）
+#   - 走真实手势；只有 recover（恢复基线）与布局巡检用 debug 扩展直达页面
+name: uiv2 功能检查
+cases:
+  - id: K01
+    title: 侧栏「首页」真实点按 → 应显示首页
+    steps:
+      - {type: recover}
+      - {type: tap, key: nav_home}
+      - {type: expect_state, path: route, equals: home}
+      - {type: expect_text, text: 推荐歌曲}
+
+  - id: K02
+    title: 侧栏「搜索」真实点按 → 应显示搜索页
+    steps:
+      - {type: recover}
+      - {type: tap, key: nav_search}
+      - {type: expect_state, path: route, equals: search}
+      - {type: expect_text_any, texts: [搜索歌曲, 推荐搜索, 全部来源]}
+
+  - id: K03
+    title: 侧栏「音乐库」真实点按 → 应显示音乐库
+    steps:
+      - {type: recover}
+      - {type: tap, key: nav_library}
+      - {type: expect_state, path: route, equals: library}
+      - {type: expect_text, text: 全部歌单}
+
+  - id: K04
+    title: 侧栏「我喜欢的音乐」真实点按 → 应显示该页
+    steps:
+      - {type: recover}
+      - {type: tap, key: nav_liked}
+      - {type: expect_state, path: route, equals: liked}
+      - {type: expect_text_any, texts: [加入队列, 还没有喜欢的歌曲]}
+
+  - id: K05
+    title: 侧栏「本地音乐」真实点按 → 应显示该页
+    steps:
+      - {type: recover}
+      - {type: tap, key: nav_local}
+      - {type: expect_state, path: route, equals: local}
+      - {type: expect_text_any, texts: [扫描文件夹, 还没有本地音乐]}
+
+  - id: K06
+    title: 侧栏「我的」真实点按 → 应显示该页
+    steps:
+      - {type: recover}
+      - {type: tap, key: nav_profile}
+      - {type: expect_state, path: route, equals: profile}
+      - {type: expect_text, text: 播放与外观}
+
+  - id: S01
+    title: 二级页 音乐源 可渲染
+    steps:
+      - {type: recover}
+      - {type: cmd, cmd: navigate, route: sources}
+      - {type: expect_state, path: route, equals: sources}
+      - {type: expect_text_any, texts: [导入插件文件, 管理订阅]}
+
+  - id: S02
+    title: 二级页 订阅 可渲染
+    steps:
+      - {type: recover}
+      - {type: cmd, cmd: navigate, route: subs}
+      - {type: expect_text_any, texts: [添加订阅, 已展开的源]}
+
+  - id: S03
+    title: 二级页 运行日志 可渲染
+    steps:
+      - {type: recover}
+      - {type: cmd, cmd: navigate, route: logs}
+      - {type: expect_text_any, texts: [运行日志, 操作记录]}
+
+  - id: S04
+    title: 二级页 最近播放 可渲染
+    steps:
+      - {type: recover}
+      - {type: cmd, cmd: navigate, route: recent}
+      - {type: expect_text_any, texts: [清空最近播放, 还没有最近播放]}
+
+  - id: S05
+    title: 二级页 下载任务 可渲染
+    steps:
+      - {type: recover}
+      - {type: cmd, cmd: navigate, route: downloads}
+      - {type: expect_text_any, texts: [还没有下载任务, 清理已结束]}
+
+  - id: S06
+    title: 二级页 歌单 可渲染
+    steps:
+      - {type: recover}
+      - {type: cmd, cmd: navigate, route: playlists}
+      - {type: expect_text_any, texts: [全部歌单, 创建歌单]}
+
+  - id: S07
+    title: 二级页 专辑详情 可渲染
+    steps:
+      - {type: recover}
+      - {type: cmd, cmd: navigate, route: album, param: midnights}
+      - {type: expect_text_any, texts: [Midnights, 曲目]}
+
+  - id: S08
+    title: 二级页 艺人页 可渲染
+    steps:
+      - {type: recover}
+      - {type: cmd, cmd: navigate, route: artist, param: Taylor Swift}
+      - {type: expect_text_any, texts: [Taylor Swift, 没有找到这位艺人]}
+
+  - id: S09
+    title: 二级页 设置 可渲染
+    steps:
+      - {type: recover}
+      - {type: cmd, cmd: navigate, route: settings}
+      - {type: expect_text_any, texts: [主题模式, 播放模式]}
+
+  - id: V01
+    title: 演示曲库可播放（专辑点歌 → 有曲目与时长）
+    steps:
+      - {type: recover}
+      - {type: cmd, cmd: navigate, route: album, param: midnights}
+      - {type: tap, text: Anti-Hero}
+      - {type: sleep, ms: 2000}
+      - {type: expect_state, path: song, not_equals: 'null'}
+      - {type: expect_state, path: durMs, truthy: true}
+
+  - id: V02
+    title: 设置页可入口（我的 → 设置）
+    steps:
+      - {type: recover}
+      - {type: tap, key: nav_profile}
+      - {type: tap, text: 设置}
+      - {type: expect_state, path: route, equals: settings}
+      - {type: expect_text_any, texts: [主题模式, 播放模式]}
+
+  - id: V03
+    title: 艺人页可入口（专辑 → 歌手）
+    steps:
+      - {type: recover}
+      - {type: cmd, cmd: navigate, route: album, param: midnights}
+      - {type: tap, text: 歌手 · Taylor Swift}
+      - {type: expect_state, path: route, equals: artist}
+      - {type: expect_text, text: Taylor Swift}
+
+  - id: V04
+    title: 订阅页可添加（输入区与已展开源都在）
+    steps:
+      - {type: recover}
+      - {type: cmd, cmd: navigate, route: subs}
+      - {type: expect_text, text: 添加订阅}
+      - {type: expect_text, text: 已展开的源}
+
+  - id: E01
+    title: 元素发现现场命中（登记的自定义类型确实出现在枚举里）
+    steps:
+      - {type: recover}
+      - {type: expect_element_type, text: UiV2IconButton}
+      - {type: expect_element_type, text: UiV2Pressable}
+
+  - id: I01
+    title: 最近播放点歌起播
+    steps:
+      - {type: recover}
+      - {type: cmd, cmd: navigate, route: recent}
+      - {type: tap, text: 可不可以}
+      - {type: sleep, ms: 2000}
+      - {type: expect_state, path: song, not_equals: 'null'}
+
+  - id: I02
+    title: 播放条「下一首」可真实点按
+    steps:
+      - {type: capture_state, path: song, as: songBefore}
+      - {type: tap, key: transport_next}
+      - {type: sleep, ms: 1200}
+      - {type: expect_state, path: song, not_equals: 'null'}
+
+  - id: I03
+    title: 播放页打开（点播放条「展开」）
+    steps:
+      - {type: tap, key: player_expand}
+      - {type: expect_text, text: 正在播放}
+
+  - id: I04
+    title: 歌词视图（点「歌词」）
+    steps:
+      - {type: tap, key: np_lyrics}
+      - {type: sleep, ms: 600}
+      - {type: expect_state, path: lyrics, equals: true}
+
+  - id: I05
+    title: 播放队列浮层
+    steps:
+      - {type: tap, key: np_close}
+      - {type: sleep, ms: 600}
+      - {type: tap, key: player_queue}
+      - {type: expect_text_any, texts: [播放队列, 清空队列]}

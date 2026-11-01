@@ -1,0 +1,380 @@
+/// fm 音乐播放器 — 壳工程入口（uiv2：「回响 Resonance」界面）
+///
+/// 职责：
+/// 1. 初始化 SQLite 数据库（SqfliteDatabaseProvider）
+/// 2. 创建 PlayerImpl 播放器
+/// 3. 从 assets/rules/ 加载规则源
+/// 4. 注册本地源 + 规则源到 SourceManager
+/// 5. 通过 ProviderScope.overrides 注入服务到 UI 层（uiv2 状态层）
+///
+/// 与 main.dart 的唯一差别：UI 包换成 packages/uiv2。
+///
+/// 壳工程不写业务逻辑，只做组装。
+
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:flan_flutter/flan_flutter.dart';
+import 'package:logging/logging.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:core/core.dart';
+import 'package:crawler/crawler.dart';
+import 'package:db/db.dart';
+import 'package:player/player.dart';
+import 'package:uiv2/uiv2.dart';
+import 'config/agent_debug_config.dart';
+import 'config/release_check_extensions.dart';
+import 'subscription_library.dart';
+import 'ua_overrides.dart';
+
+late DatabaseProvider gDatabaseProvider;
+late SourceManager gSourceManager;
+late RecentPlaysService gRecentPlaysService;
+late Player gPlayer;
+late DownloadManager gDownloadManager;
+
+Future<void> main() async {
+  // 调试层：debug 用 FlanBinding（agent 驱动：元素枚举/手势/截图/日志/热重载/圈选回传），
+  // release 保持默认 binding。必须是 kDebugMode 这种**编译期常量分支**，
+  // 否则 kReleaseMode 下不会被树摇剔除（skill 4.4）。
+  if (kDebugMode) {
+    FlanBinding.ensureInitialized(agentDebugConfiguration());
+    // Flan 的日志采集只监听 package:logging 的 root logger（skill 第 6 章）
+    Logger.root.level = Level.ALL;
+    _agentLogger = Logger('fm');
+  } else {
+    WidgetsFlutterBinding.ensureInitialized();
+  }
+
+  // 全局替换 dart:io 默认 User-Agent 为浏览器 UA
+  // （网易等 CDN 对 Dart UA 做访问控制返回 403，见 ua_overrides_io.dart）
+  applyBrowserUserAgent();
+
+  // 1. 初始化 SQLite 数据库
+  gDatabaseProvider = SqfliteDatabaseProvider();
+  await gDatabaseProvider.initialize();
+
+  // 源执行日志同时打印到控制台（便于排查插件失败）
+  // print 直接输出：普通日志自带换行符时为多行（如 error 栈），保持可读；
+  // 用 print 而非 debugPrint 避免 debugWordWrap 逐词断行。
+  SourceLogBus.consolePrinter = (line) {
+    print(line);
+    // 单点桥接：这是项目日志唯一的扇出点，Flan 的 get_logs 从这里读
+    if (kDebugMode) _bridgeLogToAgent(line);
+  };
+
+  // 2. 创建播放器、最近播放服务和下载管理器
+  // 播放器自己也会补地址：队列曲目来自快照时没有 playUrl，
+  // 上一首/下一首只能靠这个 resolver 现取
+  gPlayer = PlayerImpl(
+    urlResolver: (song) => gSourceManager.getSongUrl(song.sourceId, song.id),
+  );
+  gRecentPlaysService =
+      RecentPlaysService(gDatabaseProvider.recentPlaysDao);
+  gDownloadManager = DownloadManagerImpl(songDao: gDatabaseProvider.songDao);
+
+  // 3. 创建 SourceManager 并注册源
+  gSourceManager = SourceManager();
+  gSourceManager.registerSource(LocalScanSource(gDatabaseProvider.songDao,
+      gDatabaseProvider.settingsDao, const AudiotagsMetadataReader()));
+  gSourceManager.registerSource(
+      LocalCustomSource(gDatabaseProvider.songDao));
+  gSourceManager.registerSource(
+      FavoriteSource(gDatabaseProvider.favoritesDao, gSourceManager));
+  // 演示曲库：把原型的内置配表包装成**真实音乐源**注册进 SourceManager，
+  // 与本地源/规则源/插件源同构，可在「音乐源」页启用或停用。
+  //
+  // 配表本身没有音频，启动时生成一段静音 wav 注入，让演示曲库也能走通
+  // 「取地址 → 播放 → 播放页/歌词/队列」整条链路；生成失败退回空串（旧行为）。
+  final demoAudioUri = await _prepareDemoAudio();
+  gSourceManager.registerSource(CatalogMusicSource(audioUri: demoAudioUri));
+
+  // 4. 从 assets/rules/ 加载规则源
+  await _loadRuleSources();
+
+  // 4.1 从 assets/plugins/ 加载随包插件（历史上 v1 遗漏了这一步）
+  await _loadBundledPlugins();
+
+  // 4.2 初始化所有源：LocalScanSource 必须 init 才会把已扫描的曲目读进内存缓存，
+  // 否则它的 search() 恒返回空（v1 的 main.dart 一直缺这一步）。
+  await gSourceManager.initAll();
+
+  // 4.3 订阅库：订阅页的宿主实现（远程规则 JSON → 音乐源）
+  final subscriptions = SubscriptionLibrary(
+    settingsDao: gDatabaseProvider.settingsDao,
+    sourceManager: gSourceManager,
+  );
+  await subscriptions.load();
+  gSubscriptions = subscriptions;
+
+  // 5. 启动应用：手动建 ProviderContainer，便于 driver 钩子直接操作状态
+  gContainer = ProviderContainer(overrides: [
+    appDatabaseProvider.overrideWith((ref) => gDatabaseProvider),
+    sourceManagerProvider.overrideWith((ref) => gSourceManager),
+    recentPlaysServiceProvider.overrideWith((ref) => gRecentPlaysService),
+    playerProvider.overrideWith((ref) => gPlayer),
+    downloadManagerProvider.overrideWith((ref) => gDownloadManager),
+    subscriptionHostProvider.overrideWith((ref) => gSubscriptions!.host),
+  ]);
+
+  // 发版前集成检查的 debug-only 扩展（release 不含）
+  if (kDebugMode) {
+    registerReleaseCheckExtensions(runCommand: _driverCommand);
+  }
+
+  runApp(UncontrolledProviderScope(
+    container: gContainer!,
+    child: const FmApp(),
+  ));
+}
+
+/// agent 日志桥：把项目日志转发给 Flan 采集（仅 debug 赋值）
+Logger? _agentLogger;
+
+/// 把一行项目日志转发到 package:logging，并按级别映射
+///
+/// 项目日志格式：[时间] [源id] LEVEL [动作] 详情
+void _bridgeLogToAgent(String line) {
+  final logger = _agentLogger;
+  if (logger == null) return;
+  // 项目日志行形如：[12:00:00] [源id] WARN [动作] 详情
+  // 不用正则：这里只做级别归类，contains 足够且不会被转义坑到。
+  final upper = line.toUpperCase();
+  final Level level;
+  if (upper.contains(' SEVERE ') || upper.contains(' ERROR ')) {
+    level = Level.SEVERE;
+  } else if (upper.contains(' WARNING ') || upper.contains(' WARN ')) {
+    level = Level.WARNING;
+  } else if (upper.contains(' FINE ') || upper.contains(' DEBUG ')) {
+    level = Level.FINE;
+  } else {
+    level = Level.INFO;
+  }
+  logger.log(level, line);
+}
+
+/// 全局 ProviderContainer（driver 钩子与调试用；生产同进程也会建，但无外部入口）
+ProviderContainer? gContainer;
+
+/// 订阅库（订阅页宿主；启动时装配，driver/调试可读）
+SubscriptionLibrary? gSubscriptions;
+
+/// Flutter Driver 命令处理器 —— 只服务于 UI 自动化（截图 / 巡检）。
+///
+/// 支持的命令（[cmd] 为命令名，[p] 为参数表）：
+///   * `navigate`：p['route'] 路由名、p['param'] 参数 → 切页面
+///   * `back`：返回上一页
+///   * `theme`：p['mode'] = dark/light/system
+///   * `nowPlaying`：p['open'] = 1/0 展开或收起沉浸播放页
+///   * `lyrics`：p['open'] = 1/0 切歌词视图
+///   * `currentSong`：p['id'] 曲目 id（演示曲库 id 或全局键），并设置时长/进度；
+///     只用于让播放页/歌词有内容可截，不写入最近播放
+///   * `position`：p['ratio'] 进度比例（0~1）
+///
+/// 返回 null 表示命令已处理（Flutter Driver 约定）。
+Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
+  final container = gContainer;
+  if (container == null) return 'container not ready';
+  switch (cmd) {
+    case 'navigate':
+      container
+          .read(navProvider.notifier)
+          .go(p['route'] ?? 'home', p['param'] ?? '');
+    case 'back':
+      container.read(navProvider.notifier).back();
+    case 'dismiss':
+      // 关掉所有模态浮层（recover 用：上一条用例留下的 sheet 会挡住后续点按与元素枚举）
+      uiV2DismissOverlays();
+    case 'theme':
+      final mode = p['mode'] ?? 'dark';
+      await container.read(themeModeProvider.notifier).setMode(switch (mode) {
+        'light' => ThemeMode.light,
+        'system' => ThemeMode.system,
+        _ => ThemeMode.dark,
+      });
+    case 'nowPlaying':
+      final open = p['open'] != '0';
+      if (open) {
+        container.read(nowPlayingProvider.notifier).open();
+      } else {
+        container.read(nowPlayingProvider.notifier).close();
+      }
+    case 'lyrics':
+      // LyricsOpenNotifier 只有 toggle：先读当前值，与目标不一致才切
+      final wantLyrics = p['open'] != '0';
+      if (container.read(lyricsOpenProvider) != wantLyrics) {
+        await container.read(lyricsOpenProvider.notifier).toggle();
+      }
+    case 'currentSong':
+      final id = p['id'] ?? '';
+      if (id.isEmpty) return 'missing id';
+      final song = container.read(songResolverProvider)(id);
+      if (song == null) return 'song not found: $id';
+      container.read(currentTrackIdProvider.notifier).set(song.globalKey);
+      final seconds = song.duration ?? 210;
+      container
+          .read(durationProvider.notifier)
+          .set(Duration(seconds: seconds));
+      container
+          .read(positionProvider.notifier)
+          .set(Duration(seconds: (seconds * 0.35).round()));
+    case 'position':
+      final ratio = double.tryParse(p['ratio'] ?? '') ?? 0.35;
+      final total = container.read(durationProvider);
+      container
+          .read(positionProvider.notifier)
+          .set(total * ratio.clamp(0.0, 1.0));
+    case 'state':
+      // 发版前集成检查用：把当前导航/曲目/主题等状态回读给驱动，
+      // 让"点了之后到底变没变"可以被断言，而不是只看截图猜。
+      // 仅在 FM_DRIVER=true 时存在（整个 handler 包在 kEnableFlutterDriver 分支里）。
+      final nav = container.read(navProvider);
+      return jsonEncode({
+        'route': nav.current.name,
+        'param': nav.current.param,
+        'song': '${container.read(currentTrackIdProvider)}',
+        'theme': container.read(themeModeProvider).name,
+        'posMs': container.read(positionProvider).inMilliseconds,
+        'durMs': container.read(durationProvider).inMilliseconds,
+        'lyrics': container.read(lyricsOpenProvider),
+        'queue': container.read(queueProvider).length,
+        'playMode': container.read(playModeProvider).name,
+        'shuffle': container.read(shuffleProvider),
+        'volume': '${container.read(volumeProvider)}',
+        'liked': container.read(favoriteCountProvider),
+      });
+    default:
+      return 'unknown command: $cmd';
+  }
+  // 让状态变更后的重建先落地，驱动侧再截图就不会截到旧帧
+  await Future<void>.delayed(const Duration(milliseconds: 400));
+  return null;
+}
+
+/// 从 assets/plugins/ 加载随包插件文件（.json 规则 / .js 插件）
+///
+/// 与 assets/rules/ 的区别只在来源目录；两者都注册进同一个 SourceManager。
+Future<void> _loadBundledPlugins() async {
+  try {
+    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+    final files = manifest
+        .listAssets()
+        .where((key) =>
+            key.startsWith('assets/plugins/') &&
+            (key.endsWith('.json') || key.endsWith('.js')))
+        .toList();
+    if (files.isEmpty) return;
+
+    // 插件需要真实文件路径，先把资产落到应用支持目录
+    final support = await getApplicationSupportDirectory();
+    final dir = Directory(p.join(support.path, 'bundled_plugins'));
+    await dir.create(recursive: true);
+    for (final path in files) {
+      final name = p.basename(path);
+      final target = File(p.join(dir.path, name));
+      if (!await target.exists()) {
+        final data = await rootBundle.load(path);
+        await target.writeAsBytes(data.buffer.asUint8List(), flush: true);
+      }
+    }
+    final sources = await PluginManager.loadPluginsFromDirectory(dir.path);
+    for (final source in sources) {
+      gSourceManager.registerSource(source);
+    }
+    debugPrint('随包插件加载完成：${sources.length} 个');
+  } catch (e) {
+    debugPrint('加载随包插件失败: $e');
+  }
+}
+
+/// 从 assets/rules/ 加载所有 .json 规则文件
+///
+/// 注意：Flutter ≥3.16 不再生成 AssetManifest.json（改为二进制格式），
+/// 必须用官方 AssetManifest API 发现资产，否则一条规则都加载不到。
+Future<void> _loadRuleSources() async {
+  try {
+    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+    final ruleFiles = manifest
+        .listAssets()
+        .where((key) =>
+            key.startsWith('assets/rules/') && key.endsWith('.json'))
+        .toList();
+
+    for (final path in ruleFiles) {
+      try {
+        final jsonStr = await rootBundle.loadString(path);
+        final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+        final config = RuleConfig.fromJson(json);
+        final source = RuleBasedMusicSource(config);
+        gSourceManager.registerSource(source);
+        gSourceManager.setSourceEnabled(config.source.id, true);
+      } catch (e) {
+        debugPrint('加载规则源失败: $path — $e');
+      }
+    }
+  } catch (e) {
+    debugPrint('加载规则源目录失败: $e');
+  }
+}
+
+/// 生成（一次）一段静音 wav 并返回 file:// URI，供演示曲库当占位音频。
+///
+/// 用代码生成而不是塞二进制资产：不增仓库体积、无版权问题，只写应用支持目录。
+Future<String> _prepareDemoAudio() async {
+  try {
+    final dir = await getApplicationSupportDirectory();
+    final file = File(p.join(dir.path, 'demo_placeholder.wav'));
+    if (!await file.exists()) {
+      await file.writeAsBytes(_silentWav(), flush: true);
+    }
+    return file.uri.toString();
+  } catch (e) {
+    debugPrint('生成演示占位音频失败: $e');
+    return '';
+  }
+}
+
+/// 8kHz / 单声道 / 16bit 的 RIFF-WAVE 静音 PCM（默认 10 秒）
+List<int> _silentWav({int seconds = 10, int sampleRate = 8000}) {
+  final dataLen = sampleRate * seconds * 2;
+  final out = BytesBuilder();
+  void tag(String s) => out.add(ascii.encode(s));
+  void u32(int v) =>
+      out.add([v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF, (v >> 24) & 0xFF]);
+  void u16(int v) => out.add([v & 0xFF, (v >> 8) & 0xFF]);
+  tag('RIFF');
+  u32(36 + dataLen);
+  tag('WAVE');
+  tag('fmt ');
+  u32(16);
+  u16(1); // PCM
+  u16(1); // 单声道
+  u32(sampleRate);
+  u32(sampleRate * 2); // byte rate
+  u16(2); // block align
+  u16(16); // bits per sample
+  tag('data');
+  u32(dataLen);
+  out.add(Uint8List(dataLen));
+  return out.takeBytes();
+}
+
+/// 应用根 Widget（uiv2 版本）
+///
+/// 主题与令牌作用域由 uiv2 的 [UiV2App] 负责：uiv2 使用原型自带的配色令牌
+/// （深色为默认），不再叠加 v1 的种子色 / 圆角设置，避免两套视觉系统互相覆盖。
+class FmApp extends ConsumerWidget {
+  /// 构造应用根
+  const FmApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return const UiV2App();
+  }
+}

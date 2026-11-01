@@ -1,0 +1,26 @@
+name: uiv2
+description: "fm music player UI module v2 —— 「回响 Resonance」原型实现（深色优先、响应式、无第三方 UI 依赖）"
+publish_to: 'none'
+version: 0.0.1
+
+environment:
+  sdk: ^3.13.1
+  flutter: ">=3.16.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^3.4.2
+  core:
+    path: ../core
+  crawler:
+    path: ../crawler
+  player:
+    path: ../player
+  db:
+    path: ../db
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

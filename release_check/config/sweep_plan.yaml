@@ -1,0 +1,89 @@
+# 布局巡检：每个断点档跑一遍全部页面（尺寸由 run_release_check.ps1 调整窗口）
+# 目的只是「每页渲染 + 布局取证」，所以页面跳转用 debug 扩展直达，不做点击链路。
+name: uiv2 布局巡检
+cases:
+  - id: P01
+    title: 首页
+    steps:
+      - {type: cmd, cmd: navigate, route: home}
+      - {type: expect_text_any, texts: [推荐歌曲, 去找首歌]}
+  - id: P02
+    title: 搜索
+    steps:
+      - {type: cmd, cmd: navigate, route: search}
+      - {type: expect_text_any, texts: [搜索歌曲, 推荐搜索, 浏览分类]}
+  - id: P03
+    title: 音乐库
+    steps:
+      - {type: cmd, cmd: navigate, route: library}
+      - {type: expect_text_any, texts: [全部歌单, 管理音乐源]}
+  - id: P04
+    title: 我喜欢的音乐
+    steps:
+      - {type: cmd, cmd: navigate, route: liked}
+      - {type: expect_text_any, texts: [加入队列, 还没有喜欢的歌曲]}
+  - id: P05
+    title: 本地音乐
+    steps:
+      - {type: cmd, cmd: navigate, route: local}
+      - {type: expect_text_any, texts: [扫描文件夹, 还没有本地音乐]}
+  - id: P06
+    title: 我的
+    steps:
+      - {type: cmd, cmd: navigate, route: profile}
+      - {type: expect_text_any, texts: [播放与外观, 听歌的人]}
+  - id: P07
+    title: 最近播放
+    steps:
+      - {type: cmd, cmd: navigate, route: recent}
+      - {type: expect_text_any, texts: [清空最近播放, 还没有最近播放]}
+  - id: P08
+    title: 下载任务
+    steps:
+      - {type: cmd, cmd: navigate, route: downloads}
+      - {type: expect_text_any, texts: [还没有下载任务, 清理已结束]}
+  - id: P09
+    title: 音乐源
+    steps:
+      - {type: cmd, cmd: navigate, route: sources}
+      - {type: expect_text_any, texts: [导入插件文件, 管理订阅]}
+  - id: P10
+    title: 订阅
+    steps:
+      - {type: cmd, cmd: navigate, route: subs}
+      - {type: expect_text_any, texts: [添加订阅, 已展开的源]}
+  - id: P11
+    title: 运行日志
+    steps:
+      - {type: cmd, cmd: navigate, route: logs}
+      - {type: expect_text_any, texts: [清空日志, 还没有运行日志]}
+  - id: P12
+    title: 歌单
+    steps:
+      - {type: cmd, cmd: navigate, route: playlists}
+      - {type: expect_text_any, texts: [全部歌单, 创建歌单]}
+  - id: P13
+    title: 设置
+    steps:
+      - {type: cmd, cmd: navigate, route: settings}
+      - {type: expect_text_any, texts: [主题模式, 播放模式]}
+  - id: P14
+    title: 专辑详情
+    steps:
+      - {type: cmd, cmd: navigate, route: album, param: midnights}
+      - {type: expect_text_any, texts: [Midnights, 曲目]}
+  - id: P15
+    title: 艺人页
+    steps:
+      - {type: cmd, cmd: navigate, route: artist, param: Taylor Swift}
+      - {type: expect_text_any, texts: [Taylor Swift, 没有找到这位艺人]}
+  - id: P16
+    title: 歌单详情
+    steps:
+      - {type: cmd, cmd: navigate, route: playlist, param: pl-night-drive}
+      - {type: expect_text_any, texts: [重命名, 播放全部, 这个歌单不存在或已被删除]}
+  - id: P17
+    title: 本地文件夹
+    steps:
+      - {type: cmd, cmd: navigate, route: folder, param: 测试文件夹}
+      - {type: expect_text_any, texts: [这个文件夹不在本地库里, 回到本地音乐, 播放全部]}

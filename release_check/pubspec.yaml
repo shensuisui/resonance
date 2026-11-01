@@ -1,0 +1,11 @@
+name: release_check
+description: 发版前集成检查（Flan MCP 驱动 + 步骤 DSL + 双份报告）
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  args: ^2.5.0
+  yaml: ^3.1.2
+  path: ^1.9.0

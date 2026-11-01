@@ -1,5 +1,15 @@
 import 'package:core/core.dart';
 
+/// 「图片请求需要额外请求头」的源契约
+///
+/// 有些站点（如枫叶音乐盒）封面走 CDN 且校验 referer，
+/// 直接 Image.network 会 403。单独抽契约而不是塞进 [MusicSource]：
+/// 一是不必改所有实现，二是只有需要的源才实现。
+abstract class ImageHeaderSource {
+  /// 加载该源图片时要带的请求头
+  Map<String, String> get imageHeaders;
+}
+
 /// 所有音乐源必须实现的抽象接口
 abstract class MusicSource {
   /// 源信息

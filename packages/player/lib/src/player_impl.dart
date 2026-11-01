@@ -4,13 +4,27 @@ import 'package:core/core.dart';
 import 'package:just_audio/just_audio.dart' hide PlayerState;
 
 /// 基于 just_audio 的播放器实现
-class PlayerImpl implements Player {
+class PlayerImpl implements Player, CurrentSongSource {
   final AudioPlayer _audioPlayer = AudioPlayer();
+
+  /// 队列里的曲目常常只有 id（来自最近播放/歌单快照，没有 playUrl）。
+  /// 真正播放前用它现取一次地址；取到后写回队列，避免重复请求。
+  final Future<String> Function(Song song)? urlResolver;
 
   List<Song> _queue = [];
   int _currentIndex = -1;
   PlayMode _playMode = PlayMode.listLoop;
   final List<int> _shuffleHistory = [];
+
+  /// 播放请求令牌：只有最后一次请求的结果允许提交（后发优先）
+  int _playToken = 0;
+
+  /// 正在切换音频源：这期间上报的 completed 是上一个源的状态残留，
+  /// 不能当作"这首播完了"，否则会连环自动下一首（实测 2 秒跳 9 首）
+  bool _loading = false;
+
+  /// 串行队列：同一个 AudioPlayer 上不允许两个 setAudioSource 交错
+  Future<void> _serial = Future<void>.value();
 
   PlayerState _currentState = PlayerState.idle;
   int _currentPosition = 0;
@@ -24,9 +38,9 @@ class PlayerImpl implements Player {
   StreamSubscription? _playerStateSub;
   StreamSubscription? _positionSub;
   StreamSubscription? _durationSub;
-  StreamSubscription? _playerCompleteSub;
+  final _currentSongController = StreamController<Song?>.broadcast();
 
-  PlayerImpl() {
+  PlayerImpl({this.urlResolver}) {
     _setupListeners();
   }
 
@@ -58,13 +72,16 @@ class PlayerImpl implements Player {
       _durationController.add(_currentDuration);
     });
 
-    _playerCompleteSub = _audioPlayer.processingStateStream
-        .where((state) => state == ProcessingState.completed)
-        .listen((_) => _onTrackCompleted());
+    // 注意：完成事件只在 _playerStateSub 的 completed 分支里处理，
+    // 这里原来又订阅了一次 processingStateStream.completed，
+    // 导致一次播放结束触发两次 next()（"点 A 播 B"的直接原因之一）。
   }
 
   void _onTrackCompleted() {
     if (_queue.isEmpty) return;
+    // 只有"真的在播并且播完"才算切下一首；加载中/暂停/出错都不切
+    if (_loading) return;
+    if (_currentState != PlayerState.playing) return;
 
     switch (_playMode) {
       case PlayMode.singleLoop:
@@ -101,13 +118,40 @@ class PlayerImpl implements Player {
     _playIndex(nextIndex);
   }
 
-  Future<void> _playIndex(int index) async {
+  /// 串行化入口：把并发点播/上一首/下一首排成一条线，过期请求直接丢弃
+  Future<void> _playIndex(int index) {
+    final token = ++_playToken;
+    final next = _serial.then((_) async {
+      if (token != _playToken) return; // 已经有更新的播放请求，这一条作废
+      await _doPlayIndex(index, token);
+    });
+    _serial = next.catchError((Object _) {});
+    return next;
+  }
+
+  Future<void> _doPlayIndex(int index, int token) async {
     if (index < 0 || index >= _queue.length) return;
+    _loading = true;
+    final previousIndex = _currentIndex;
     _currentIndex = index;
-    final song = _queue[index];
+    var song = _queue[index];
     _updateState(PlayerState.loading);
     final sw = Stopwatch()..start();
-    final url = song.playUrl ?? '';
+    var url = song.playUrl ?? '';
+    // 队列里没有地址（最近播放/歌单快照就是这种）→ 现取一次并写回队列
+    if (url.isEmpty && urlResolver != null) {
+      try {
+        url = await urlResolver!(song);
+      } catch (e) {
+        SourceLogBus.instance.emit(
+            song.sourceId, SourceLogLevel.error, '播放器', '取播放地址失败: $e');
+        url = '';
+      }
+      if (url.isNotEmpty) {
+        song = song.copyWith(playUrl: url);
+        _queue[index] = song;
+      }
+    }
     SourceLogBus.instance.emit(
       song.sourceId, SourceLogLevel.info, '播放器',
       '播放 idx=$index id=${song.id} url=$url');
@@ -115,6 +159,12 @@ class PlayerImpl implements Player {
       await _audioPlayer.setAudioSource(
           AudioSource.uri(Uri.parse(url)),
           preload: true);
+      // 加载期间如果又来了新的播放请求，就不要再提交这一条（否则 UI 会停在过期的曲目）
+      if (token != _playToken) return;
+      // 关键：音频源真的被播放器接受之后才广播。
+      // 之前在改 _currentIndex 时就广播，一旦加载失败/超时，UI 已是新歌、
+      // 实际还在放上一首 —— 这正是"页面显示 A、实际播 B"的成因。
+      _emitCurrentSong();
       SourceLogBus.instance.emit(
         song.sourceId, SourceLogLevel.info, '播放器',
         'setAudioSource 完成（${sw.elapsedMilliseconds}ms），状态=${_audioPlayer.processingState.name}');
@@ -140,7 +190,16 @@ class PlayerImpl implements Player {
       SourceLogBus.instance.emit(
         song.sourceId, SourceLogLevel.error, '播放器',
         '播放失败 idx=$index id=${song.id} url=$url: $e\n$st');
+      // 回滚：音频没切成功，索引退回，UI 跟着退回真正在播的那一首。
+      // 只有仍是"当前请求"时才回滚，避免覆盖后来者的状态。
+      if (token == _playToken) {
+        _currentIndex = previousIndex;
+        _emitCurrentSong();
+      }
       _updateState(PlayerState.error);
+    } finally {
+      // 无论成功失败都要解除"加载中"，否则完成事件闸门会一直关着
+      _loading = false;
     }
   }
 
@@ -192,6 +251,8 @@ class PlayerImpl implements Player {
       (s) => s.id == song.id && s.sourceId == song.sourceId,
     );
     if (existingIndex >= 0) {
+      // 用带播放地址的副本覆盖队列里的同一条（队列里可能只有 id 没有 url）
+      _queue[existingIndex] = song;
       await jumpToIndex(existingIndex);
       return;
     }
@@ -259,6 +320,7 @@ class PlayerImpl implements Player {
     _queue = List.from(songs);
     _shuffleHistory.clear();
     _currentIndex = -1;
+    _emitCurrentSong();
   }
 
   @override
@@ -266,6 +328,15 @@ class PlayerImpl implements Player {
 
   @override
   int get currentIndex => _currentIndex;
+
+  @override
+  Stream<Song?> get currentSongStream => _currentSongController.stream;
+
+  void _emitCurrentSong() {
+    if (!_currentSongController.isClosed) {
+      _currentSongController.add(currentSong);
+    }
+  }
 
   @override
   Future<void> jumpToIndex(int index) async {
@@ -277,10 +348,11 @@ class PlayerImpl implements Player {
     await _playerStateSub?.cancel();
     await _positionSub?.cancel();
     await _durationSub?.cancel();
-    await _playerCompleteSub?.cancel();
+
     await _stateController.close();
     await _positionController.close();
     await _durationController.close();
+    await _currentSongController.close();
     await _audioPlayer.dispose();
   }
 }

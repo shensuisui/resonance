@@ -4,7 +4,7 @@ import 'engine/rule_executor.dart';
 
 /// 基于规则配置的音乐源实现
 /// 将一个 JSON 规则文件转换为一个完整的 MusicSource
-class RuleBasedMusicSource extends MusicSource {
+class RuleBasedMusicSource extends MusicSource implements ImageHeaderSource {
   final RuleConfig _ruleConfig;
   late final RuleExecutor _executor;
 
@@ -93,6 +93,10 @@ class RuleBasedMusicSource extends MusicSource {
   /// 播放请求头：播放器请求 CDN 地址时需携带的 HTTP 头
   /// 从规则配置的 playHeaders 字段读取
   Map<String, String> get playHeaders => _ruleConfig.playHeaders ?? {};
+
+  @override
+  /// 封面图与播放共用同一套请求头（referer 等），否则 CDN 会 403
+  Map<String, String> get imageHeaders => playHeaders;
 
   @override
   Future<void> init() async {}
