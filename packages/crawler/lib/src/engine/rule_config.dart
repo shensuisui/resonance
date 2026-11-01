@@ -88,6 +88,13 @@ class FlowRule {
   /// 从响应根对象提取歌单名称、封面等（区别于 itemRules 从列表项提取）
   final Map<String, String>? playlistInfo;
 
+  /// 多步流程（可选）
+  ///
+  /// 配置后按步骤顺序执行（如"先抓详情页拿加密 id、再 POST 换播放地址"）：
+  /// 每步 extract 的变量累积成变量池并注入后续步骤的 url/body/headers，
+  /// 末步可用 listRule/itemRules 补充字段；变量池与末步字段一并返回。
+  final List<PreflightStep>? steps;
+
   const FlowRule({
     required this.url,
     this.method = 'GET',
@@ -100,18 +107,24 @@ class FlowRule {
     this.pagination,
     this.params,
     this.playlistInfo,
+    this.steps,
   });
 
   factory FlowRule.fromJson(Map<String, dynamic> json) => FlowRule(
-        url: json['url'] as String,
+        // 多步流程（steps）不需要顶层 url：URL 由各步骤自带
+        url: (json['url'] as String?) ?? '',
         method: (json['method'] as String?) ?? 'GET',
         headers: (json['headers'] as Map<String, dynamic>?)
                 ?.map((k, v) => MapEntry(k, v as String)) ??
             {},
         responseType: (json['responseType'] as String?) ?? 'json',
-        listRule: json['listRule'] as String,
-        itemRules: (json['itemRules'] as Map<String, dynamic>)
-            .map((k, v) => MapEntry(k, v as String)),
+        // 单请求流程必须给 listRule/itemRules；多步流程（steps）由各步骤自带，
+        // 因此这里放宽为可选，避免 songDetail 的 steps 写法解析即崩。
+        listRule: (json['listRule'] as String?) ?? r'$',
+        itemRules: (json['itemRules'] as Map<String, dynamic>?)
+                ?.map((k, v) => MapEntry(k, v as String)) ??
+            const {},
+
         body: json['body'] as String?,
         contentType: json['contentType'] as String?,
         pagination: json['pagination'] != null
@@ -121,6 +134,9 @@ class FlowRule {
             ?.map((k, v) => MapEntry(k, v as String)),
         playlistInfo: (json['playlistInfo'] as Map<String, dynamic>?)
             ?.map((k, v) => MapEntry(k, v as String)),
+        steps: (json['steps'] as List<dynamic>?)
+            ?.map((e) => PreflightStep.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 }
 
@@ -180,6 +196,12 @@ class PreflightStep {
   /// 提取结果注入后续步骤的 URL/body/headers 模板
   final Map<String, String>? extract;
 
+  /// 列表定位规则（多步流程的末步用；普通前置步骤不传）
+  final String? listRule;
+
+  /// 字段提取规则（多步流程的末步用；普通前置步骤不传）
+  final Map<String, String>? itemRules;
+
   const PreflightStep({
     required this.method,
     required this.url,
@@ -188,6 +210,8 @@ class PreflightStep {
     this.body,
     this.contentType,
     this.extract,
+    this.listRule,
+    this.itemRules,
   });
 
   factory PreflightStep.fromJson(Map<String, dynamic> json) => PreflightStep(
@@ -200,6 +224,9 @@ class PreflightStep {
         body: json['body'] as String?,
         contentType: json['contentType'] as String?,
         extract: (json['extract'] as Map<String, dynamic>?)
+            ?.map((k, v) => MapEntry(k, v as String)),
+        listRule: json['listRule'] as String?,
+        itemRules: (json['itemRules'] as Map<String, dynamic>?)
             ?.map((k, v) => MapEntry(k, v as String)),
       );
 }

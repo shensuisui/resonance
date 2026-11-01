@@ -12,6 +12,15 @@ class ParserFactory {
   static final XPathParser _xPathParser = XPathParser();
   static final RegexParser _regexParser = RegexParser();
 
+  /// 解码替换值里的转义序列
+  ///
+  /// parse() 开头会对整条表达式 trim()，替换值里写的真实换行会被吃掉，
+  /// 因此统一约定用 \n / \r / \t 书写（如 ##<br\s*/?>||\n）。
+  static String _decodeEscapes(String value) => value
+      .replaceAll(r'\n', '\n')
+      .replaceAll(r'\r', '\r')
+      .replaceAll(r'\t', '\t');
+
   /// 解析表达式字符串，返回可执行的 Expression
   /// 支持高级特性：&& 链、|| 备用、## 净化、# 分割
   static Expression parse(String expression) {
@@ -27,11 +36,14 @@ class ParserFactory {
 
     // 2. 检查 ##（净化修饰符）— 必须在 || 之前，因为 ## 语法也包含 ||
     // 格式: 主表达式##<pattern>||<replacement>
-    final sanitizeMatch = RegExp(r'##(.+?)\|\|(.*)$').firstMatch(trimmed);
+    // 用 [\s\S] 代替 . 与 $：. 不匹配换行、$ 又会匹配"末尾换行之前"，
+    // 两者叠加会把替换值里的换行吞掉（实测：替换值只含一个换行时变成空串）。
+    final sanitizeMatch =
+        RegExp(r'##([\s\S]+?)\|\|([\s\S]*)$').firstMatch(trimmed);
     if (sanitizeMatch != null) {
       final mainExpr = trimmed.substring(0, sanitizeMatch.start).trim();
       final pattern = sanitizeMatch.group(1);
-      final replacement = sanitizeMatch.group(2) ?? '';
+      final replacement = _decodeEscapes(sanitizeMatch.group(2) ?? '');
       if (mainExpr.isEmpty) {
         throw ArgumentError('Sanitize requires a main expression before ##: $trimmed');
       }

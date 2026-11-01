@@ -2,6 +2,7 @@ import 'package:core/core.dart';
 import 'package:expr/expr.dart';
 import '../http/http_client.dart';
 import 'rule_config.dart';
+import 'value_parse.dart';
 import 'response_handler.dart';
 
 /// 歌单详情结果：包含歌单元数据和曲目列表
@@ -52,23 +53,36 @@ class RuleExecutor {
     final vars = <String, String>{
       'baseUrl': _rule.source.baseUrl ?? '',
     };
+    await _runSteps(preflight.steps, vars);
 
-    for (final step in preflight.steps) {
-      // 用已有变量解析 URL 模板
+    _preflightExecuted = true;
+    _preflightTime = DateTime.now();
+  }
+
+  /// 顺序执行一组流程步骤（前置流程与多步歌曲详情共用）
+  ///
+  /// 步骤间通过 [PreflightStep.extract] 提取变量注入后续步骤的 url/body/headers；
+  /// [fields] 非空时，带 listRule/itemRules 的步骤会把提取到的字段写进去
+  /// （多步详情用它承载"末步才拿得到的字段"，如播放地址）。
+  Future<void> _runSteps(
+    List<PreflightStep> steps,
+    Map<String, String> vars, {
+    Map<String, dynamic>? fields,
+  }) async {
+    for (final step in steps) {
       final url = HttpClient.resolveUrl(step.url, vars);
+      final resolvedBody =
+          step.body == null ? null : HttpClient.resolveUrl(step.body!, vars);
+      // 请求头也支持变量注入（如 Referer 里带歌曲 id）
+      final headers = step.headers.map(
+        (k, v) => MapEntry(k, HttpClient.resolveUrl(v, vars)),
+      );
 
-      // 解析 body 模板（如果有）
-      String? resolvedBody;
-      if (step.body != null) {
-        resolvedBody = HttpClient.resolveUrl(step.body!, vars);
-      }
-
-      // 发送请求
-      HttpResponse response;
+      final HttpResponse response;
       if (step.method.toUpperCase() == 'POST') {
         response = await _httpClient.post(
           url,
-          headers: step.headers,
+          headers: headers,
           body: resolvedBody,
           contentType: step.contentType,
           responseType: step.responseType,
@@ -76,7 +90,7 @@ class RuleExecutor {
       } else {
         response = await _httpClient.get(
           url,
-          headers: step.headers,
+          headers: headers,
           responseType: step.responseType,
         );
       }
@@ -93,10 +107,16 @@ class RuleExecutor {
           vars[entry.key] = value;
         }
       }
-    }
 
-    _preflightExecuted = true;
-    _preflightTime = DateTime.now();
+      // 末步字段（多步详情用）
+      final itemRules = step.itemRules;
+      if (fields != null && step.listRule != null && itemRules != null) {
+        final items = ResponseHandler.extractList(response.data, step.listRule!);
+        if (items.isNotEmpty) {
+          fields.addAll(ResponseHandler.extractItem(items.first, itemRules));
+        }
+      }
+    }
   }
 
   /// 解析 URL 模板，支持 params 表达式参数
@@ -186,6 +206,19 @@ class RuleExecutor {
 
     // 0. 确保前置流程已执行
     await _ensurePreflight();
+
+    // 多步模式：按 steps 顺序执行（如先抓详情页拿加密 id、再 POST 换播放地址），
+    // 变量池与末步字段一起作为详情字段返回。
+    final steps = detailRule.steps;
+    if (steps != null && steps.isNotEmpty) {
+      final vars = <String, String>{
+        'id': id,
+        'baseUrl': _rule.source.baseUrl ?? '',
+      };
+      final fields = <String, dynamic>{};
+      await _runSteps(steps, vars, fields: fields);
+      return {...vars, ...fields};
+    }
 
     final url = HttpClient.resolveUrl(detailRule.url, {
       'id': id,
@@ -281,7 +314,9 @@ class RuleExecutor {
       if (lyricRule.contentRule != null) {
         initExprEngine();
         final result = evaluate(lyricRule.contentRule!, response.data);
-        return result?.toString();
+        // CSS 提取返回列表，直接 toString 会得到 "[歌词]"；这里取首元素
+        final value = result is List ? result.firstOrNull : result;
+        return value?.toString();
       }
     } catch (_) {}
 
@@ -415,7 +450,7 @@ class RuleExecutor {
       artist: fields['artist']?.toString() ?? '',
       album: fields['album']?.toString(),
       coverUrl: fields['cover']?.toString() ?? fields['coverUrl']?.toString(),
-      duration: _parseInt(fields['duration']),
+      duration: parseDurationSeconds(fields['duration']),
       playUrl: fields['playUrl']?.toString() ?? fields['url']?.toString(),
       lyricUrl: fields['lyricUrl']?.toString(),
       extra: Map.from(fields)
@@ -426,10 +461,4 @@ class RuleExecutor {
     );
   }
 
-  int? _parseInt(dynamic value) {
-    if (value == null) return null;
-    if (value is int) return value;
-    if (value is String) return int.tryParse(value);
-    return null;
-  }
 }

@@ -233,6 +233,11 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
       container
           .read(positionProvider.notifier)
           .set(total * ratio.clamp(0.0, 1.0));
+    case 'search':
+      // 发版前集成检查用：直接触发一次聚合搜索（与 UI 输入走同一条 notifier 路径）
+      await container
+          .read(searchProvider.notifier)
+          .search(p['keyword'] ?? '', recordHistory: false);
     case 'state':
       // 发版前集成检查用：把当前导航/曲目/主题等状态回读给驱动，
       // 让"点了之后到底变没变"可以被断言，而不是只看截图猜。

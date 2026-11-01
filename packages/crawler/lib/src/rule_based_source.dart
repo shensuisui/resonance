@@ -1,5 +1,6 @@
 import 'package:core/core.dart';
 import 'engine/rule_config.dart';
+import 'engine/value_parse.dart';
 import 'engine/rule_executor.dart';
 
 /// 基于规则配置的音乐源实现
@@ -42,7 +43,7 @@ class RuleBasedMusicSource extends MusicSource implements ImageHeaderSource {
       artist: fields['artist']?.toString() ?? '',
       album: fields['album']?.toString(),
       coverUrl: fields['cover']?.toString() ?? fields['coverUrl']?.toString(),
-      duration: _parseInt(fields['duration']),
+      duration: parseDurationSeconds(fields['duration']),
       playUrl: fields['playUrl']?.toString() ?? fields['url']?.toString(),
       lyricUrl: fields['lyricUrl']?.toString(),
     );
@@ -105,13 +106,6 @@ class RuleBasedMusicSource extends MusicSource implements ImageHeaderSource {
 
   @override
   Future<void> dispose() async {}
-
-  int? _parseInt(dynamic value) {
-    if (value == null) return null;
-    if (value is int) return value;
-    if (value is String) return int.tryParse(value);
-    return null;
-  }
 
   /// 简单解析 LRC 格式歌词
   List<LyricLine> _parseLrc(String lrc) {

@@ -162,6 +162,7 @@ class _SearchBar extends StatelessWidget {
           const SizedBox(width: UiV2Spacing.s3),
           Expanded(
             child: TextField(
+              key: const ValueKey('search_input'),
               controller: controller,
               focusNode: focusNode,
               onChanged: onChanged,
