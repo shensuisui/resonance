@@ -98,7 +98,9 @@ class UiV2NowPlayingScreen extends ConsumerWidget {
     final gutter = _gutterFor(width);
     final song = ref.watch(currentSongProvider);
     final meta = song == null ? null : ref.watch(catalogTracksProvider)[song.id];
-    final cover = meta?.cover ?? song?.coverUrl;
+    final cached =
+        song == null ? null : ref.watch(songMetaProvider(song.globalKey));
+    final cover = meta?.cover ?? song?.coverUrl ?? cached?.coverUrl;
 
     return Material(
       color: t.bg,
@@ -332,7 +334,9 @@ class _StageState extends ConsumerState<_Stage> {
     final lyricsOpen = ref.watch(lyricsOpenProvider);
     final pending = ref.watch(pendingProvider) != null;
     final meta = song == null ? null : ref.watch(catalogTracksProvider)[song.id];
-    final cover = meta?.cover ?? song?.coverUrl;
+    final cached =
+        song == null ? null : ref.watch(songMetaProvider(song.globalKey));
+    final cover = meta?.cover ?? song?.coverUrl ?? cached?.coverUrl;
     final showLyrics = lyricsOpen && song != null;
 
     return AspectRatio(

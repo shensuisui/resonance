@@ -519,18 +519,8 @@ class PlaylistActions {
     return merged;
   }
 
-  /// 用 [other] 的非空字段补齐 [base] 的空字段
-  Song _mergeMetadata(Song base, Song other) {
-    return base.copyWith(
-      title: base.title.isEmpty ? other.title : base.title,
-      artist: base.artist.isEmpty ? other.artist : base.artist,
-      album: base.album ?? other.album,
-      coverUrl: (base.coverUrl ?? '').isEmpty ? other.coverUrl : base.coverUrl,
-      duration: base.duration ?? other.duration,
-      playUrl: base.playUrl ?? other.playUrl,
-      lyricUrl: base.lyricUrl ?? other.lyricUrl,
-    );
-  }
+  /// 用 [other] 的非空字段补齐 [base] 的空字段（与全局元数据缓存共用一套规则）
+  Song _mergeMetadata(Song base, Song other) => mergeSongMetadata(base, other);
 
   /// 收藏远端歌单（写入 playlists 表；sourceId 非空即"来源歌单"）
   ///
@@ -1275,6 +1265,12 @@ final playerStreamBindingProvider = Provider<void>((ref) {
     }),
     player.durationStream.listen((ms) {
       ref.read(durationProvider.notifier).set(Duration(milliseconds: ms));
+      // 播放器实测时长回写：列表里 0:00 的曲目播一次就有真实时长了。
+      // 注意 durationStream 往往早于 currentTrackId 落地，这里要退回播放器自己的当前曲目。
+      final song = ref.read(currentSongProvider) ?? ref.read(playerProvider).currentSong;
+      if (song != null) {
+        unawaited(ref.read(songMetadataServiceProvider).saveDuration(song, ms));
+      }
     }),
   ];
   // 唯一同步点：当前曲目只认播放器广播。点播 / 上一首 / 下一首 / 自动续播 / 跳播
@@ -1324,6 +1320,8 @@ class PlaybackController {
       }
       final playable = song.copyWith(playUrl: url);
       await _player.play(playable);
+      // 封面等元数据异步补齐：不阻塞起播，失败静默
+      unawaited(ref.read(songMetadataServiceProvider).enrich(playable));
       pending.set(null);
       ref.read(currentTrackIdProvider.notifier).set(playable.globalKey);
       ref.read(isPlayingProvider.notifier).set(true);
@@ -1457,6 +1455,128 @@ class PlaybackController {
     ref.read(queueProvider.notifier).set(kept);
   }
 }
+
+// ==================== 曲目元数据缓存（songs 表） ====================
+
+/// 合并两首曲目的元数据：**只补空，绝不覆盖已有值**
+Song mergeSongMetadata(Song base, Song other) {
+  return base.copyWith(
+    title: base.title.isEmpty ? other.title : base.title,
+    artist: base.artist.isEmpty ? other.artist : base.artist,
+    album: base.album ?? other.album,
+    coverUrl: (base.coverUrl ?? '').isEmpty ? other.coverUrl : base.coverUrl,
+    duration: (base.duration ?? 0) > 0 ? base.duration : other.duration,
+    playUrl: base.playUrl ?? other.playUrl,
+    lyricUrl: base.lyricUrl ?? other.lyricUrl,
+  );
+}
+
+/// 元数据缓存版本号：写库后自增，页面 watch 它即可重建（不用整页 invalidate）
+class SongMetaVersion extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  /// 有元数据写入时调用
+  void bump() => state++;
+}
+
+/// 元数据缓存版本 Provider
+final songMetaVersionProvider =
+    NotifierProvider<SongMetaVersion, int>(SongMetaVersion.new);
+
+/// 全部缓存曲目（globalKey → Song），来自 songs 表
+final songMetaMapProvider = FutureProvider<Map<String, Song>>((ref) async {
+  ref.watch(songMetaVersionProvider);
+  final all = await ref.watch(songDaoProvider).searchSongs('');
+  return {for (final s in all) s.globalKey: s};
+}, name: 'songMetaMapProvider');
+
+/// 单曲缓存（缺失返回 null）：列表/播放条用它补封面与时长
+final songMetaProvider = Provider.family<Song?, String>((ref, key) {
+  ref.watch(songMetaVersionProvider);
+  return ref.watch(songMetaMapProvider).value?[key];
+}, name: 'songMetaProvider');
+
+/// 曲目元数据补齐服务
+///
+/// 背景：规则源（如 6U）的列表接口不给封面/时长，详情接口给封面但没有时长，
+/// 于是列表里长期显示灰块 + 0:00。这里在"取详情"和"播放后拿到真实时长"两个时机
+/// 把缺失字段补进 songs 表，展示层再按 globalKey 回落读取。
+class SongMetadataService {
+  /// Riverpod 引用
+  final Ref ref;
+
+  /// 构造
+  SongMetadataService(this.ref);
+
+  /// 已写过的标记（key:field），避免同一首歌反复写库
+  final Set<String> _written = {};
+
+  /// 用详情补齐封面/标题/歌手（只补空），必要时写库
+  Future<Song> enrich(Song song, {Song? detail}) async {
+    var merged = song;
+    if (detail != null) merged = mergeSongMetadata(merged, detail);
+
+    final needsCover = (merged.coverUrl ?? '').isEmpty;
+    final needsDuration = (merged.duration ?? 0) <= 0;
+    if (!needsCover && !needsDuration) return merged;
+
+    // 还缺就回源问一次详情（规则源详情通常带封面）
+    if (detail == null && needsCover) {
+      try {
+        final source = ref.read(sourceManagerProvider).getSource(song.sourceId);
+        if (source != null) {
+          merged = mergeSongMetadata(merged, await source.getSongDetail(song.id));
+        }
+      } catch (e) {
+        SourceLogBus.instance.emit(
+            song.sourceId, SourceLogLevel.warn, '元数据', '取详情失败: $e');
+      }
+    }
+    await _persist(merged, 'meta');
+    return merged;
+  }
+
+  /// 播放器实测时长回写（毫秒 → 秒），仅当原本没有时长
+  Future<void> saveDuration(Song song, int milliseconds) async {
+    if (milliseconds <= 0) return;
+    if ((song.duration ?? 0) > 0) return;
+    final seconds = (milliseconds / 1000).round();
+    if (seconds <= 0) return;
+    await _persist(song.copyWith(duration: seconds), 'duration');
+  }
+
+  /// 写库（保留已有的 localPath，避免把"已下载"标记冲掉）
+  Future<void> _persist(Song song, String field) async {
+    final key = '${song.globalKey}:$field';
+    if (_written.contains(key)) return;
+    _written.add(key);
+    try {
+      final dao = ref.read(songDaoProvider);
+      final existing = await dao.getSong(song.id, song.sourceId);
+      // insertSong 是 REPLACE 语义：必须先把旧行合并进来，
+      // 否则"后写的这次"会用它自己的空字段把已写入的封面/时长冲掉（实测过）。
+      final merged = existing == null
+          ? song
+          : mergeSongMetadata(song, existing).copyWith(
+              localPath: song.localPath ?? existing.localPath,
+            );
+      await dao.insertSong(merged);
+      SourceLogBus.instance.emit(song.sourceId, SourceLogLevel.info, '元数据',
+          '已写入 songs key=${song.globalKey} field=$field dur=${merged.duration} cover=${(merged.coverUrl ?? '').isNotEmpty}');
+      ref.read(songMetaVersionProvider.notifier).bump();
+    } catch (e) {
+      SourceLogBus.instance.emit(
+          song.sourceId, SourceLogLevel.warn, '元数据', '写入失败: $e');
+    }
+  }
+}
+
+/// 元数据补齐服务 Provider
+final songMetadataServiceProvider = Provider<SongMetadataService>(
+  (ref) => SongMetadataService(ref),
+  name: 'songMetadataServiceProvider',
+);
 
 /// 播放控制器 Provider
 final playbackControllerProvider = Provider<PlaybackController>(

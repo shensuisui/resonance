@@ -617,6 +617,9 @@ class _NowPlayingInfo extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final song = ref.watch(currentSongProvider);
     final meta = song == null ? null : ref.watch(catalogTracksProvider)[song.id];
+    // 元数据缓存回落：源没给封面时，播过一次后也能显示
+    final cached =
+        song == null ? null : ref.watch(songMetaProvider(song.globalKey));
     return Row(
       children: [
         UiV2Pressable(
@@ -625,7 +628,7 @@ class _NowPlayingInfo extends ConsumerWidget {
               : () => ref.read(nowPlayingProvider.notifier).open(),
           pressedScale: 1,
           child: UiV2Cover(
-            source: meta?.cover ?? song?.coverUrl,
+            source: meta?.cover ?? song?.coverUrl ?? cached?.coverUrl,
             size: coverSize,
             sourceId: song?.sourceId,
           ),

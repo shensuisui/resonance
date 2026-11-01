@@ -368,8 +368,14 @@ class UiV2SongRow extends ConsumerWidget {
     final isPending = isCurrent && pendingKey == globalKey;
     final isPlay = isCurrent && isPlaying && !isPending;
     final isLiked = liked.any((r) => r.songKey == globalKey);
-    final cover = meta?.cover ?? song.coverUrl;
-    final duration = durationOverride ?? song.duration ?? meta?.duration ?? 0;
+    // 元数据缓存回落：规则源列表不给封面/时长，播过一次后这里就能补上
+    final cached = ref.watch(songMetaProvider(globalKey));
+    final cover = meta?.cover ?? song.coverUrl ?? cached?.coverUrl;
+    final duration = durationOverride ??
+        song.duration ??
+        meta?.duration ??
+        cached?.duration ??
+        0;
     final downloaded = song.localPath != null && song.localPath!.isNotEmpty;
     final subtitle = subtitleOverride ??
         (showAlbum
