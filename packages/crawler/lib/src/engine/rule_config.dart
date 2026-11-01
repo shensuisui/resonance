@@ -7,11 +7,15 @@ class SourceRule {
   final String? baseUrl;
   final String? icon;
 
+  /// 是否在「音乐库」页作为分栏展示（默认展示）
+  final bool showInLibrary;
+
   const SourceRule({
     required this.id,
     required this.name,
     this.baseUrl,
     this.icon,
+    this.showInLibrary = true,
   });
 
   factory SourceRule.fromJson(Map<String, dynamic> json) => SourceRule(
@@ -19,6 +23,7 @@ class SourceRule {
         name: json['name'] as String,
         baseUrl: json['baseUrl'] as String?,
         icon: json['icon'] as String?,
+        showInLibrary: json['showInLibrary'] as bool? ?? true,
       );
 }
 

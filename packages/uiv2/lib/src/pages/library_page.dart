@@ -44,6 +44,8 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     // 分栏由真实源表生成：全部 + 每个已启用源 + 已下载
     final options = <(String, String)>[('all', '全部')];
     for (final source in enabled) {
+      // 只有声明「在音乐库展示」的源才占分栏（本地音乐/我最喜欢/6U音乐不占）
+      if (!source.sourceInfo.showInLibrary) continue;
       final id = source.sourceInfo.id;
       options.add(('src:$id', source.sourceInfo.name));
     }

@@ -2,6 +2,7 @@
   "source": {
     "id": "6uq",
     "name": "6U音乐",
+    "showInLibrary": false,
     "baseUrl": "http://www.6uq.cn",
     "icon": "http://www.6uq.cn/favicon.ico"
   },

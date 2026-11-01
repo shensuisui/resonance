@@ -14,6 +14,8 @@ class FavoriteSource extends MusicSource {
     name: '我最喜欢',
     type: SourceType.local,
     enabled: true,
+    // 收藏是聚合视图，不占音乐库分栏
+    showInLibrary: false,
   );
 
   /// 添加喜欢（保存歌曲快照，供列表直接渲染）

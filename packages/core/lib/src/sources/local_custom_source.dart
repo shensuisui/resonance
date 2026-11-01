@@ -13,6 +13,8 @@ class LocalCustomSource extends MusicSource {
     name: '自建歌曲',
     type: SourceType.local,
     enabled: true,
+    // 自建歌曲需要在音乐库里直接管理
+    showInLibrary: true,
   );
 
   /// 添加自定义歌曲

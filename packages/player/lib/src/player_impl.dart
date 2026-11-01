@@ -186,6 +186,9 @@ class PlayerImpl implements Player, CurrentSongSource {
         song.sourceId, SourceLogLevel.info, '播放器',
         'play() 完成（${sw.elapsedMilliseconds}ms），状态=${_currentState.name}');
       _updateState(PlayerState.playing);
+      // 冷启动首播：just_audio_windows 偶尔会忽略第一次 play()，
+      // 现象是封面/标题都换了但进度条一直 0:00 —— 这里校验并自愈。
+      await _ensureProgressing(song.sourceId, token);
     } catch (e, st) {
       SourceLogBus.instance.emit(
         song.sourceId, SourceLogLevel.error, '播放器',
@@ -200,6 +203,56 @@ class PlayerImpl implements Player, CurrentSongSource {
     } finally {
       // 无论成功失败都要解除"加载中"，否则完成事件闸门会一直关着
       _loading = false;
+    }
+  }
+
+  /// 确认音频真的在走（进度推进），必要时重发 play() / 重设音频源
+  ///
+  /// 背景：桌面端冷启动第一次 setAudioSource 后 play() 可能被底层忽略，
+  /// UI 已经显示新曲目，但 position 永远是 0，用户看到"点了不播"。
+  Future<void> _ensureProgressing(String sourceId, int token) async {
+    // 先给 1.5s 正常起播时间（含解码器初始化）
+    for (var i = 0; i < 6; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      if (token != _playToken) return;
+      if (_audioPlayer.position > Duration.zero) return;
+      if (_currentState != PlayerState.playing) return;
+    }
+
+    // 还没动：重发 play()
+    SourceLogBus.instance.emit(
+        sourceId, SourceLogLevel.info, '播放器', '首播 1.5s 进度仍为 0，重发 play()');
+    for (var i = 0; i < 4; i++) {
+      await _audioPlayer.play();
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      if (token != _playToken) return;
+      if (_audioPlayer.position > Duration.zero) {
+        SourceLogBus.instance.emit(
+            sourceId, SourceLogLevel.info, '播放器', '重发 play() 后已开始推进');
+        return;
+      }
+    }
+
+    // 仍然不动：重设一次音频源再播（解器/管道没就绪的兜底）
+    if (token != _playToken) return;
+    final index = _currentIndex;
+    if (index < 0 || index >= _queue.length) return;
+    final url = _queue[index].playUrl ?? '';
+    if (url.isEmpty) return;
+    SourceLogBus.instance.emit(
+        sourceId, SourceLogLevel.info, '播放器', '重发 play() 无效，重设音频源再播');
+    await _audioPlayer.setAudioSource(
+      AudioSource.uri(Uri.parse(url)),
+      preload: true,
+    );
+    await _audioPlayer.play();
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    if (_audioPlayer.position > Duration.zero) {
+      SourceLogBus.instance.emit(
+          sourceId, SourceLogLevel.info, '播放器', '重设音频源后已开始推进');
+    } else {
+      SourceLogBus.instance.emit(
+          sourceId, SourceLogLevel.warn, '播放器', '首播仍无进度（底层未启动）');
     }
   }
 

@@ -19,6 +19,7 @@ class RuleBasedMusicSource extends MusicSource implements ImageHeaderSource {
         iconUrl: _ruleConfig.source.icon,
         type: SourceType.rule,
         enabled: true,
+        showInLibrary: _ruleConfig.source.showInLibrary,
       );
 
   @override

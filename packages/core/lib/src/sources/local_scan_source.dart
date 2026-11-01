@@ -34,6 +34,8 @@ class LocalScanSource extends MusicSource {
     name: '本地音乐',
     type: SourceType.local,
     enabled: true,
+    // 本地扫描结果已在「本地音乐」页展示，不占音乐库分栏
+    showInLibrary: false,
   );
 
   @override
