@@ -1497,6 +1497,28 @@ final songMetaProvider = Provider.family<Song?, String>((ref, key) {
   return ref.watch(songMetaMapProvider).value?[key];
 }, name: 'songMetaProvider');
 
+/// 曲目展示封面：配表 → 快照 → 元数据缓存（songs 表）
+///
+/// 规则源（歌曲宝/6U 等）的列表接口不给封面，播过一次后缓存里才有。
+/// 不统一走这里就会出现"同一首歌列表有封面、首页卡片没有"的不一致 ——
+/// 所以各处一律调这个函数，而不是各自写一遍回落。
+String? resolveSongCover(WidgetRef ref, Song song, {String? catalogCover}) {
+  final direct = catalogCover ?? song.coverUrl;
+  if (direct != null && direct.isNotEmpty) return direct;
+  return ref.watch(songMetaProvider(song.globalKey))?.coverUrl;
+}
+
+/// 曲目展示时长（秒）：快照 → 配表 → 元数据缓存
+///
+/// 列表接口不给时长时靠播放器实测回写，读的时候统一在这里回落。
+int resolveSongDuration(WidgetRef ref, Song song, {int? catalogDuration}) {
+  final direct = song.duration;
+  if (direct != null && direct > 0) return direct;
+  final catalog = catalogDuration;
+  if (catalog != null && catalog > 0) return catalog;
+  return ref.watch(songMetaProvider(song.globalKey))?.duration ?? 0;
+}
+
 /// 曲目元数据补齐服务
 ///
 /// 背景：规则源（如 6U）的列表接口不给封面/时长，详情接口给封面但没有时长，

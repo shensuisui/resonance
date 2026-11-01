@@ -40,8 +40,9 @@ class _LikedPageState extends ConsumerState<LikedPage> {
     // 展示元数据：只有快照没给时长时用来兜底
     final meta = ref.watch(catalogTracksProvider);
 
-    /// 曲目时长（秒）：快照没有就取配表元数据，都没有按 0 计
-    int durationOf(Song song) => song.duration ?? meta[song.id]?.duration ?? 0;
+    /// 曲目时长（秒）：快照 → 配表 → 元数据缓存（统一回落，含播放器实测回写）
+    int durationOf(Song song) =>
+        resolveSongDuration(ref, song, catalogDuration: meta[song.id]?.duration);
 
     if (songs.isEmpty) {
       return PageShell(
@@ -86,7 +87,8 @@ class _LikedPageState extends ConsumerState<LikedPage> {
     final onlineCount = count - localCount;
     final covers = <String>[];
     for (final song in songs) {
-      final cover = meta[song.id]?.cover ?? song.coverUrl ?? '';
+      final cover =
+          resolveSongCover(ref, song, catalogCover: meta[song.id]?.cover) ?? '';
       if (cover.isEmpty || covers.contains(cover)) continue;
       covers.add(cover);
       if (covers.length >= 4) break;

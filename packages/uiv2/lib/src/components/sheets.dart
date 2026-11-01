@@ -515,8 +515,12 @@ class _UiV2QueueSheetBodyState extends ConsumerState<UiV2QueueSheetBody> {
             final key = song.globalKey;
             // 队列可能同时存在不同来源的同名曲目，key 用「全局键 + 下标」保证唯一
             final isCurrent = key == currentKey;
-            // 配表只当展示元数据：有就用它的封面（随包资产），没有就退回 Song 自带封面
-            final cover = _metaOf(catalogTracks, song)?.cover ?? song.coverUrl;
+            // 统一回落：配表 → 快照 → 元数据缓存
+            final cover = resolveSongCover(
+              ref,
+              song,
+              catalogCover: _metaOf(catalogTracks, song)?.cover,
+            );
             return ReorderableDragStartListener(
               key: ValueKey('${key}_$index'),
               index: index,
@@ -952,8 +956,8 @@ class _TrackMenuActions extends ConsumerWidget {
     final meta = _metaOf(ref.watch(catalogTracksProvider), song);
     final liked = ref.watch(likedProvider).any((r) => r.songKey == key);
     final inQueue = ref.watch(queueProvider).any((s) => s.globalKey == key);
-    // 演示曲库（随包资产）走配表封面，其它源退回 Song 自带封面
-    final cover = meta?.cover ?? song.coverUrl;
+    // 统一回落：配表 → 快照 → 元数据缓存
+    final cover = resolveSongCover(ref, song, catalogCover: meta?.cover);
     // Song.album 是专辑名：真实能力只有名字（没有 id），作为路由参数足够；为空则禁用该项
     final albumParam = song.album ?? '';
 

@@ -103,7 +103,7 @@ class _RecentCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cover = meta?.cover ?? song.coverUrl;
+    final cover = resolveSongCover(ref, song, catalogCover: meta?.cover);
     // 专辑 id 只有配表曲目才有：拿不到就退化成「点一下播放」，
     // 而不是跳到一个解析不出专辑的空详情页。
     final albumId = meta?.albumId ?? '';

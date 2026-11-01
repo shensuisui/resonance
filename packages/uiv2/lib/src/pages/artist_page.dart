@@ -69,7 +69,9 @@ class ArtistPage extends ConsumerWidget {
         _coreAlbumOf(source, item),
     ];
     final hot = songs.take(8).toList(growable: false);
-    final cover = albums.isNotEmpty ? albums.first.coverUrl : songs.first.coverUrl;
+    final cover = albums.isNotEmpty
+        ? albums.first.coverUrl
+        : (resolveSongCover(ref, songs.first) ?? songs.first.coverUrl);
 
     return PageShell(
       topPadding: UiV2Spacing.s4,

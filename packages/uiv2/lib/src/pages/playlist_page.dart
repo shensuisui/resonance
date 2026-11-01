@@ -94,8 +94,10 @@ class _PlaylistBody extends ConsumerWidget {
         }
       }
     }
-    final covers =
-        songs.take(4).map((song) => song.coverUrl ?? '').toList(growable: false);
+    final covers = songs
+        .take(4)
+        .map((song) => resolveSongCover(ref, song) ?? '')
+        .toList(growable: false);
     final otherPlaylists =
         (ref.watch(playlistsProvider).value ?? const <Playlist>[])
             .where((item) => item.id != playlist.id)

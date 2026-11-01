@@ -65,7 +65,8 @@ class AlbumPage extends ConsumerWidget {
 
     final title = album?.title ?? (songs.first.album ?? albumId);
     final artist = album?.artist ?? songs.first.artist;
-    final cover = album?.cover ?? songs.first.coverUrl;
+    final cover =
+        album?.cover ?? resolveSongCover(ref, songs.first) ?? songs.first.coverUrl;
     final year = album?.year;
     final genre = album?.genre;
     final totalSec =
