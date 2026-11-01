@@ -32,6 +32,16 @@ class PlaylistPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 远端歌单：路由参数 <sourceId>::<playlistId>，点开不落库，收藏后才写 playlists 表
+    if (playlistId.contains('::')) {
+      return ref.watch(remotePlaylistProvider(playlistId)).when(
+            loading: () => const _PlaylistLoadingShell(),
+            error: (_, __) => const _PlaylistMissingShell(),
+            data: (playlist) => playlist == null
+                ? const _PlaylistMissingShell()
+                : _PlaylistBody(playlist: playlist, remoteParam: playlistId),
+          );
+    }
     final asyncPlaylist = ref.watch(playlistByIdProvider(playlistId));
 
     return asyncPlaylist.when(
@@ -50,19 +60,40 @@ class _PlaylistBody extends ConsumerWidget {
   /// 歌单
   final Playlist playlist;
 
+  /// 远端歌单的路由参数（非空表示这是未落库的远端歌单）
+  final String? remoteParam;
+
   /// 构造主体
-  const _PlaylistBody({required this.playlist});
+  const _PlaylistBody({required this.playlist, this.remoteParam});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = UiV2Theme.of(context);
     // 快照直出；旧数据缺快照时由 songsOf 回源补齐（失败的那首会被跳过）
-    final songs =
-        ref.watch(playlistSongsProvider(playlist.id)).value ?? const <Song>[];
+    final songs = remoteParam != null
+        ? (ref.watch(remotePlaylistSongsProvider(remoteParam!)).value ??
+            const <Song>[])
+        : (ref.watch(playlistSongsProvider(playlist.id)).value ??
+            const <Song>[]);
     final totalSec =
         songs.fold<int>(0, (sum, song) => sum + (song.duration ?? 0));
     // 没有来源标记的歌单就是本机自建的，可以改名/删除/增删曲目
     final mine = (playlist.sourceId ?? '').isEmpty;
+
+    // 远端歌单：用 sourceId + sourcePlaylistId 判断是否已收藏
+    final sourceId = playlist.sourceId ?? '';
+    final sourcePlaylistId =
+        playlist.sourcePlaylistId ?? (remoteParam?.split('::').last ?? '');
+    final isRemote = sourceId.isNotEmpty && sourcePlaylistId.isNotEmpty;
+    Playlist? favorited;
+    if (isRemote) {
+      for (final p in ref.watch(playlistsProvider).value ?? const <Playlist>[]) {
+        if (p.sourceId == sourceId && p.sourcePlaylistId == sourcePlaylistId) {
+          favorited = p;
+          break;
+        }
+      }
+    }
     final covers =
         songs.take(4).map((song) => song.coverUrl ?? '').toList(growable: false);
     final otherPlaylists =
@@ -109,6 +140,31 @@ class _PlaylistBody extends ConsumerWidget {
                       context,
                       added > 0 ? '已加入 $added 首到播放队列' : '这些歌曲已经在队列里了',
                     );
+                  },
+                ),
+              if (isRemote)
+                UiV2Button(
+                  label: favorited != null ? '已收藏' : '收藏歌单',
+                  icon: favorited != null ? UiV2Icons.check : UiV2Icons.heart,
+                  variant: favorited != null
+                      ? UiV2ButtonVariant.soft
+                      : UiV2ButtonVariant.outline,
+                  onTap: () async {
+                    final actions = ref.read(playlistActionsProvider);
+                    if (favorited != null) {
+                      await actions.unfavorite(favorited.id);
+                      if (!context.mounted) return;
+                      showUiV2Toast(context, '已取消收藏「${playlist.name}」');
+                      return;
+                    }
+                    await actions.favoriteRemote(
+                      sourceId: sourceId,
+                      sourcePlaylistId: sourcePlaylistId,
+                      name: playlist.name,
+                      coverUrl: playlist.coverUrl,
+                    );
+                    if (!context.mounted) return;
+                    showUiV2Toast(context, '已收藏「${playlist.name}」');
                   },
                 ),
               UiV2IconButton(

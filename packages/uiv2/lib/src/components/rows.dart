@@ -17,6 +17,7 @@ import '../design/network_image.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../providers/providers.dart';
+import 'source_icon.dart';
 import 'surfaces.dart';
 
 /// 秒 → m:ss（曲目行、播放条、下载页共用）
@@ -451,20 +452,12 @@ class UiV2SongRow extends ConsumerWidget {
                       ],
                       if (showSource) ...[
                         const SizedBox(width: 6),
-                        Flexible(
-                          child: Container(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: t.surface3,
-                              borderRadius: UiV2Radii.brPill,
-                            ),
-                            child: Text(
-                              sourceNameOverride ?? _sourceLabel(ref),
-                              style: UiV2Text.hint.copyWith(color: t.textDim),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                        // 源标识用小图标替代文字 tag：更省位置，也更统一
+                        Tooltip(
+                          message: sourceNameOverride ?? _sourceLabel(ref),
+                          child: UiV2SourceIcon(
+                            sourceId: song.sourceId,
+                            size: 18,
                           ),
                         ),
                       ],
@@ -1044,6 +1037,9 @@ class UiV2PlaylistCard extends ConsumerWidget {
   /// 是否自建歌单
   final bool owned;
 
+  /// 封面右下角叠加（如来源图标），null 则不画
+  final Widget? artOverlay;
+
   /// 点击卡片
   final VoidCallback onTap;
 
@@ -1061,6 +1057,7 @@ class UiV2PlaylistCard extends ConsumerWidget {
     this.subtitle = '',
     this.width = 172,
     this.owned = false,
+    this.artOverlay,
   });
 
   @override
@@ -1070,24 +1067,31 @@ class UiV2PlaylistCard extends ConsumerWidget {
       art: UiV2CardArt(
         // 拼贴优先（多首曲子各一张封面）；没有曲目快照时退回歌单自身的封面；
         // 再没有才用补位色 —— 远端歌单列表往往没有曲目，只有 coverUrl。
-        child: covers.isNotEmpty
-            ? UiV2Mosaic(
-                covers: covers,
-                fallback: fallback,
-                headers: uiV2ImageHeadersFor(ref, playlist.sourceId),
-              )
-            : (playlist.coverUrl?.isNotEmpty == true
-                ? UiV2Cover(
-                    source: playlist.coverUrl,
-                    size: double.infinity,
-                    radius: 0,
-                    sourceId: playlist.sourceId,
-                  )
-                : UiV2Mosaic(
-                    covers: const <String>[],
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            covers.isNotEmpty
+                ? UiV2Mosaic(
+                    covers: covers,
                     fallback: fallback,
                     headers: uiV2ImageHeadersFor(ref, playlist.sourceId),
-                  )),
+                  )
+                : (playlist.coverUrl?.isNotEmpty == true
+                    ? UiV2Cover(
+                        source: playlist.coverUrl,
+                        size: double.infinity,
+                        radius: 0,
+                        sourceId: playlist.sourceId,
+                      )
+                    : UiV2Mosaic(
+                        covers: const <String>[],
+                        fallback: fallback,
+                        headers: uiV2ImageHeadersFor(ref, playlist.sourceId),
+                      )),
+            if (artOverlay != null)
+              Positioned(right: 6, bottom: 6, child: artOverlay!),
+          ],
+        ),
         onTap: onTap,
         onPlay: onPlay,
         playLabel: '播放歌单：${playlist.name}',

@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../components/rows.dart';
+import '../components/source_icon.dart';
 import '../components/sheets.dart';
 import '../components/surfaces.dart';
 import '../design/icons.dart';
@@ -28,7 +29,10 @@ class SourcesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = UiV2Theme.of(context);
-    final sources = ref.watch(sourceListProvider).value ?? const <MusicSource>[];
+    // 内置能力（本地音乐/自建歌曲/我最喜欢）声明 visible=false，不进这个列表
+    final sources = (ref.watch(sourceListProvider).value ?? const <MusicSource>[])
+        .where((s) => s.sourceInfo.visible)
+        .toList(growable: false);
     final enabled = ref.watch(sourceEnabledProvider);
     final enabledCount = enabled.values.where((v) => v).length;
 
@@ -136,6 +140,8 @@ class _SourceRow extends ConsumerWidget {
     return UiV2ListRow(
       label: info.name,
       hint: 'ID ${info.id} · $typeLabel',
+      // 源图标：远程/base64/资源图，缺省用源名首字
+      leading: UiV2SourceIconView(source: source, size: 28),
       divider: divider,
       // 点源名打开详情（id / 类型 / 启用状态 / 能力摘要）
       onTap: () => showUiV2Sheet(

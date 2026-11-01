@@ -15,6 +15,7 @@ class LocalCustomSource extends MusicSource {
     enabled: true,
     // 自建歌曲需要在音乐库里直接管理
     showInLibrary: true,
+    visible: false,
   );
 
   /// 添加自定义歌曲

@@ -10,12 +10,16 @@ class SourceRule {
   /// 是否在「音乐库」页作为分栏展示（默认展示）
   final bool showInLibrary;
 
+  /// 是否在「音乐源」页可见（默认可见）
+  final bool visible;
+
   const SourceRule({
     required this.id,
     required this.name,
     this.baseUrl,
     this.icon,
     this.showInLibrary = true,
+    this.visible = true,
   });
 
   factory SourceRule.fromJson(Map<String, dynamic> json) => SourceRule(
@@ -24,6 +28,7 @@ class SourceRule {
         baseUrl: json['baseUrl'] as String?,
         icon: json['icon'] as String?,
         showInLibrary: json['showInLibrary'] as bool? ?? true,
+        visible: json['visible'] as bool? ?? true,
       );
 }
 

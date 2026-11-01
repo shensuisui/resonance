@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../components/rows.dart';
+import '../components/source_icon.dart';
 import '../components/sheets.dart';
 import '../components/surfaces.dart';
 import '../design/icons.dart';
@@ -35,25 +36,30 @@ class LibraryPage extends ConsumerStatefulWidget {
 }
 
 class _LibraryPageState extends ConsumerState<LibraryPage> {
-  String _tab = 'all';
+  // 默认停在「自建歌曲」（即我的歌单）
+  String _tab = 'src:local_custom';
 
   @override
   Widget build(BuildContext context) {
     final enabled = ref.watch(enabledSourcesProvider);
 
     // 分栏由真实源表生成：全部 + 每个已启用源 + 已下载
-    final options = <(String, String)>[('all', '全部')];
+    // 没有「全部」分栏：它与「自建歌曲」内容完全一样，去掉避免重复
+    final options = <(String, String)>[];
     for (final source in enabled) {
       // 只有声明「在音乐库展示」的源才占分栏（本地音乐/我最喜欢/6U音乐不占）
       if (!source.sourceInfo.showInLibrary) continue;
       final id = source.sourceInfo.id;
       options.add(('src:$id', source.sourceInfo.name));
+      // 收藏的远端歌单紧跟在「自建歌曲」后面
+      if (id == 'local_custom') options.add(('favorites', '收藏歌单'));
     }
     options.add(('downloaded', '已下载'));
 
     // 源被停用后原分栏会失效：回退到「全部」，避免停在空页面上
     final valid = options.any((o) => o.$1 == _tab);
-    final tab = valid ? _tab : 'all';
+    // 原分栏失效（源被停用）时回退到第一个可用分栏
+    final tab = valid ? _tab : (options.isEmpty ? 'downloaded' : options.first.$1);
 
     return PageShell(
       child: Column(
@@ -70,9 +76,11 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
           ),
           if (tab == 'downloaded')
             const _DownloadedBody()
-          else if (tab == 'all' || tab == 'src:local_custom')
+          else if (tab == 'src:local_custom')
             // 「自建歌曲」分栏展示的就是「我的歌单」（同一个 DAO 数据源）
             const _OwnedPlaylistsBody()
+          else if (tab == 'favorites')
+            const _FavoritePlaylistsBody()
           else
             _SourcePlaylistsBody(sourceId: tab.substring(4)),
         ],
@@ -223,6 +231,56 @@ class _OwnedPlaylistCard extends ConsumerWidget {
   }
 }
 
+/// 「收藏歌单」分栏：playlists 表里 sourceId 非空的（远端歌单收藏）
+class _FavoritePlaylistsBody extends ConsumerWidget {
+  /// 构造分栏
+  const _FavoritePlaylistsBody();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = UiV2Theme.of(context);
+    final all = ref.watch(playlistsProvider).value ?? const <Playlist>[];
+    final list =
+        all.where((p) => (p.sourceId ?? '').isNotEmpty).toList(growable: false);
+    if (list.isEmpty) {
+      return UiV2Panel(
+        child: UiV2Empty(
+          title: '还没有收藏的歌单',
+          text: '在远端歌单详情里点「收藏歌单」，它就会出现在这里。',
+          icon: UiV2Icons.heart,
+        ),
+      );
+    }
+    return UiV2Section(
+      title: '收藏歌单（${list.length} 个）',
+      child: UiV2CardGrid(
+        children: [
+          for (final playlist in list)
+            UiV2PlaylistCard(
+              playlist: playlist,
+              fallback: t.surface3,
+              artOverlay: UiV2SourceIcon(sourceId: playlist.sourceId, size: 18),
+              width: double.infinity,
+              onTap: () => ref.read(navProvider.notifier).go('playlist', playlist.id),
+              onPlay: () => _play(context, ref, playlist),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 播放收藏的远端歌单：曲目现问源（songsOf 已支持 sourceId 分支）
+  Future<void> _play(BuildContext context, WidgetRef ref, Playlist p) async {
+    final songs = await ref.read(playlistActionsProvider).songsOf(p);
+    if (!context.mounted) return;
+    if (songs.isEmpty) {
+      showUiV2Toast(context, '这个歌单暂时没有曲目');
+      return;
+    }
+    await TrackActions.playAll(context, ref, songs);
+  }
+}
+
 /// 指定来源分栏：直接向源要歌单列表（真实 getPlaylistList）
 class _SourcePlaylistsBody extends ConsumerStatefulWidget {
   /// 源 id
@@ -239,6 +297,9 @@ class _SourcePlaylistsBody extends ConsumerStatefulWidget {
 class _SourcePlaylistsBodyState extends ConsumerState<_SourcePlaylistsBody> {
   /// 当前源的歌单请求；必须在 State 里缓存，否则每次 build 都会重新发请求
   late Future<List<Playlist>> _future;
+
+  /// 上一次请求的失败原因（空态里显示，不再静默当作"没有歌单"）
+  String? _error;
 
   @override
   void initState() {
@@ -258,9 +319,17 @@ class _SourcePlaylistsBodyState extends ConsumerState<_SourcePlaylistsBody> {
     final source = ref.read(sourceManagerProvider).getSource(widget.sourceId);
     if (source == null) return const <Playlist>[];
     try {
+      _error = null;
       return await source.getPlaylistList();
-    } catch (_) {
-      // 单源失败按空处理：页面给出空状态与引导，不静默造假数据
+    } catch (e) {
+      // 失败不再静默：写日志 + 空态显示原因（否则看起来像"这个源没有歌单"）
+      _error = e.toString();
+      SourceLogBus.instance.emit(
+        widget.sourceId,
+        SourceLogLevel.error,
+        '音乐库',
+        '取歌单列表失败: $e',
+      );
       return const <Playlist>[];
     }
   }
@@ -281,8 +350,13 @@ class _SourcePlaylistsBodyState extends ConsumerState<_SourcePlaylistsBody> {
         if (lists.isEmpty) {
           return UiV2Panel(
             child: UiV2Empty(
-              title: '「$sourceName」下还没有歌单',
-              text: '这个来源暂时没有歌单；也可以去「音乐源」启用别的源。',
+              title: _error == null
+                  ? '「$sourceName」下还没有歌单'
+                  : '「$sourceName」取歌单失败',
+              text: _error == null
+                  ? '这个来源暂时没有歌单；也可以去「音乐源」启用别的源。'
+                  : _error!,
+
               icon: UiV2Icons.queue,
               actions: UiV2Button(
                 label: '管理音乐源',
@@ -303,6 +377,7 @@ class _SourcePlaylistsBodyState extends ConsumerState<_SourcePlaylistsBody> {
                 _SourcePlaylistCard(
                   playlist: playlist,
                   sourceName: sourceName,
+                sourceId: widget.sourceId,
                   fallback: t.surface3,
                 ),
             ],
@@ -328,8 +403,12 @@ class _SourcePlaylistCard extends ConsumerWidget {
   const _SourcePlaylistCard({
     required this.playlist,
     required this.sourceName,
+    required this.sourceId,
     required this.fallback,
   });
+
+  /// 源 id（用于卡片角标图标与详情路由）
+  final String sourceId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -345,23 +424,18 @@ class _SourcePlaylistCard extends ConsumerWidget {
       playlist: playlist,
       covers: covers,
       fallback: fallback,
-      subtitle: '$count 首 · $sourceName',
+      // 远端拿不到曲目数时不显示「0 首」；源名也不再占第二行，改在封面角标显示图标
+      subtitle: count > 0 ? '$count 首' : '',
+      artOverlay: UiV2SourceIcon(sourceId: sourceId, size: 18),
       width: double.infinity,
-      onTap: () => _open(context),
+      onTap: () => _open(context, ref),
       onPlay: () => _play(context, ref),
     );
   }
 
-  /// 源歌单详情：弹层里展示源返回的歌曲
-  Future<void> _open(BuildContext context) {
-    return showUiV2Sheet(
-      context,
-      title: playlist.name,
-      child: _SourcePlaylistSongsBody(
-        sourceId: playlist.sourceId ?? '',
-        playlistId: playlist.id,
-      ),
-    );
+  /// 源歌单详情：走和「我的歌单」同一套详情页（路由参数 <sourceId>::<playlistId>，不落库）
+  void _open(BuildContext context, WidgetRef ref) {
+    ref.read(navProvider.notifier).go('playlist', '$sourceId::${playlist.id}');
   }
 
   /// 播放源歌单：真实曲目来自 sourcePlaylistSongsProvider
@@ -374,90 +448,6 @@ class _SourcePlaylistCard extends ConsumerWidget {
       return;
     }
     await TrackActions.playAll(context, ref, songs);
-  }
-}
-
-/// 源歌单内容（弹层）：歌曲列表 + 播放全部
-class _SourcePlaylistSongsBody extends ConsumerWidget {
-  /// 源 id
-  final String sourceId;
-
-  /// 源歌单 id
-  final String playlistId;
-
-  /// 构造内容
-  const _SourcePlaylistSongsBody({
-    required this.sourceId,
-    required this.playlistId,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = UiV2Theme.of(context);
-    final meta = ref.watch(catalogTracksProvider);
-    final songs = ref.watch(
-      sourcePlaylistSongsProvider((sourceId: sourceId, playlistId: playlistId)),
-    );
-
-    return songs.when(
-      loading: () => _loadingBox(context),
-      error: (Object error, StackTrace stack) => UiV2Empty(
-        title: '歌单读取失败',
-        text: '$error',
-        icon: UiV2Icons.info,
-      ),
-      data: (List<Song> list) {
-        if (list.isEmpty) {
-          return const UiV2Empty(
-            title: '这个歌单暂时没有曲目',
-            text: '源没有返回曲目，稍后再来看看。',
-            icon: UiV2Icons.queue,
-          );
-        }
-        final count = list.length;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: UiV2Spacing.s3),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '$count 首 · 来自源 $sourceId',
-                      style: UiV2Text.hint.copyWith(color: t.textDim),
-                    ),
-                  ),
-                  UiV2Button(
-                    label: '播放全部',
-                    icon: UiV2Icons.play,
-                    variant: UiV2ButtonVariant.soft,
-                    compact: true,
-                    onTap: () => TrackActions.playAll(context, ref, list),
-                  ),
-                ],
-              ),
-            ),
-            UiV2TrackList(
-              rows: [
-                for (var i = 0; i < list.length; i++)
-                  UiV2SongRow(
-                    song: list[i],
-                    meta: meta[list[i].id],
-                    index: i,
-                    showArt: true,
-                    onTap: () => TrackActions.playAt(context, ref, list, i),
-                    onToggleLike: () =>
-                        TrackActions.toggleLike(context, ref, list[i]),
-                    onMore: () =>
-                        showTrackMenu(context, song: list[i]),
-                  ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
   }
 }
 

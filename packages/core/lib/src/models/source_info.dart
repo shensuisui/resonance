@@ -14,6 +14,11 @@ class SourceInfo {
   /// 不该占据音乐库的分栏位置；由源自身声明，页面只做过滤。
   final bool showInLibrary;
 
+  /// 是否在「音乐源」页（已注册源列表）里可见
+  ///
+  /// 本地音乐 / 自建歌曲 / 我最喜欢 属于内置能力，不该出现在"可启用的源"里。
+  final bool visible;
+
   const SourceInfo({
     required this.id,
     required this.name,
@@ -21,6 +26,7 @@ class SourceInfo {
     required this.type,
     this.enabled = true,
     this.showInLibrary = true,
+    this.visible = true,
   });
 
   SourceInfo copyWith({
@@ -30,6 +36,7 @@ class SourceInfo {
     SourceType? type,
     bool? enabled,
     bool? showInLibrary,
+    bool? visible,
   }) {
     return SourceInfo(
       id: id ?? this.id,
@@ -38,6 +45,7 @@ class SourceInfo {
       type: type ?? this.type,
       enabled: enabled ?? this.enabled,
       showInLibrary: showInLibrary ?? this.showInLibrary,
+      visible: visible ?? this.visible,
     );
   }
 

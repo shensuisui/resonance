@@ -36,6 +36,8 @@ class LocalScanSource extends MusicSource {
     enabled: true,
     // 本地扫描结果已在「本地音乐」页展示，不占音乐库分栏
     showInLibrary: false,
+    // 内置能力，不在「音乐源」页作为可启用源出现
+    visible: false,
   );
 
   @override

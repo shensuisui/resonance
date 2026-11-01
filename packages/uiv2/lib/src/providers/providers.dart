@@ -516,6 +516,43 @@ class PlaylistActions {
     );
   }
 
+  /// 收藏远端歌单（写入 playlists 表；sourceId 非空即"来源歌单"）
+  ///
+  /// 幂等：同一 `sourceId + sourcePlaylistId` 已收藏时直接返回已有 id。
+  Future<String> favoriteRemote({
+    required String sourceId,
+    required String sourcePlaylistId,
+    required String name,
+    String? coverUrl,
+  }) async {
+    final all = await _dao.getAllPlaylists();
+    for (final p in all) {
+      if (p.sourceId == sourceId && p.sourcePlaylistId == sourcePlaylistId) {
+        return p.id;
+      }
+    }
+    final now = DateTime.now();
+    final id = 'fav-${now.microsecondsSinceEpoch}';
+    await _dao.insertPlaylist(Playlist(
+      id: id,
+      name: name,
+      sourceId: sourceId,
+      sourcePlaylistId: sourcePlaylistId,
+      coverUrl: coverUrl,
+      createdTime: now,
+      modifiedTime: now,
+    ));
+    ref.invalidate(playlistsProvider);
+    return id;
+  }
+
+  /// 取消收藏（只删这一行，不动其它歌单）
+  Future<void> unfavorite(String playlistId) async {
+    await _dao.deletePlaylist(playlistId);
+    ref.invalidate(playlistsProvider);
+    ref.invalidate(playlistByIdProvider(playlistId));
+  }
+
   /// 加入一首歌（带元数据快照）
   Future<bool> addSong(String playlistId, Song song) async {
     final enriched = await _completeMetadata(song);
@@ -553,6 +590,21 @@ class PlaylistActions {
   /// 歌单里的歌曲（优先用快照，缺失时回源补详情）
   Future<List<Song>> songsOf(Playlist playlist) async {
     final manager = ref.read(sourceManagerProvider);
+
+    // 来源歌单（收藏的远端歌单）：曲目直接问源，不依赖本地快照
+    final srcId = playlist.sourceId ?? '';
+    if (srcId.isNotEmpty) {
+      final source = manager.getSource(srcId);
+      final remoteId = playlist.sourcePlaylistId ?? playlist.id;
+      if (source != null) {
+        try {
+          final songs = await source.getPlaylistSongs(remoteId);
+          if (songs.isNotEmpty) return songs;
+        } catch (_) {
+          // 源不可用时退回快照/详情路径
+        }
+      }
+    }
     final out = <Song>[];
     for (final key in playlist.songKeys) {
       final snapshot = playlist.songSnapshots[key];
@@ -590,6 +642,36 @@ final playlistActionsProvider = Provider<PlaylistActions>(
   (ref) => PlaylistActions(ref),
   name: 'playlistActionsProvider',
 );
+
+/// 远程歌单（不落库）：路由参数 `<sourceId>::<playlistId>`
+///
+/// 点开远端歌单不写库，直接问源要详情；要收藏再走 [PlaylistActions.favoriteRemote]。
+final remotePlaylistProvider =
+    FutureProvider.family<Playlist?, String>((ref, param) async {
+  final parts = param.split('::');
+  if (parts.length != 2) return null;
+  final source = ref.watch(sourceManagerProvider).getSource(parts[0]);
+  if (source == null) return null;
+  try {
+    return await source.getPlaylist(parts[1]);
+  } catch (_) {
+    return null;
+  }
+}, name: 'remotePlaylistProvider');
+
+/// 远程歌单的曲目（直接来自源）
+final remotePlaylistSongsProvider =
+    FutureProvider.family<List<Song>, String>((ref, param) async {
+  final parts = param.split('::');
+  if (parts.length != 2) return const [];
+  final source = ref.watch(sourceManagerProvider).getSource(parts[0]);
+  if (source == null) return const [];
+  try {
+    return await source.getPlaylistSongs(parts[1]);
+  } catch (_) {
+    return const [];
+  }
+}, name: 'remotePlaylistSongsProvider');
 
 /// 某个歌单的歌曲列表（快照优先）
 final playlistSongsProvider =
