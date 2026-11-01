@@ -100,8 +100,8 @@ class UiV2Sidebar extends ConsumerWidget {
     final t = UiV2Theme.of(context);
     final nav = ref.watch(navProvider);
     final active = kNavFor[nav.current.name] ?? nav.current.name;
-    // 侧栏「你的歌单」读真实歌单表（DAO），与歌单页同源
-    final playlists = ref.watch(playlistsProvider).value ?? const <Playlist>[];
+    // 侧栏「你的歌单」只列自建歌单（收藏的远端歌单只在音乐库「收藏歌单」分栏）
+    final playlists = ref.watch(ownedPlaylistsProvider).value ?? const <Playlist>[];
 
     return Container(
       width: expanded ? UiV2Metrics.sidebarWidth : UiV2Metrics.railWidth,

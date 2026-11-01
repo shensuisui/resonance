@@ -423,6 +423,22 @@ final playlistsProvider = FutureProvider<List<Playlist>>((ref) async {
   return list;
 }, name: 'playlistsProvider');
 
+/// 自建歌单（sourceId 为空）：保留 AsyncValue，页面可直接 .when
+///
+/// 收藏的远端歌单与自建歌单同表存放，但语义不同：
+/// 「我的歌单」只认自建，「收藏歌单」只认 sourceId 非空的。
+final ownedPlaylistsProvider = Provider<AsyncValue<List<Playlist>>>((ref) {
+  return ref.watch(playlistsProvider).whenData((all) => all
+      .where((p) => (p.sourceId ?? '').isEmpty)
+      .toList(growable: false));
+}, name: 'ownedPlaylistsProvider');
+
+/// 收藏的远端歌单（sourceId 非空）
+final favoritePlaylistsProvider = Provider<List<Playlist>>((ref) {
+  final all = ref.watch(playlistsProvider).value ?? const <Playlist>[];
+  return all.where((p) => (p.sourceId ?? '').isNotEmpty).toList(growable: false);
+}, name: 'favoritePlaylistsProvider');
+
 /// 歌单按 id 查询
 final playlistByIdProvider =
     FutureProvider.family<Playlist?, String>((ref, id) async {

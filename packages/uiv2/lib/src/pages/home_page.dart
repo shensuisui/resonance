@@ -200,7 +200,8 @@ class _MyPlaylistsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playlists = ref.watch(playlistsProvider);
+    // 「我的歌单」只列自建歌单（收藏的远端歌单在音乐库「收藏歌单」分栏）
+    final playlists = ref.watch(ownedPlaylistsProvider);
     final current = playlists.value ?? const <Playlist>[];
 
     return UiV2Section(

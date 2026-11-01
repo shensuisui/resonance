@@ -97,7 +97,7 @@ class _OwnedPlaylistsBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = UiV2Theme.of(context);
-    final playlists = ref.watch(playlistsProvider);
+    final playlists = ref.watch(ownedPlaylistsProvider);
     final list = playlists.value ?? const <Playlist>[];
 
     if (playlists.isLoading && list.isEmpty) {
@@ -239,9 +239,7 @@ class _FavoritePlaylistsBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = UiV2Theme.of(context);
-    final all = ref.watch(playlistsProvider).value ?? const <Playlist>[];
-    final list =
-        all.where((p) => (p.sourceId ?? '').isNotEmpty).toList(growable: false);
+    final list = ref.watch(favoritePlaylistsProvider);
     if (list.isEmpty) {
       return UiV2Panel(
         child: UiV2Empty(

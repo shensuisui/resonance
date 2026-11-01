@@ -23,7 +23,8 @@ class ProfilePage extends ConsumerWidget {
     final t = UiV2Theme.of(context);
     // 全部统计来自真实数据源：DAO / 服务 / 扫描缓存
     final likedCount = ref.watch(favoriteCountProvider);
-    final playlistsAsync = ref.watch(playlistsProvider);
+    // 「我的歌单」只列自建歌单
+    final playlistsAsync = ref.watch(ownedPlaylistsProvider);
     final playlists = playlistsAsync.value ?? const [];
     final topPlaylists = playlists.take(4).toList();
     final localCount = ref.watch(localTracksProvider).length;

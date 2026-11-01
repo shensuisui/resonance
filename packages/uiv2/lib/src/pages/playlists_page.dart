@@ -23,7 +23,8 @@ class PlaylistsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(playlistsProvider);
+    // 「全部歌单」只列自建歌单
+    final async = ref.watch(ownedPlaylistsProvider);
 
     return PageShell(
       child: Column(
