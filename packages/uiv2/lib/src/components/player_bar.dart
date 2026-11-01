@@ -534,15 +534,10 @@ class UiV2PlayerBar extends ConsumerWidget {
     return Row(
       children: [
         // 第一区
+        // 平板档也要显示歌名/歌手（之前为躲溢出直接不画，属于治标）
         Expanded(
-          flex: 3,
-          child: tablet
-              ? const Row(
-                  children: [
-                    _NowPlayingInfo(coverSize: 52, showMeta: false),
-                  ],
-                )
-              : const _NowPlayingInfo(coverSize: 52, showMeta: true),
+          flex: 4,
+          child: const _NowPlayingInfo(coverSize: 52, showMeta: true),
         ),
         const SizedBox(width: UiV2Spacing.s3),
         // 第二区：控件行 + 进度条
@@ -554,9 +549,7 @@ class UiV2PlayerBar extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  // 平板档中区很窄（约 300px）：歌名在第一区已有封面对应，
-                  // 这里再放一行文本会被挤成「未…/选…」，只留爱心。
-                  if (tablet) const _LikeButton(size: 36),
+                  // 爱心已在第一区（_NowPlayingInfo）里画过，中区只放传输控件
                   const Spacer(),
                   UiV2Transport(buttonSize: 36, showOptions: true),
                   const Spacer(),

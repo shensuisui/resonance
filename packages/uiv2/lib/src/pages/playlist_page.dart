@@ -208,7 +208,17 @@ class _PlaylistBody extends ConsumerWidget {
                               TrackActions.toggleLike(context, ref, songs[i]),
                           onMore: () => showTrackMenu(
                             context,
-                            trackId: songs[i].globalKey,
+                            song: songs[i],
+                            onRemove: () async {
+                              await ref
+                                  .read(playlistActionsProvider)
+                                  .removeSong(playlist.id, songs[i].globalKey);
+                              if (!context.mounted) return;
+                              showUiV2Toast(
+                                context,
+                                '已从「${playlist.name}」移除「${songs[i].title}」',
+                              );
+                            },
                           ),
                         ),
                     ],

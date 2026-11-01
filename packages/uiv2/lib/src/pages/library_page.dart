@@ -70,7 +70,8 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
           ),
           if (tab == 'downloaded')
             const _DownloadedBody()
-          else if (tab == 'all')
+          else if (tab == 'all' || tab == 'src:local_custom')
+            // 「自建歌曲」分栏展示的就是「我的歌单」（同一个 DAO 数据源）
             const _OwnedPlaylistsBody()
           else
             _SourcePlaylistsBody(sourceId: tab.substring(4)),
@@ -95,9 +96,18 @@ class _OwnedPlaylistsBody extends ConsumerWidget {
       return UiV2Panel(child: _loadingBox(context));
     }
 
+    final quick = _quickEntries(context, ref);
+
     if (list.isEmpty) {
-      return UiV2Panel(
-        child: UiV2Empty(
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (quick != null) ...[
+            quick,
+            const SizedBox(height: UiV2Spacing.s5),
+          ],
+          UiV2Panel(
+            child: UiV2Empty(
           title: '还没有歌单',
           text: '自建歌单会出现在这里；也可以在「全部歌单」页里新建。',
           icon: UiV2Icons.queue,
@@ -106,21 +116,63 @@ class _OwnedPlaylistsBody extends ConsumerWidget {
             icon: UiV2Icons.plus,
             variant: UiV2ButtonVariant.primary,
             // 新建表单在「全部歌单」页（UiV2NewPlaylistBody），这里直接跳过去
-            onTap: () => ref.read(navProvider.notifier).go('playlists'),
+                onTap: () => ref.read(navProvider.notifier).go('playlists'),
+              ),
+            ),
           ),
-        ),
+        ],
       );
     }
 
     final count = list.length;
-    return UiV2Section(
-      title: '我的歌单（$count 个）',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (quick != null) ...[
+          quick,
+          const SizedBox(height: UiV2Spacing.s5),
+        ],
+        UiV2Section(
+          title: '我的歌单（$count 个）',
       linkText: '全部歌单',
       onLinkTap: () => ref.read(navProvider.notifier).go('playlists'),
-      child: UiV2CardGrid(
+          child: UiV2CardGrid(
+            children: [
+              for (final playlist in list)
+                _OwnedPlaylistCard(playlist: playlist, fallback: t.surface3),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 手机档的快捷入口：我喜欢的音乐 / 本地音乐
+  ///
+  /// 大屏左侧导航里已经有这两项；手机档没有，所以在「全部」分栏里补两个入口。
+  Widget? _quickEntries(BuildContext context, WidgetRef ref) {
+    if (MediaQuery.sizeOf(context).width >= UiV2Breakpoints.wide) return null;
+    final likedCount = ref.watch(favoriteCountProvider);
+    final localCount = ref.watch(localTracksProvider).length;
+    return UiV2Panel(
+      padding: EdgeInsets.zero,
+      child: Column(
         children: [
-          for (final playlist in list)
-            _OwnedPlaylistCard(playlist: playlist, fallback: t.surface3),
+          UiV2ListRow(
+            key: const ValueKey('library_liked'),
+            label: '我喜欢的音乐',
+            hint: '$likedCount 首',
+            leading: const UiV2Icon(UiV2Icons.heart, size: 18),
+            onTap: () => ref.read(navProvider.notifier).go('liked'),
+          ),
+          UiV2ListRow(
+            key: const ValueKey('library_local'),
+            label: '本地音乐',
+            hint: '$localCount 首',
+            leading: const UiV2Icon(UiV2Icons.folder, size: 18),
+            divider: false,
+            onTap: () => ref.read(navProvider.notifier).go('local'),
+          ),
         ],
       ),
     );
@@ -398,7 +450,7 @@ class _SourcePlaylistSongsBody extends ConsumerWidget {
                     onToggleLike: () =>
                         TrackActions.toggleLike(context, ref, list[i]),
                     onMore: () =>
-                        showTrackMenu(context, trackId: list[i].globalKey),
+                        showTrackMenu(context, song: list[i]),
                   ),
               ],
             ),

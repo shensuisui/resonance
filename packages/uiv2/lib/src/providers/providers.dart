@@ -474,15 +474,58 @@ class PlaylistActions {
     ref.invalidate(playlistByIdProvider(id));
   }
 
+  /// 补齐缺失的曲目元数据
+  ///
+  /// 规则源的 getSongDetail 只返回播放地址；把这种 Song 直接存成歌单快照，
+  /// 详情页就会显示「(未知曲目) / 0:00」。这里用源详情把缺失字段补上。
+  Future<Song> _completeMetadata(Song song) async {
+    if (song.title.isNotEmpty && song.artist.isNotEmpty) return song;
+
+    // 1) 源详情：规则源通常只回播放地址，但能补多少补多少
+    var merged = song;
+    try {
+      final detail = await ref
+          .read(sourceManagerProvider)
+          .getSongDetail(song.sourceId, song.id);
+      merged = _mergeMetadata(merged, detail);
+    } catch (_) {
+      // 源不可用就跳过，继续用其它来源补
+    }
+    if (merged.title.isNotEmpty) return merged;
+
+    // 2) 最近播放：播过的曲子在这里留有完整元数据快照
+    for (final recent in ref.read(recentSongsProvider)) {
+      if (recent.globalKey == song.globalKey) {
+        merged = _mergeMetadata(merged, recent);
+        break;
+      }
+    }
+    return merged;
+  }
+
+  /// 用 [other] 的非空字段补齐 [base] 的空字段
+  Song _mergeMetadata(Song base, Song other) {
+    return base.copyWith(
+      title: base.title.isEmpty ? other.title : base.title,
+      artist: base.artist.isEmpty ? other.artist : base.artist,
+      album: base.album ?? other.album,
+      coverUrl: (base.coverUrl ?? '').isEmpty ? other.coverUrl : base.coverUrl,
+      duration: base.duration ?? other.duration,
+      playUrl: base.playUrl ?? other.playUrl,
+      lyricUrl: base.lyricUrl ?? other.lyricUrl,
+    );
+  }
+
   /// 加入一首歌（带元数据快照）
   Future<bool> addSong(String playlistId, Song song) async {
+    final enriched = await _completeMetadata(song);
     final playlist = await _dao.getPlaylist(playlistId);
     if (playlist == null) return false;
-    final key = song.globalKey;
+    final key = enriched.globalKey;
     if (playlist.songKeys.contains(key)) return false;
     await _dao.updatePlaylist(playlist.copyWith(
       songKeys: [...playlist.songKeys, key],
-      songSnapshots: {...playlist.songSnapshots, key: song},
+      songSnapshots: {...playlist.songSnapshots, key: enriched},
       modifiedTime: DateTime.now(),
     ));
     ref.invalidate(playlistsProvider);
@@ -513,8 +556,20 @@ class PlaylistActions {
     final out = <Song>[];
     for (final key in playlist.songKeys) {
       final snapshot = playlist.songSnapshots[key];
-      if (snapshot != null) {
+      if (snapshot != null && snapshot.title.isNotEmpty) {
         out.add(snapshot);
+        continue;
+      }
+      // 快照存在但元数据是空的（历史数据）→ 回源补一次，并回写快照自愈
+      if (snapshot != null) {
+        final healed = await _completeMetadata(snapshot);
+        if (healed.title.isNotEmpty) {
+          await _dao.updatePlaylist(playlist.copyWith(
+            songSnapshots: {...playlist.songSnapshots, key: healed},
+          ));
+          ref.invalidate(playlistByIdProvider(playlist.id));
+        }
+        out.add(healed);
         continue;
       }
       final parts = key.split(':');

@@ -123,7 +123,7 @@ class ArtistPage extends ConsumerWidget {
                       onToggleLike: () =>
                           TrackActions.toggleLike(context, ref, hot[i]),
                       onMore: () =>
-                          showTrackMenu(context, trackId: hot[i].globalKey),
+                          showTrackMenu(context, song: hot[i]),
                     ),
                 ],
               ),

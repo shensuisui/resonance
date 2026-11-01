@@ -157,7 +157,7 @@ class _LikedPageState extends ConsumerState<LikedPage> {
                     onToggleLike: () =>
                         TrackActions.toggleLike(context, ref, ordered[i]),
                     onMore: () =>
-                        showTrackMenu(context, trackId: ordered[i].globalKey),
+                        showTrackMenu(context, song: ordered[i]),
                   ),
               ],
             ),

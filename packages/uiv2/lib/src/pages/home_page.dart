@@ -447,7 +447,7 @@ Widget _songList(
               onTap: () => TrackActions.playAt(context, ref, songs, i),
               onToggleLike: () =>
                   TrackActions.toggleLike(context, ref, songs[i]),
-              onMore: () => showTrackMenu(context, trackId: songs[i].globalKey),
+              onMore: () => showTrackMenu(context, song: songs[i]),
             ),
         ],
       ),

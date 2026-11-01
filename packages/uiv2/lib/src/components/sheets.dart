@@ -861,11 +861,16 @@ class UiV2DeviceSheetBody extends ConsumerWidget {
 ///
 /// 首选传 [song]（真实 [Song]）；[trackId] 是兼容旧调用点的入口，
 /// 传入后会同步用 [songByIdProvider] 解析成 [Song]，解析不出来时给出空态而不是假数据。
-Future<void> showTrackMenu(BuildContext context, {Song? song, String? trackId}) {
+Future<void> showTrackMenu(
+  BuildContext context, {
+  Song? song,
+  String? trackId,
+  VoidCallback? onRemove,
+}) {
   return showUiV2Sheet(
     context,
     title: '更多操作',
-    child: UiV2TrackMenuBody(song: song, trackId: trackId),
+    child: UiV2TrackMenuBody(song: song, trackId: trackId, onRemove: onRemove),
   );
 }
 
@@ -877,14 +882,19 @@ class UiV2TrackMenuBody extends ConsumerWidget {
   /// 目标曲目 id（null 表示当前播放曲目）
   final String? trackId;
 
+  /// 「从歌单移除」回调（只在歌单详情里传；其它入口为 null 就不显示这一项）
+  final VoidCallback? onRemove;
+
   /// 构造内容
-  const UiV2TrackMenuBody({super.key, this.song, this.trackId});
+  const UiV2TrackMenuBody({super.key, this.song, this.trackId, this.onRemove});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // 三种来源的优先级：显式 Song > 当前播放曲目 > 显式 id（需要异步解析）
     final target = song ?? (trackId == null ? ref.watch(currentSongProvider) : null);
-    if (target != null) return _TrackMenuActions(song: target);
+    if (target != null) {
+      return _TrackMenuActions(song: target, onRemove: onRemove);
+    }
 
     final id = trackId ?? ref.watch(currentTrackIdProvider);
     if (id == null) {
@@ -897,7 +907,7 @@ class UiV2TrackMenuBody extends ConsumerWidget {
     // 只有 id 时回源补一次详情（远程源首次进入才需要）
     return ref.watch(songByIdProvider(id)).when(
           data: (resolved) => resolved != null
-              ? _TrackMenuActions(song: resolved)
+              ? _TrackMenuActions(song: resolved, onRemove: onRemove)
               : const UiV2Empty(
                   title: '这首曲子暂时取不到详情',
                   text: '来源没有返回它的信息，稍后再试试。',
@@ -928,8 +938,11 @@ class _TrackMenuActions extends ConsumerWidget {
   /// 目标曲目
   final Song song;
 
+  /// 「从歌单移除」回调（歌单详情才有）
+  final VoidCallback? onRemove;
+
   /// 构造动作列表
-  const _TrackMenuActions({required this.song});
+  const _TrackMenuActions({required this.song, this.onRemove});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1025,6 +1038,17 @@ class _TrackMenuActions extends ConsumerWidget {
           hint: '把这首歌收进自建歌单',
           onTap: () => showAddToPlaylistSheet(context, song),
         ),
+        if (onRemove != null)
+          UiV2ActionRow(
+            icon: UiV2Icons.trash,
+            label: '从歌单移除',
+            hint: '这首歌会从当前歌单里删掉，歌曲本身不受影响',
+            danger: true,
+            onTap: () {
+              Navigator.of(context).maybePop();
+              onRemove!();
+            },
+          ),
         UiV2ActionRow(
           icon: UiV2Icons.disc,
           label: '查看专辑',

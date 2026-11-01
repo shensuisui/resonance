@@ -169,7 +169,7 @@ class AlbumPage extends ConsumerWidget {
                     onToggleLike: () =>
                         TrackActions.toggleLike(context, ref, songs[i]),
                     onMore: () =>
-                        showTrackMenu(context, trackId: songs[i].globalKey),
+                        showTrackMenu(context, song: songs[i]),
                   ),
               ],
             ),
