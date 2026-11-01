@@ -36,6 +36,32 @@ class UiV2SourceIcon extends ConsumerWidget {
   }
 }
 
+/// 封面角标版：图标 + 半透明底片，保证在任何封面上都清晰
+class UiV2SourceBadge extends ConsumerWidget {
+  /// 源 id
+  final String? sourceId;
+
+  /// 图标边长（底片会自动留 3px 内边距）
+  final double size;
+
+  /// 构造
+  const UiV2SourceBadge({super.key, required this.sourceId, this.size = 16});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = UiV2Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: t.surface.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(size <= 16 ? 6 : 8),
+        border: Border.all(color: t.line.withValues(alpha: 0.6)),
+      ),
+      child: UiV2SourceIcon(sourceId: sourceId, size: size),
+    );
+  }
+}
+
 /// 纯展示版（已经拿到 [MusicSource] 时用，避免重复解析）
 class UiV2SourceIconView extends StatelessWidget {
   /// 源（null 时显示「?」）

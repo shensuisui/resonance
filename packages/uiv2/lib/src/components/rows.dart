@@ -1088,8 +1088,9 @@ class UiV2PlaylistCard extends ConsumerWidget {
                         fallback: fallback,
                         headers: uiV2ImageHeadersFor(ref, playlist.sourceId),
                       )),
+            // 右下角是悬停播放按钮的位置，角标统一放左上
             if (artOverlay != null)
-              Positioned(right: 6, bottom: 6, child: artOverlay!),
+              Positioned(left: 6, top: 6, child: artOverlay!),
           ],
         ),
         onTap: onTap,

@@ -259,7 +259,7 @@ class _FavoritePlaylistsBody extends ConsumerWidget {
             UiV2PlaylistCard(
               playlist: playlist,
               fallback: t.surface3,
-              artOverlay: UiV2SourceIcon(sourceId: playlist.sourceId, size: 18),
+              artOverlay: UiV2SourceBadge(sourceId: playlist.sourceId),
               width: double.infinity,
               onTap: () => ref.read(navProvider.notifier).go('playlist', playlist.id),
               onPlay: () => _play(context, ref, playlist),
@@ -426,7 +426,7 @@ class _SourcePlaylistCard extends ConsumerWidget {
       fallback: fallback,
       // 远端拿不到曲目数时不显示「0 首」；源名也不再占第二行，改在封面角标显示图标
       subtitle: count > 0 ? '$count 首' : '',
-      artOverlay: UiV2SourceIcon(sourceId: sourceId, size: 18),
+      artOverlay: UiV2SourceBadge(sourceId: sourceId),
       width: double.infinity,
       onTap: () => _open(context, ref),
       onPlay: () => _play(context, ref),
