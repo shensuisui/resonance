@@ -35,7 +35,7 @@
     "listRule": "@CSS:ul li@html",
     "itemRules": {
       "id": "@CSS:div.name a@href && @Regex:/play/([^.]+)",
-      "title": "@CSS:div.name a@text && @Regex:《([^》]+)》",
+      "title": "@CSS:div.name a@text && @Regex:《([^》]+)》##[《》]||",
       "artist": "@CSS:div.name a@text && @Regex:^[^《]+##\\\\\\\\u0026||&"
     },
     "pagination": {
@@ -57,7 +57,7 @@
     "listRule": "$",
     "itemRules": {
       "playUrl": "$.url",
-      "title": "$.title && @Regex:《([^》]+)》",
+      "title": "$.title && @Regex:《([^》]+)》##[《》]||",
       "artist": "$.title && @Regex:^[^《]+",
       "coverUrl": "$.pic"
     }

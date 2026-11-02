@@ -29,29 +29,43 @@ class ParserFactory {
       throw ArgumentError('Expression cannot be empty');
     }
 
-    // 1. 检查是否包含 &&（链式规则）
-    if (trimmed.contains('&&')) {
-      return _parseChain(trimmed);
-    }
-
-    // 2. 检查 ##（净化修饰符）— 必须在 || 之前，因为 ## 语法也包含 ||
-    // 格式: 主表达式##<pattern>||<replacement>
+    // 0. 先摘掉**末尾**的净化段（##pattern||replacement），再解析主体
+    //
+    // 为什么必须在 && 之前：## 语法本身含 ||，而 && 链里常带 @Regex 匹配组。
+    // 旧顺序是"先看 &&，命中就不看 ##"，于是链上的净化段被原样塞进最后一段
+    // 正则里（真机表现：6U 标题加清洗后全部变成空串 —— 正则再也匹配不上）。
     // 用 [\s\S] 代替 . 与 $：. 不匹配换行、$ 又会匹配"末尾换行之前"，
     // 两者叠加会把替换值里的换行吞掉（实测：替换值只含一个换行时变成空串）。
     final sanitizeMatch =
         RegExp(r'##([\s\S]+?)\|\|([\s\S]*)$').firstMatch(trimmed);
-    if (sanitizeMatch != null) {
+    if (sanitizeMatch != null && sanitizeMatch.start > 0) {
       final mainExpr = trimmed.substring(0, sanitizeMatch.start).trim();
       final pattern = sanitizeMatch.group(1);
       final replacement = _decodeEscapes(sanitizeMatch.group(2) ?? '');
       if (mainExpr.isEmpty) {
         throw ArgumentError('Sanitize requires a main expression before ##: $trimmed');
       }
+      // 主体本身可能是 && 链、|| 备用或单一表达式：类型要一并保留，
+      // 否则链式/备用会被当成单段执行
+      final Expression main;
+      if (mainExpr.contains('&&')) {
+        main = _parseChain(mainExpr);
+      } else if (mainExpr.contains('||')) {
+        main = _parseFallback(mainExpr);
+      } else {
+        main = Expression(parts: [_parseSingle(mainExpr)]);
+      }
       return Expression(
-        parts: [_parseSingle(mainExpr)],
+        parts: main.parts,
+        compoundType: main.compoundType,
         sanitizePattern: pattern,
         sanitizeReplacement: replacement,
       );
+    }
+
+    // 1. 检查是否包含 &&（链式规则）
+    if (trimmed.contains('&&')) {
+      return _parseChain(trimmed);
     }
 
     // 3. 检查 ||（备用规则）
