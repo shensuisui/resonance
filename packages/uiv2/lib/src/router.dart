@@ -13,6 +13,8 @@ library;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'app_router.dart';
+
 /// 一条导航记录（路由名 + 参数）
 @immutable
 class NavEntry {
@@ -151,39 +153,56 @@ class NavState {
       NavState(current: current ?? this.current, trail: trail ?? this.trail);
 }
 
-/// 导航 Notifier —— 提供 go / back，语义与原型 navigate / goBack 一致。
+/// 导航 Notifier —— **门面**：对外仍是 go / back + NavState，内部交给 go_router。
+///
+/// 为什么保留这层：全项目 52 处调用点都只认 navProvider.go/back，
+/// 直接改成 context.go / context.pop 会把路由细节散到每个页面里；
+/// 门面让「页面只关心去哪」和「路由怎么实现」分开，迁移 go_router 时零改动。
 class NavNotifier extends Notifier<NavState> {
   @override
-  NavState build() => const NavState(current: NavEntry('home'));
+  NavState build() {
+    final router = ref.watch(appRouterProvider);
+    // go_router 是唯一事实来源：路由一变就把当前条目同步过来（标题/返回键/底栏都用它）
+    void sync() {
+      final entry = navEntryFromUri(
+        router.routerDelegate.currentConfiguration.uri,
+      );
+      if (entry != state.current) {
+        state = NavState(current: entry);
+      }
+    }
+
+    router.routerDelegate.addListener(sync);
+    ref.onDispose(() => router.routerDelegate.removeListener(sync));
+    return NavState(
+      current: navEntryFromUri(router.routerDelegate.currentConfiguration.uri),
+    );
+  }
 
   /// 跳转到指定路由
   ///
-  /// 一级页面清空返回栈（原型里一级页面相互之间不产生返回层级）。
+  /// 一级页用 go（切分支、清掉该分支的栈，等价原型里一级页之间不产生层级）；
+  /// 二级页用 push（压在该分支的 Navigator 上，返回键能回去）。
   void go(String name, [String param = '']) {
     final entry = NavEntry(name, param);
     if (entry == state.current) return;
-    if (kRootWide.contains(name)) {
-      state = NavState(current: entry);
-      return;
-    }
-    state = NavState(
-      current: entry,
-      trail: [...state.trail, state.current],
-    );
+    final router = ref.read(appRouterProvider);
+    final location = locationOf(name, param);
+    // 一律用 go：go_router 按路径重建匹配栈（shell → 分支 → 二级页），
+    // 返回时 pop 回分支根，语义与原来「二级页压栈、返回退回上一级」一致。
+    // 不用 push：命令式压栈不会更新 currentConfiguration.uri，
+    // 顶栏标题/返回键这些依赖当前位置的地方会停在旧值（实测踩过）。
+    router.go(location);
   }
 
   /// 返回上一页；没有来路时退到该页的上一级，再没有就回首页
   void back() {
-    final cur = state.current;
-    final trail = List.of(state.trail);
-    while (trail.isNotEmpty && trail.last == cur) {
-      trail.removeLast();
-    }
-    if (trail.isNotEmpty) {
-      state = NavState(current: trail.removeLast(), trail: trail);
+    final router = ref.read(appRouterProvider);
+    if (router.canPop()) {
+      router.pop();
       return;
     }
-    final parent = kParentRoute[cur.name] ?? 'home';
+    final parent = kParentRoute[state.current.name] ?? 'home';
     go(parent);
   }
 
@@ -195,6 +214,7 @@ class NavNotifier extends Notifier<NavState> {
     return wideLayout ? !kRootWide.contains(name) : !kRootMobile.contains(name);
   }
 }
+
 
 /// 导航状态 Provider
 final navProvider = NotifierProvider<NavNotifier, NavState>(NavNotifier.new);

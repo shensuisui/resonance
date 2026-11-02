@@ -10,33 +10,17 @@ library;
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../components/now_playing.dart';
 import '../components/player_bar.dart';
 import '../components/shell_parts.dart';
 import '../components/sheets.dart';
 import '../components/rows.dart';
-import '../components/surfaces.dart';
 import '../design/icons.dart';
 import '../design/tokens.dart';
-import '../pages/downloads_page.dart';
-import '../pages/folder_page.dart';
-import '../pages/home_page.dart';
-import '../pages/library_page.dart';
-import '../pages/liked_page.dart';
-import '../pages/local_page.dart';
-import '../pages/logs_page.dart';
-import '../pages/playlist_page.dart';
-import '../pages/playlists_page.dart';
-import '../pages/profile_page.dart';
-import '../pages/recent_page.dart';
-import '../pages/search_page.dart';
-import '../pages/settings_page.dart';
-import '../pages/sources_page.dart';
-import '../pages/subs_page.dart';
 import '../providers/providers.dart';
 import '../router.dart';
-import '../widgets/page_shell.dart';
 
 /// 当前页面标题
 ///
@@ -57,8 +41,11 @@ final pageTitleProvider = Provider<String>((ref) {
 
 /// 应用外壳
 class UiV2AppShell extends ConsumerWidget {
+  /// go_router 的分支容器（6 个一级页的 IndexedStack，保活由框架负责）
+  final StatefulNavigationShell navigationShell;
+
   /// 构造外壳
-  const UiV2AppShell({super.key});
+  const UiV2AppShell({super.key, required this.navigationShell});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -91,7 +78,7 @@ class UiV2AppShell extends ConsumerWidget {
         Expanded(
           child: Stack(
             children: [
-              Positioned.fill(child: _RoutedView(nav: nav)),
+              Positioned.fill(child: navigationShell),
               if (wide && width < UiV2Breakpoints.desktop && showBack)
                 Positioned(
                   left: UiV2Spacing.s4,
@@ -141,92 +128,6 @@ class UiV2AppShell extends ConsumerWidget {
   }
 }
 
-/// 路由分发：一级页常驻 IndexedStack，二级页**叠在它上面**
-///
-/// 为什么不是"二级页替换一级页"：那样进「下载任务 / 设置 / 歌单」时，
-/// 当前一级页面（比如「我的」）整棵子树会被 dispose，返回后滚动位置、
-/// 展开状态全部重置 —— 用户实测就是"返回后滚动条回到最顶"。
-/// 现在一级页始终挂载，二级页用 Stack 覆盖上去，返回即恢复原样。
-class _RoutedView extends StatelessWidget {
-  final NavState nav;
-
-  const _RoutedView({required this.nav});
-
-  @override
-  Widget build(BuildContext context) {
-    final onRoot = isRootRoute(nav.current.name);
-    // 二级页下面该露出哪个一级页：取来路里最近的一级路由（没有则首页）
-    final base = onRoot
-        ? nav.current
-        : ([...nav.trail.reversed].firstWhere(
-            (e) => isRootRoute(e.name),
-            orElse: () => const NavEntry('home'),
-          ));
-
-    final roots = IndexedStack(
-      index: rootIndexOf(base.name),
-      children: const [
-        HomePage(),
-        SearchPage(),
-        LibraryPage(),
-        LikedPage(),
-        LocalPage(),
-        ProfilePage(),
-      ],
-    );
-
-    if (onRoot) return roots;
-    return Stack(
-      children: [
-        Positioned.fill(child: roots),
-        Positioned.fill(
-          // 二级页必须自带不透明底色：它现在是叠在一级页之上的，
-          // PageShell 自己不画背景，不铺底色就会把下面的首页透出来（真机预览踩过）
-          child: ColoredBox(
-            color: UiV2Theme.of(context).bg,
-            child: KeyedSubtree(
-              key: ValueKey(nav.current.key),
-              child: _buildSub(nav.current),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSub(NavEntry entry) {
-    return switch (entry.name) {
-      'playlist' => PlaylistPage(playlistId: entry.param),
-      'playlists' => const PlaylistsPage(),
-      'folder' => FolderPage(folderName: entry.param),
-      'recent' => const RecentPage(),
-      'downloads' => const DownloadsPage(),
-      'sources' => const SourcesPage(),
-      'subs' => const SubsPage(),
-      'logs' => const LogsPage(),
-      'settings' => const SettingsPage(),
-      // 未知路由：给出与原型 notFound 一致的引导
-      _ => PageShell(
-          child: UiV2Panel(
-            child: UiV2Empty(
-              title: '页面走丢了',
-              text: '链接可能已失效，回到首页继续浏览。',
-              icon: UiV2Icons.info,
-              actions: Builder(
-                builder: (context) => UiV2Button(
-                  label: '回到首页',
-                  variant: UiV2ButtonVariant.primary,
-                  onTap: () => ProviderScope.containerOf(context, listen: false)
-                      .read(navProvider.notifier)
-                      .go('home'),
-                ),
-              ),
-            ),
-          ),
-        ),
-    };
-  }
-}
 
 /// 平板浮动返回键（.float-back）
 class _FloatBack extends StatelessWidget {

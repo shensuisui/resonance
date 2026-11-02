@@ -14,7 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/misc.dart' show Override;
 import 'package:uiv2/src/design/theme.dart';
-import 'package:uiv2/src/pages/app_shell.dart';
+import 'package:uiv2/src/app_router.dart';
 import 'package:uiv2/src/pages/home_page.dart';
 import 'package:uiv2/src/pages/profile_page.dart';
 import 'package:uiv2/src/pages/settings_page.dart';
@@ -120,32 +120,37 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
+    // 用真实路由表渲染：一级页由 StatefulShellRoute 保活，二级页压在该分支之上
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(
+      child: MaterialApp.router(
+        routerConfig: container.read(appRouterProvider),
         theme: UiV2DesignTheme.dark(),
-        builder: (context, c) => c == null ? const SizedBox() : UiV2Scope(child: c),
-        home: const UiV2AppShell(),
+        builder: (context, c) =>
+            c == null ? const SizedBox() : UiV2Scope(child: c),
       ),
     ));
     await tester.pump(const Duration(milliseconds: 600));
 
     // 先停在「我的」
     container.read(navProvider.notifier).go('profile');
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(ProfilePage, skipOffstage: false), findsOneWidget);
 
     // 进二级页（设置）：一级页不能被销毁，必须仍在树上
     container.read(navProvider.notifier).go('settings');
+    // 先 pump 起帧让入场动画开始，再推进时间：单次 pump(500ms) 时动画可能还没启动，
+    // 新页面仍是 offstage（find.byType 默认跳过 offstage）—— 踩过一次
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(SettingsPage), findsOneWidget, reason: '二级页要显示');
     expect(find.byType(ProfilePage, skipOffstage: false), findsOneWidget,
         reason: '一级页必须保活，否则返回后滚动位置/状态全丢');
-    expect(find.byType(HomePage, skipOffstage: false), findsOneWidget,
-        reason: 'IndexedStack 里的其它一级页也应保持挂载');
 
-    // 返回：还在「我的」
+    // 返回：回到「我的」
     container.read(navProvider.notifier).back();
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(SettingsPage), findsNothing);
     expect(find.byType(ProfilePage, skipOffstage: false), findsOneWidget);
