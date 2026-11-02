@@ -2165,11 +2165,16 @@ final audioCacheVersionProvider =
 /// 把缓存实现的变更流接到版本号上（并在启动时建一次索引）
 final audioCacheBindingProvider = Provider<void>((ref) {
   final cache = ref.watch(audioCacheProvider);
-  unawaited(cache.init());
+  // 先订阅再扫盘：广播是 broadcast 流，订阅晚了会丢掉"索引就绪"那一次通知
   final sub = cache.changes.listen((_) {
     ref.read(audioCacheVersionProvider.notifier).bump();
   });
   ref.onDispose(sub.cancel);
+  unawaited(cache.init().then((_) {
+    // 兜底：即使 init 的广播早于订阅（或实现没发），这里也刷新一次，
+    // 保证启动时先渲染的列表能拿到正确的「离线可播」状态
+    ref.read(audioCacheVersionProvider.notifier).bump();
+  }));
 }, name: 'audioCacheBindingProvider');
 
 /// 「离线可用」标记：播放缓存命中（已下载的歌由调用方并上 localPath 判断）

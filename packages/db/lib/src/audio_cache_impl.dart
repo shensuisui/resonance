@@ -69,7 +69,10 @@ class AudioCacheImpl implements AudioCache {
   Future<void> init() async {
     final root = await _root();
     _cached.clear();
-    if (!await root.exists()) return;
+    if (!await root.exists()) {
+      _changes.add(null);
+      return;
+    }
     await for (final entity in root.list(recursive: true)) {
       if (entity is! File) continue;
       final name = p.basename(entity.path);
@@ -79,6 +82,10 @@ class AudioCacheImpl implements AudioCache {
       final key = _keyOfFileName(name);
       if (key != null) _cached.add(key);
     }
+    // 扫盘完成 = 索引才真正可用。必须广播一次：
+    // 否则启动时先渲染的列表把 offlineAvailableProvider 的 false 缓存住了，
+    // 界面上就是「明明缓存里有、却一直不显示离线可播」（真机实测踩过）。
+    _changes.add(null);
   }
 
   @override
