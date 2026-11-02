@@ -28,6 +28,8 @@ import 'package:crawler/crawler.dart';
 import 'package:db/db.dart';
 import 'package:player/player.dart';
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:uiv2/uiv2.dart';
 import 'config/agent_debug_config.dart';
@@ -40,6 +42,10 @@ late SourceManager gSourceManager;
 late RecentPlaysService gRecentPlaysService;
 late Player gPlayer;
 late DownloadManager gDownloadManager;
+
+/// 发版前集成检查用：暂存最近一次人机验证挑战（key 与曲目 id）
+String? debugCaptchaKey;
+String? debugCaptchaId;
 
 /// 播放缓存（离线可用）：与「已下载」分开存放，不写 localPath
 late AudioCache gAudioCache;
@@ -268,6 +274,62 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
           'playUrl="${cur?.playUrl}" dur=${cur?.duration} local="${cur?.localPath}"');
       print('SONGINFO audible=${audible?.globalKey} title="${audible?.title}" '
           'index=${player.currentIndex} queueLen=${player.queue.length}');
+      return 'ok';
+    case 'captchaimg':
+      // 发版前集成检查用：取验证图并写成 PNG，供人工看图输入验证码
+      final cid = p['id'] ?? '';
+      if (cid.isEmpty) return 'missing id';
+      final info = await gSourceManager.getPlayable('gequbao', cid);
+      if (!info.needsChallenge) {
+        print('CAPTCHA 无需验证 url=' + info.url);
+        return 'ok';
+      }
+      debugCaptchaKey = info.challenge!.key;
+      debugCaptchaId = cid;
+      print('CAPTCHA key=' +
+          info.challenge!.key +
+          ' msg=' +
+          info.challenge!.message +
+          ' imgLen=' +
+          info.challenge!.image.length.toString());
+      final raw = info.challenge!.image;
+      final b64 = raw.contains(',') ? raw.split(',').last : raw;
+      final out = File('G:/works/shelli/fm/.dsh/tmp/captcha.png');
+      await out.parent.create(recursive: true);
+      await out.writeAsBytes(base64Decode(b64));
+      print('CAPTCHA 验证图已写入 ' + out.path);
+      return 'ok';
+    case 'captchaplay':
+      // 发版前集成检查用：带验证码重试换取播放地址，并真的提交播放
+      final code = p['code'] ?? '';
+      final cid2 = debugCaptchaId;
+      if (code.isEmpty || cid2 == null) return 'missing code（先 captchaimg）';
+      final info2 = await gSourceManager.getPlayable('gequbao', cid2,
+          captchaCode: code, captchaKey: debugCaptchaKey);
+      print('CAPTCHA 重试 needsChallenge=' +
+          info2.needsChallenge.toString() +
+          ' url=' +
+          info2.url);
+      if (info2.url.isNotEmpty) {
+        final meta = info2.meta ??
+            Song(id: cid2, sourceId: 'gequbao', title: '', artist: '');
+        await container
+            .read(playerProvider)
+            .play(meta.copyWith(playUrl: info2.url));
+        print('CAPTCHA 已提交播放');
+      }
+      return 'ok';
+    case 'captchainfo':
+      // 发版前集成检查用：验证一次之后，其它受控曲目是否免验证
+      final sid = p['id'] ?? '';
+      if (sid.isEmpty) return 'missing id';
+      final info3 = await gSourceManager.getPlayable('gequbao', sid);
+      print('CAPTCHA 查询 id=' +
+          sid +
+          ' needsChallenge=' +
+          info3.needsChallenge.toString() +
+          ' url=' +
+          info3.url);
       return 'ok';
     case 'dbsong':
       // 发版前集成检查用：按 id + source 查库里的曲目行（诊断"库里到底是什么"）

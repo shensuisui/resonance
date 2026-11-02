@@ -32,7 +32,11 @@ abstract class MusicSource {
   ///
   /// 默认实现退回 [getSongUrl]（源不必改动）；能一次拿到元数据的源应覆写它 ——
   /// 覆写后展示层就不必为了封面再单独请求一次详情。
-  Future<PlayableInfo> getPlayable(String id) async =>
+  ///
+  /// [captchaCode]/[captchaKey]：源站要求人机验证时，上层拿到验证码后带回重试
+  /// （不代破解：验证码由用户输入，这里只负责把它传下去）。
+  Future<PlayableInfo> getPlayable(String id,
+          {String? captchaCode, String? captchaKey}) async =>
       PlayableInfo(url: await getSongUrl(id));
 
   /// 获取歌词

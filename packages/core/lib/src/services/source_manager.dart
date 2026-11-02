@@ -129,19 +129,24 @@ class SourceManager {
   /// 获取指定源的播放地址，并尽可能顺带带回元数据
   ///
   /// 这是播放地址的唯一实现：[getSongUrl] 只是取它的地址。
-  Future<PlayableInfo> getPlayable(String sourceId, String songId) async {
+  Future<PlayableInfo> getPlayable(String sourceId, String songId,
+      {String? captchaCode, String? captchaKey}) async {
     final source = _sources[sourceId];
     if (source == null) {
       throw Exception('Source not found: $sourceId');
     }
     final sw = Stopwatch()..start();
     try {
-      final info = await source.getPlayable(songId);
+      final info = await source.getPlayable(songId,
+          captchaCode: captchaCode, captchaKey: captchaKey);
       SourceLogBus.instance.emit(
         sourceId,
-        info.url.isEmpty ? SourceLogLevel.warn : SourceLogLevel.info,
+        (info.url.isEmpty && !info.needsChallenge)
+            ? SourceLogLevel.warn
+            : SourceLogLevel.info,
         '播放URL',
-        'id=$songId ${info.url.isEmpty ? '未返回地址' : '成功'}'
+        'id=$songId '
+            '${info.needsChallenge ? '源站要求人机验证' : (info.url.isEmpty ? '未返回地址' : '成功')}'
             '${info.meta == null ? '' : '（含元数据）'}，耗时 ${sw.elapsedMilliseconds}ms',
       );
       return info;

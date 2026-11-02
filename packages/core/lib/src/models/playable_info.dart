@@ -8,6 +8,7 @@
 /// 因此把"地址 + 元数据"一起返回，让一次请求的信息量不再被丢弃。
 library;
 
+import 'playback_challenge.dart';
 import 'song.dart';
 
 /// 播放地址与顺带取回的元数据
@@ -18,13 +19,19 @@ class PlayableInfo {
   /// 同一次请求里顺带取到的曲目元数据（源不提供时为 null）
   final Song? meta;
 
+  /// 源站要求人机验证时带回的挑战（含验证图）；不需要验证时为 null
+  final PlaybackChallenge? challenge;
+
   /// 构造
-  const PlayableInfo({required this.url, this.meta});
+  const PlayableInfo({required this.url, this.meta, this.challenge});
 
   /// 是否拿到了可用的播放地址
   bool get hasUrl => url.isNotEmpty;
 
+  /// 是否卡在源站的人机验证上（此时 url 必然为空）
+  bool get needsChallenge => challenge != null;
+
   @override
   String toString() =>
-      'PlayableInfo(url: $url, meta: ' + (meta?.globalKey ?? 'null') + ')';
+      'PlayableInfo(url: $url, meta: ${meta?.globalKey ?? 'null'})';
 }

@@ -44,12 +44,23 @@ class RuleBasedMusicSource extends MusicSource implements ImageHeaderSource {
   @override
   /// 规则源的详情接口一次就同时给出播放地址与封面/歌手/时长：
   /// 这里复用同一次请求，避免"取地址"与"取封面"各打一次详情（实测两次请求）。
-  Future<PlayableInfo> getPlayable(String id) async {
-    final fields = await _executor.executeSongDetail(id);
-    return PlayableInfo(
-      url: _playUrlOf(fields),
-      meta: _songFromFields(id, fields),
+  ///
+  /// 源站要求人机验证时不假装"没地址"：如实把挑战（含验证图）回传，
+  /// 上层拿用户输入的验证码带回来重试（[captchaCode] + [captchaKey]）。
+  Future<PlayableInfo> getPlayable(String id,
+      {String? captchaCode, String? captchaKey}) async {
+    final outcome = await _executor.executeSongDetailOutcome(
+      id,
+      captchaCode: captchaCode,
+      captchaKey: captchaKey,
     );
+    final fields = outcome.fields;
+    final url = _playUrlOf(fields);
+    final meta = _songFromFields(id, fields);
+    if (url.isEmpty && outcome.challenge != null) {
+      return PlayableInfo(url: '', meta: meta, challenge: outcome.challenge);
+    }
+    return PlayableInfo(url: url, meta: meta);
   }
 
   /// 详情字段 → 播放地址

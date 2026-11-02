@@ -68,6 +68,80 @@ class PaginationRule {
       );
 }
 
+/// 人机验证规则：源站要求验证时去哪里取验证图、如何回传验证码
+///
+/// 背景：部分源对多数曲目要求先过验证才给播放地址（如歌曲宝返回
+/// {"code":2,"msg":"请完成人机验证后继续"}）。把这件事做成**配置**：
+/// 引擎负责"发现挑战 → 取验证图 → 带验证码重试"，端点与字段名由规则声明，
+/// 引擎里不写任何源名。
+class CaptchaRule {
+  /// 取验证图的接口（相对 baseUrl）
+  final String endpoint;
+
+  /// 取图请求方法
+  final String method;
+
+  /// 取图请求头
+  final Map<String, String> headers;
+
+  /// 取图响应类型
+  final String responseType;
+
+  /// 从取图响应里取图（data:image/... 或纯 base64）
+  final String imagePath;
+
+  /// 从取图响应里取校验 key
+  final String keyPath;
+
+  /// 重试时验证码的回传字段名
+  final String codeField;
+
+  /// 重试时 key 的回传字段名
+  final String keyField;
+
+  /// 哪个响应 code 表示"需要人机验证"
+  final int challengeCode;
+
+  /// 从挑战响应里取提示语的表达式（可空）
+  final String? messagePath;
+
+  const CaptchaRule({
+    required this.endpoint,
+    this.method = 'GET',
+    this.headers = const {},
+    this.responseType = 'json',
+    required this.imagePath,
+    required this.keyPath,
+    this.codeField = 'captchaCode',
+    this.keyField = 'key',
+    this.challengeCode = 2,
+    this.messagePath,
+  });
+
+  /// 解析配置（必填项缺失时返回 null，表示该源没有验证流程）
+  static CaptchaRule? fromJson(Map<String, dynamic>? json) {
+    if (json == null) return null;
+    final endpoint = json['endpoint'] as String?;
+    final imagePath = json['imagePath'] as String?;
+    final keyPath = json['keyPath'] as String?;
+    if (endpoint == null || imagePath == null || keyPath == null) return null;
+    return CaptchaRule(
+      endpoint: endpoint,
+      method: (json['method'] as String?) ?? 'GET',
+      headers: (json['headers'] as Map<String, dynamic>?)
+              ?.map((k, v) => MapEntry(k, v as String)) ??
+          const {},
+      responseType: (json['responseType'] as String?) ?? 'json',
+      imagePath: imagePath,
+      keyPath: keyPath,
+      codeField: (json['codeField'] as String?) ?? 'captchaCode',
+      keyField: (json['keyField'] as String?) ?? 'key',
+      challengeCode: (json['challengeCode'] as num?)?.toInt() ?? 2,
+      messagePath: json['messagePath'] as String?,
+    );
+  }
+}
+
 class FlowRule {
   final String url;
   final String method;
@@ -95,6 +169,9 @@ class FlowRule {
   /// 末步可用 listRule/itemRules 补充字段；变量池与末步字段一并返回。
   final List<PreflightStep>? steps;
 
+  /// 人机验证配置（源站要求验证时用；没有该流程的源留空）
+  final CaptchaRule? captcha;
+
   const FlowRule({
     required this.url,
     this.method = 'GET',
@@ -108,6 +185,7 @@ class FlowRule {
     this.params,
     this.playlistInfo,
     this.steps,
+    this.captcha,
   });
 
   factory FlowRule.fromJson(Map<String, dynamic> json) => FlowRule(
@@ -137,6 +215,7 @@ class FlowRule {
         steps: (json['steps'] as List<dynamic>?)
             ?.map((e) => PreflightStep.fromJson(e as Map<String, dynamic>))
             .toList(),
+        captcha: CaptchaRule.fromJson(json['captcha'] as Map<String, dynamic>?),
       );
 }
 

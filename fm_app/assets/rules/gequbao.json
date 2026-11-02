@@ -23,6 +23,16 @@
     }
   },
   "songDetail": {
+    "captcha": {
+      "endpoint": "/api/captcha",
+      "method": "GET",
+      "imagePath": "$.data.img",
+      "keyPath": "$.data.key",
+      "messagePath": "$.msg",
+      "codeField": "captchaCode",
+      "keyField": "key",
+      "challengeCode": 2
+    },
     "steps": [
       {
         "url": "/music/{id}",

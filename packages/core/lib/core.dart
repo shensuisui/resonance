@@ -1,5 +1,6 @@
 /// 数据模型
 export 'src/models/playable_info.dart';
+export 'src/models/playback_challenge.dart';
 export 'src/models/song.dart';
 export 'src/models/album.dart';
 export 'src/models/artist.dart';

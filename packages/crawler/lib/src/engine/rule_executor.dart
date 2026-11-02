@@ -13,6 +13,41 @@ class PlaylistDetailResult {
 }
 
 /// 规则执行引擎：执行搜索、详情、歌词、歌单等流程
+/// 歌曲详情执行结果
+///
+/// 为什么要连响应一起返回：源站人机验证是"接口成功返回、但内容是挑战"，
+/// 只看提取出的字段会分不清"这首没地址"和"源站要求验证"。
+class SongDetailOutcome {
+  /// 详情字段（含步骤变量池与末步字段）
+  final Map<String, dynamic> fields;
+
+  /// 末步原始响应（JSON 为 Map/List，HTML 为 String）
+  final dynamic lastResponse;
+
+  /// 源站要求的人机验证（没有则为 null）
+  final PlaybackChallenge? challenge;
+
+  const SongDetailOutcome({
+    required this.fields,
+    this.lastResponse,
+    this.challenge,
+  });
+}
+
+/// 一次验证码解法：规则 + 用户输入的验证码 + 挑战里的 key
+class _CaptchaSolution {
+  /// 验证规则（字段名等）
+  final CaptchaRule rule;
+
+  /// 用户输入的验证码
+  final String code;
+
+  /// 挑战带回的 key
+  final String? key;
+
+  const _CaptchaSolution(this.rule, this.code, this.key);
+}
+
 class RuleExecutor {
   final RuleConfig _rule;
   final HttpClient _httpClient;
@@ -64,15 +99,34 @@ class RuleExecutor {
   /// 步骤间通过 [PreflightStep.extract] 提取变量注入后续步骤的 url/body/headers；
   /// [fields] 非空时，带 listRule/itemRules 的步骤会把提取到的字段写进去
   /// （多步详情用它承载"末步才拿得到的字段"，如播放地址）。
-  Future<void> _runSteps(
+  /// [captcha] 非空时，把它按规则声明的字段名追加到**末步**的 POST body 上
+  /// （源站要求人机验证时，浏览器就是在这一步多带 captchaCode + key）。
+  ///
+  /// 返回**末步响应数据**：判定"是否被源站人机验证拦住"必须看原响应，
+  /// 字段提取会把挑战响应里的内容过滤掉，光看字段分不清"没地址"和"被拦"。
+  Future<dynamic> _runSteps(
     List<PreflightStep> steps,
     Map<String, String> vars, {
     Map<String, dynamic>? fields,
+    _CaptchaSolution? captcha,
   }) async {
-    for (final step in steps) {
+    dynamic lastResponse;
+    for (var i = 0; i < steps.length; i++) {
+      final step = steps[i];
       final url = HttpClient.resolveUrl(step.url, vars);
-      final resolvedBody =
+      var resolvedBody =
           step.body == null ? null : HttpClient.resolveUrl(step.body!, vars);
+      if (captcha != null && i == steps.length - 1 && resolvedBody != null) {
+        resolvedBody = resolvedBody +
+            '&' +
+            captcha.rule.codeField +
+            '=' +
+            Uri.encodeComponent(captcha.code) +
+            '&' +
+            captcha.rule.keyField +
+            '=' +
+            Uri.encodeComponent(captcha.key ?? '');
+      }
       // 请求头也支持变量注入（如 Referer 里带歌曲 id）
       final headers = step.headers.map(
         (k, v) => MapEntry(k, HttpClient.resolveUrl(v, vars)),
@@ -108,6 +162,8 @@ class RuleExecutor {
         }
       }
 
+      lastResponse = response.data;
+
       // 末步字段（多步详情用）
       final itemRules = step.itemRules;
       if (fields != null && step.listRule != null && itemRules != null) {
@@ -117,6 +173,44 @@ class RuleExecutor {
         }
       }
     }
+    return lastResponse;
+  }
+
+  /// 末步响应是否是"源站要求人机验证"？是则取回验证图与 key
+  ///
+  /// 做成配置驱动：端点/表达式/字段名全部来自规则的 captcha 块，
+  /// 引擎不认源名，也不替用户破解验证码（只负责把图和 key 交给上层）。
+  Future<PlaybackChallenge?> _detectChallenge(
+      CaptchaRule? rule, dynamic lastResponse) async {
+    if (rule == null || lastResponse is! Map) return null;
+    if (lastResponse['code'] != rule.challengeCode) return null;
+
+    final url = HttpClient.resolveUrl(rule.endpoint, {
+      'baseUrl': _rule.source.baseUrl ?? '',
+    });
+    final response = rule.method.toUpperCase() == 'POST'
+        ? await _httpClient.post(url,
+            headers: rule.headers, responseType: rule.responseType)
+        : await _httpClient.get(url,
+            headers: rule.headers, responseType: rule.responseType);
+
+    initExprEngine();
+    final image = parseFieldText(evaluate(rule.imagePath, response.data)) ?? '';
+    final key = parseFieldText(evaluate(rule.keyPath, response.data)) ?? '';
+    final message = rule.messagePath == null
+        ? ''
+        : parseFieldText(evaluate(rule.messagePath!, lastResponse)) ?? '';
+
+    SourceLogBus.instance.emit(_rule.source.id, SourceLogLevel.warn, '人机验证',
+        '源站要求验证（' + message + '），验证图' + (image.isEmpty ? '获取失败' : '已获取'));
+
+    return PlaybackChallenge(
+      image: image,
+      key: key,
+      codeField: rule.codeField,
+      keyField: rule.keyField,
+      message: message,
+    );
   }
 
   /// 解析 URL 模板，支持 params 表达式参数
@@ -200,6 +294,47 @@ class RuleExecutor {
   ///
   /// 支持 responseType: 'redirect' — 用于获取重定向 URL（如枫叶音乐的播放地址）
   /// 当 responseType 为 redirect 时，调用 URL 不跟随重定向，提取 Location header
+  /// 歌曲详情（多步流程 + 人机验证）
+  ///
+  /// [captchaCode]/[captchaKey]：源站要求验证时，带用户输入的验证码重试；
+  /// 验证码由用户提供，引擎只负责按规则声明的字段名回传。
+  Future<SongDetailOutcome> executeSongDetailOutcome(
+    String id, {
+    String? captchaCode,
+    String? captchaKey,
+  }) async {
+    final detailRule = _rule.songDetail;
+    if (detailRule == null) return const SongDetailOutcome(fields: {});
+
+    final steps = detailRule.steps;
+    // 挑战发生在"换播放地址"那一步，只有多步流程才会遇到
+    if (steps == null || steps.isEmpty) {
+      return SongDetailOutcome(fields: await executeSongDetail(id));
+    }
+
+    await _ensurePreflight();
+
+    final vars = <String, String>{
+      'id': id,
+      'baseUrl': _rule.source.baseUrl ?? '',
+    };
+    final fields = <String, dynamic>{};
+    final captchaRule = detailRule.captcha;
+    final solution = (captchaCode != null && captchaRule != null)
+        ? _CaptchaSolution(captchaRule, captchaCode, captchaKey)
+        : null;
+
+    final lastResponse =
+        await _runSteps(steps, vars, fields: fields, captcha: solution);
+    final challenge = await _detectChallenge(captchaRule, lastResponse);
+
+    return SongDetailOutcome(
+      fields: {...vars, ...fields},
+      lastResponse: lastResponse,
+      challenge: challenge,
+    );
+  }
+
   Future<Map<String, dynamic>> executeSongDetail(String id) async {
     final detailRule = _rule.songDetail;
     if (detailRule == null) return {};
