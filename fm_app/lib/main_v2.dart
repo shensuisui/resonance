@@ -256,6 +256,30 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
       await container
           .read(searchProvider.notifier)
           .search(p['keyword'] ?? '', recordHistory: false);
+    case 'songinfo':
+      // 发版前集成检查用：把"界面认为的当前曲目"与"播放器真正在播的曲目"对照打出来
+      final cur = container.read(currentSongProvider);
+      final player = container.read(playerProvider);
+      Song? audible;
+      if (player is AudibleSongSource) {
+        audible = (player as AudibleSongSource).audibleSong;
+      }
+      print('SONGINFO cur=${cur?.globalKey} title="${cur?.title}" artist="${cur?.artist}" '
+          'playUrl="${cur?.playUrl}" dur=${cur?.duration} local="${cur?.localPath}"');
+      print('SONGINFO audible=${audible?.globalKey} title="${audible?.title}" '
+          'index=${player.currentIndex} queueLen=${player.queue.length}');
+      return 'ok';
+    case 'dbsong':
+      // 发版前集成检查用：按 id + source 查库里的曲目行（诊断"库里到底是什么"）
+      final did = p['id'] ?? '';
+      final dsrc = p['source'] ?? '';
+      if (did.isEmpty || dsrc.isEmpty) return 'missing id/source';
+      final drow =
+          await container.read(songDaoProvider).getSong(did, dsrc);
+      print('DBSONG key=$dsrc:$did title="${drow?.title}" artist="${drow?.artist}" '
+          'album="${drow?.album}" cover="${drow?.coverUrl}" dur=${drow?.duration} '
+          'lyricLen=${(drow?.lyric ?? '').length} local="${drow?.localPath}"');
+      return 'ok';
     case 'sourceEnabled':
       // 发版前集成检查用：停用/启用某个源（模拟"源失效"），状态会持久化
       final sid = p['id'] ?? '';

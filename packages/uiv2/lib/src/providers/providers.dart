@@ -106,11 +106,33 @@ final catalogTracksProvider = Provider<Map<String, CatalogTrack>>((ref) {
   return {for (final track in catalog.tracks) track.id: track};
 }, name: 'catalogTracksProvider');
 
+/// 播放器如实报出的「当前曲目对象」（整首 Song，不是只有 id）
+///
+/// 为什么需要它：换队列后「正在播的那首」可能已经不在新队列里（真机场景：
+/// A 在播时点一首播不出来的 B，队列被换成 B 所在列表）。此时若只拿 id 去解析，
+/// resolver 会先给一个「标题 = id」的占位 —— 播放条标题于是显示成 "2"
+/// （A 是 歌曲宝 id=2 的素颜）。所以把播放器给的完整对象留在内存里，UI 优先用它。
+class PlayerCurrentSongNotifier extends Notifier<Song?> {
+  @override
+  Song? build() => null;
+
+  /// 播放器广播当前曲目时同步（含"换队列后仍如实报在播那首"）
+  void set(Song? song) => state = song;
+}
+
+/// 播放器当前曲目对象 Provider
+final playerCurrentSongProvider =
+    NotifierProvider<PlayerCurrentSongNotifier, Song?>(
+        PlayerCurrentSongNotifier.new);
+
 /// 当前播放曲目 id → [Song]
 final currentSongProvider = Provider<Song?>((ref) {
   final id = ref.watch(currentTrackIdProvider);
   if (id == null) return null;
-  // 优先取播放队列里的同一个 Song：队列里放的是完整对象（标题/艺人/封面都在）。
+  // ① 播放器给的完整对象（换队列后它可能不在队列里，但字段是全的）
+  final playing = ref.watch(playerCurrentSongProvider);
+  if (playing != null && playing.globalKey == id) return playing;
+  // ② 队列里的同一个 Song：队列里放的是完整对象（标题/艺人/封面都在）。
   // 只走 resolver 的话，远程源会先给一个「标题=id」的占位，异步补齐后又不通知，
   // 表现就是播放页标题显示成一串数字、封面空白。
   for (final song in ref.watch(queueProvider)) {
@@ -1278,6 +1300,9 @@ final playerStreamBindingProvider = Provider<void>((ref) {
   if (player is CurrentSongSource) {
     subs.add((player as CurrentSongSource).currentSongStream.listen((song) {
       ref.read(currentTrackIdProvider.notifier).set(song?.globalKey);
+      // 同时留住完整对象：换队列后"在播的那首"可能不在队列里，
+      // 只有 id 就会退化成「标题=id」的占位（真机：播放条标题显示成 "2"）
+      ref.read(playerCurrentSongProvider.notifier).set(song);
       ref.read(queueProvider.notifier).set(player.queue);
       // 曲目一开始播就去取歌词并落库（点播/上一首/下一首/跳转/自动续播都走这里）：
       // 这样"打开歌词"时是直接读缓存，断网或源失效也还有词。
