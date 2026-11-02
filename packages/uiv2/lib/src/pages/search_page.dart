@@ -1,7 +1,7 @@
 /// 搜索页（原型 renderSearch / searchIdleHtml / searchResultsHtml）
 ///
 /// 与原型一致的行为：输入即时搜索、来源筛选条、默认只显示 10 条并可展开、
-/// 空关键词时展示「最近搜索 / 推荐搜索 / 浏览分类」。
+/// 空关键词时展示「最近搜索 / 推荐搜索」。
 /// 数据来源换成真实的聚合搜索（[searchProvider] → SourceManager.searchAll）：
 ///   * 结果 = [SearchState].pools（按来源分组的真实 [Song]）；
 ///   * 历史 = [searchHistoryProvider]（settings 真实持久化）；
@@ -17,7 +17,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../components/rows.dart';
 import '../components/sheets.dart';
 import '../components/surfaces.dart';
-import '../data/catalog.dart';
 import '../design/icons.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
@@ -205,10 +204,6 @@ class _SearchIdle extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // 最近搜索：settings 里的真实历史
     final history = ref.watch(searchHistoryProvider);
-    final width = MediaQuery.sizeOf(context).width;
-    final columns = width >= UiV2Breakpoints.desktop
-        ? 4
-        : (width >= UiV2Breakpoints.wide ? 3 : 2);
 
     // 推荐词：曲库里真实的艺人名 + 各源真实推荐歌单名（原型 hotSearches 的做法）
     final words = <String>[
@@ -259,25 +254,6 @@ class _SearchIdle extends ConsumerWidget {
               ],
             ),
           ),
-        UiV2Section(
-          title: '浏览分类',
-          child: GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: columns,
-            mainAxisSpacing: UiV2Spacing.s3,
-            crossAxisSpacing: UiV2Spacing.s3,
-            childAspectRatio: 2.1,
-            children: [
-              for (final name in kCategories)
-                UiV2CategoryCard(
-                  name: name,
-                  color: kGenreColors[name] ?? const Color(0xFF3B4C9E),
-                  onTap: () => onPick(name),
-                ),
-            ],
-          ),
-        ),
       ],
     );
   }

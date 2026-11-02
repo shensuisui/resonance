@@ -4,8 +4,8 @@
 /// （封面 / 时长）参与渲染：
 ///   * 最近播放 = [recentSongsProvider]（RecentPlaysService 的真实快照）；
 ///   * 推荐歌曲 = [recommendedPlaylistsProvider] 聚合到的源歌单 → 该歌单的歌曲
-///     （[sourcePlaylistSongsProvider]）；没有可用推荐时退回演示曲库源
-///     （[catalogSourceProvider].allSongs）并如实标注来源；
+///     （[sourcePlaylistSongsProvider]）；没有可用真实推荐时**整块隐藏**，
+///     不再拿演示曲库顶位（那等于假装有推荐）；
 ///   * 我的歌单 = [playlistsProvider]（自建歌单 DAO），新建走 [playlistActionsProvider]。
 library;
 
@@ -140,50 +140,34 @@ class _RecommendedSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final playlists = ref.watch(recommendedPlaylistsProvider);
 
+    // 没有**真实**推荐就整块不显示（连标题一起）：
+    // 拿演示曲库的 8 首来顶位是"假装有推荐"，用户明确要求不要。
+    // 加载中/失败/空列表/歌单里没歌 —— 一律隐藏。
+    final list = playlists.value;
+    final pick = list == null ? null : pickRecommendedPlaylist(list);
+    // 选中歌单的真实曲目：以 (来源 id, 歌单 id) 向源请求
+    final songsOfPicked = pick == null
+        ? null
+        : ref
+            .watch(sourcePlaylistSongsProvider((
+              sourceId: pick.sourceId ?? '',
+              playlistId: pick.id,
+            )))
+            .value;
+    final songs = pickRecommendedSongs(
+      playlists: list,
+      songsOfPicked: songsOfPicked,
+    );
+    if (songs.isEmpty) return const SizedBox.shrink();
+
     return UiV2Section(
       title: '推荐歌曲',
       child: UiV2Panel(
-        child: playlists.when(
-          loading: () => _loading(context),
-          error: (Object error, StackTrace stack) => _demoBody(
-            context,
-            ref,
-            note: '读取源歌单失败，这里展示「演示曲库」的推荐曲目。',
-          ),
-          data: (List<Playlist> list) {
-            final pick = _pickRecommended(list);
-            if (pick == null) {
-              return _demoBody(
-                context,
-                ref,
-                note: '当前没有可用的推荐歌单，这里展示「演示曲库」的推荐曲目。',
-              );
-            }
-            final pickName = pick.name;
-            // 选中歌单的真实曲目：以 (来源 id, 歌单 id) 向源请求
-            final key = (sourceId: pick.sourceId ?? '', playlistId: pick.id);
-            return ref.watch(sourcePlaylistSongsProvider(key)).when(
-                  loading: () => _loading(context),
-                  error: (Object error, StackTrace stack) => _demoBody(
-                    context,
-                    ref,
-                    note: '歌单「$pickName」读取失败，这里展示「演示曲库」的推荐曲目。',
-                  ),
-                  data: (List<Song> songs) => songs.isEmpty
-                      ? _demoBody(
-                          context,
-                          ref,
-                          note: '歌单「$pickName」暂时没有曲目，'
-                              '这里展示「演示曲库」的推荐曲目。',
-                        )
-                      : _songList(
-                          context,
-                          ref,
-                          songs.take(8).toList(),
-                          note: '来自歌单「$pickName」',
-                        ),
-                );
-          },
+        child: _songList(
+          context,
+          ref,
+          songs,
+          note: '来自歌单「${pick!.name}」',
         ),
       ),
     );
@@ -389,36 +373,35 @@ class _NewPlaylistBodyState extends ConsumerState<_NewPlaylistBody> {
   }
 }
 
+/// 首页「推荐歌曲」区块的**内容决策**
+///
+/// 用户要求：没有真实推荐就整块隐藏，**不要**拿演示曲库的曲目顶上（那等于
+/// 假装有推荐）。因此这里只在"有真实推荐歌单 + 该歌单确实有曲目"时返回曲目，
+/// 其余情况（还在加载 / 读取失败 / 没有推荐 / 歌单为空）一律返回空列表 = 隐藏。
+List<Song> pickRecommendedSongs({
+  required List<Playlist>? playlists,
+  required List<Song>? songsOfPicked,
+  int limit = 8,
+}) {
+  if (playlists == null || playlists.isEmpty) return const [];
+  if (pickRecommendedPlaylist(playlists) == null) return const [];
+  final songs = songsOfPicked;
+  if (songs == null || songs.isEmpty) return const [];
+  return songs.take(limit).toList(growable: false);
+}
+
 /// 从聚合到的推荐歌单里挑一个首页推荐源
 ///
 /// 优先名字里带「今日 / 推荐 / 每日」的歌单；否则取第一个歌单——
 /// 各源的 getPlaylistList 本身就是推荐位，用真实数据比编造推荐更诚实。
 /// 列表为空时返回 null，由调用方退回演示曲库。
-Playlist? _pickRecommended(List<Playlist> playlists) {
+Playlist? pickRecommendedPlaylist(List<Playlist> playlists) {
   if (playlists.isEmpty) return null;
   const hints = ['今日', '推荐', '每日'];
   for (final playlist in playlists) {
     if (hints.any(playlist.name.contains)) return playlist;
   }
   return playlists.first;
-}
-
-/// 演示曲库兜底：内置源的前 8 首曲目 + 来源说明
-Widget _demoBody(BuildContext context, WidgetRef ref, {required String note}) {
-  final songs = ref.watch(catalogSourceProvider).allSongs;
-  if (songs.isEmpty) {
-    return UiV2Empty(
-      title: '暂时没有推荐',
-      text: '推荐来自已启用的音乐源，全部停用时这里为空。',
-      icon: UiV2Icons.globe,
-      actions: UiV2Button(
-        label: '管理音乐源',
-        variant: UiV2ButtonVariant.soft,
-        onTap: () => ref.read(navProvider.notifier).go('sources'),
-      ),
-    );
-  }
-  return _songList(context, ref, songs.take(8).toList(), note: note);
 }
 
 /// 推荐曲目列表（统一走 [UiV2SongRow]）

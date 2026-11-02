@@ -499,6 +499,34 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
           ' started=' + started.toString());
       return started ? 'ok' : 'not started';
     }
+    case 'recentrows': {
+      // 发版前集成检查用：最近播放前几条的"行内 key / 是否缓存 / localPath"对照
+      final cache = container.read(audioCacheProvider);
+      final songs = container.read(recentSongsProvider);
+      for (var i = 0; i < songs.length && i < 6; i++) {
+        final s = songs[i];
+        print('RECENTROW ' + i.toString() +
+            ' key=' + s.globalKey +
+            ' id=' + s.id +
+            ' sourceId=' + s.sourceId +
+            ' cached=' + cache.isCached(s.globalKey).toString() +
+            ' localPath=' + (s.localPath ?? 'null') +
+            ' title=' + s.title);
+      }
+      return 'ok';
+    }
+    case 'cachecheck': {
+      // 发版前集成检查用：核对"界面说没缓存"到底是索引没建好，还是文件不在
+      final cache = container.read(audioCacheProvider);
+      final keys = cache.cachedKeys.toList()..sort();
+      final key = p['key'] ?? '6uq:eWZ2a2V2a2tq';
+      print('CACHECHECK key=' + key +
+          ' isCached=' + cache.isCached(key).toString() +
+          ' total=' + keys.length.toString() +
+          ' localUrl=' + (cache.localUrlFor(key) ?? 'null'));
+      print('CACHECHECK keys=' + keys.join(','));
+      return cache.isCached(key) ? 'cached' : 'missing';
+    }
     case 'progress': {
       // 发版前集成检查用：把 play_progress 表与当前队列/进度并排回读，
       // 判断"能不能从上次继续"到底是没写、没读到、还是没恢复。

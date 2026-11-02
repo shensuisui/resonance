@@ -348,23 +348,6 @@ const Map<String, String> kSourceByTrack = {
   'rumours#3': 'yu7',
 };
 
-/// 流派配色（原型 PALETTE，用于分类卡渐变起点）
-const Map<String, Color> kGenreColors = {
-  '摇滚': Color(0xFFB4452B),
-  '流行': Color(0xFFC0467D),
-  '爵士': Color(0xFF1F6C7A),
-  '电子': Color(0xFF3B4C9E),
-  '嘻哈': Color(0xFF8A5A16),
-  'R&B': Color(0xFF7A3A63),
-  '民谣': Color(0xFF4C6B3A),
-  '灵魂乐': Color(0xFFA2451F),
-};
-
-/// 浏览分类（原型 CATEGORIES，顺序即展示顺序）
-const List<String> kCategories = [
-  '流行', '摇滚', '爵士', '电子', '嘻哈', 'R&B', '民谣', '灵魂乐',
-];
-
 /// 歌单配表（原型 PLAYLIST_DATA）
 class PlaylistSeed {
   /// 歌单 id

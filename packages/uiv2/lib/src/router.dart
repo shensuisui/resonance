@@ -81,6 +81,7 @@ const Map<String, String> kRouteTitles = {
   'sources': '音乐源',
   'subs': '订阅',
   'logs': '运行日志',
+  'playlist': '歌单',
   'playlists': '歌单',
   'folder': '文件夹',
   'settings': '设置',
@@ -208,7 +209,11 @@ int rootIndexOf(String route) {
 }
 
 /// 页面标题：优先页面数据（专辑名/歌单名），否则取固定标题表
+///
+/// 兜底**不能**是"未找到"这种吓人文案：新加路由忘了登记标题时，
+/// 手机上顶部会直接显示「未找到」（真实踩过：歌单详情的 playlist 漏登记）。
+/// 取不到就返回空串，让顶部栏按"没有标题"处理。
 String titleOf(NavEntry entry, {String? override}) {
   if (override != null && override.isNotEmpty) return override;
-  return kRouteTitles[entry.name] ?? '未找到';
+  return kRouteTitles[entry.name] ?? '';
 }
