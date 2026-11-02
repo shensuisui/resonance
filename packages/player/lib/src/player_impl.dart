@@ -4,7 +4,7 @@ import 'package:core/core.dart';
 import 'package:just_audio/just_audio.dart' hide PlayerState;
 
 /// 基于 just_audio 的播放器实现
-class PlayerImpl implements Player, CurrentSongSource {
+class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   /// 队列里的曲目常常只有 id（来自最近播放/歌单快照，没有 playUrl）。
@@ -13,6 +13,13 @@ class PlayerImpl implements Player, CurrentSongSource {
 
   List<Song> _queue = [];
   int _currentIndex = -1;
+
+  /// 底层音源**真正加载**的那一首（与 [_currentIndex] 分开维护）
+  ///
+  /// 为什么单独存：换队列只改 Dart 侧列表、底层音源并没停，索引推导会把在播的
+  /// 那首推导成 null（真机症状：点了首歌播不出来，播放条上在播的那首消失、
+  /// 但声音还在放）。这里如实记录"声音是谁的"，UI 才不会与声音脱节。
+  Song? _audibleSong;
   PlayMode _playMode = PlayMode.listLoop;
   final List<int> _shuffleHistory = [];
 
@@ -132,7 +139,6 @@ class PlayerImpl implements Player, CurrentSongSource {
   Future<void> _doPlayIndex(int index, int token) async {
     if (index < 0 || index >= _queue.length) return;
     _loading = true;
-    final previousIndex = _currentIndex;
     _currentIndex = index;
     var song = _queue[index];
     _updateState(PlayerState.loading);
@@ -161,8 +167,9 @@ class PlayerImpl implements Player, CurrentSongSource {
     if (url.isEmpty) {
       SourceLogBus.instance.emit(song.sourceId, SourceLogLevel.warn, '播放器',
           'id=${song.id} 源未提供播放地址，跳过加载（避免空地址导致崩溃）');
+      // 回到"真正在播的那一首"（底层音源没动过，UI 不能凭空清空）
       if (token == _playToken) {
-        _currentIndex = previousIndex;
+        _syncIndexToAudible();
         _emitCurrentSong();
       }
       _updateState(PlayerState.error);
@@ -175,9 +182,10 @@ class PlayerImpl implements Player, CurrentSongSource {
           preload: true);
       // 加载期间如果又来了新的播放请求，就不要再提交这一条（否则 UI 会停在过期的曲目）
       if (token != _playToken) return;
-      // 关键：音频源真的被播放器接受之后才广播。
+      // 关键：音频源真的被播放器接受之后才广播，并记下"在播的就是它"。
       // 之前在改 _currentIndex 时就广播，一旦加载失败/超时，UI 已是新歌、
       // 实际还在放上一首 —— 这正是"页面显示 A、实际播 B"的成因。
+      _audibleSong = song;
       _emitCurrentSong();
       SourceLogBus.instance.emit(
         song.sourceId, SourceLogLevel.info, '播放器',
@@ -210,7 +218,7 @@ class PlayerImpl implements Player, CurrentSongSource {
       // 回滚：音频没切成功，索引退回，UI 跟着退回真正在播的那一首。
       // 只有仍是"当前请求"时才回滚，避免覆盖后来者的状态。
       if (token == _playToken) {
-        _currentIndex = previousIndex;
+        _syncIndexToAudible();
         _emitCurrentSong();
       }
       _updateState(PlayerState.error);
@@ -384,10 +392,26 @@ class PlayerImpl implements Player, CurrentSongSource {
 
   @override
   void setQueue(List<Song> songs) {
+    // 换队列**不代表停止播放**：本方法只改 Dart 侧列表，底层音源根本没动。
+    // 旧实现把 _currentIndex 清成 -1 后立刻广播，于是"当前曲目"变成 null：
+    // 播放条上的在播歌曲消失、而声音还在放（真机复现的异常态）。
+    // 现在只重排队列，_audibleSong 保持不变，对外仍如实报在播的那一首。
     _queue = List.from(songs);
     _shuffleHistory.clear();
-    _currentIndex = -1;
+    _syncIndexToAudible();
     _emitCurrentSong();
+  }
+
+  /// 把索引对齐回"底层真正加载的那一首"（不在新队列里则为 -1）
+  void _syncIndexToAudible() {
+    final audible = _audibleSong;
+    if (audible == null) {
+      _currentIndex = -1;
+      return;
+    }
+    final index = _queue
+        .indexWhere((s) => s.globalKey == audible.globalKey);
+    if (index != _currentIndex) _currentIndex = index;
   }
 
   @override
@@ -395,6 +419,9 @@ class PlayerImpl implements Player, CurrentSongSource {
 
   @override
   int get currentIndex => _currentIndex;
+
+  @override
+  Song? get audibleSong => _audibleSong;
 
   @override
   Stream<Song?> get currentSongStream => _currentSongController.stream;

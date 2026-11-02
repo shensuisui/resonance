@@ -81,10 +81,26 @@ abstract class CurrentSongSource {
   Stream<Song?> get currentSongStream;
 }
 
+/// 可选契约：能报出「底层音源**真正加载**的那一首」
+///
+/// 为什么需要它：换队列（[Player.setQueue]）只改 Dart 侧列表，底层音源并没停，
+/// 若"当前曲目"仍由「索引 → 队列」推导，换队列就会把在播的那首推导成 null
+/// （真机症状：点了一首播不出来的歌，播放条上的上一首消失、但声音还在放）。
+/// 实现它的播放器可以如实报出在播曲目；不实现则退回旧的推导方式，零破坏。
+abstract class AudibleSongSource {
+  /// 底层音源真正加载的曲目（可能已不在队列里）
+  Song? get audibleSong;
+}
+
 /// [Player] 的便捷派生：当前曲目 = 队列里索引指向的那一首
 extension PlayerCurrentSong on Player {
   /// 当前曲目（永不与播放器内部状态脱节）
   Song? get currentSong {
+    // 优先听"底层真正在播的是什么"（换队列后队列里可能已经没有它）
+    if (this is AudibleSongSource) {
+      final audible = (this as AudibleSongSource).audibleSong;
+      if (audible != null) return audible;
+    }
     final index = currentIndex;
     return (index >= 0 && index < queue.length) ? queue[index] : null;
   }

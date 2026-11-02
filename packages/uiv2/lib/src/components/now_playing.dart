@@ -437,10 +437,9 @@ class _UiV2LyricsStageState extends ConsumerState<UiV2LyricsStage> {
 
     // 展示元数据（演示曲库曲目才有）；真实源曲目直接用 Song 自身字段
     final meta = ref.watch(catalogTracksProvider)[song.id];
-    // 配表时长优先；否则用播放器上报的时长，仍拿不到时按 3 分钟兜底
-    final int? catalogDuration = meta?.duration;
-    final int? playerDuration = song.duration;
-    final duration = catalogDuration ?? playerDuration ?? 180;
+    // 时长统一回落（配表 → 快照 → 元数据缓存）；仍拿不到时按 3 分钟兜底
+    final resolved = resolveSongDuration(ref, song, catalogDuration: meta?.duration);
+    final duration = resolved > 0 ? resolved : 180;
     _stageContext = context;
     if (_builtFor != song.id || fromSource != null) {
       _builtFor = song.id;

@@ -521,6 +521,14 @@ class _UiV2QueueSheetBodyState extends ConsumerState<UiV2QueueSheetBody> {
               song,
               catalogCover: _metaOf(catalogTracks, song)?.cover,
             );
+            // 时长同样要回落（配表 → 快照 → 元数据缓存）。
+            // 直接读 song.duration 会得到 null → 队列里整列 0:00，
+            // 而背景列表同一首歌却显示真实时长（用户圈出的就是这里）。
+            final duration = resolveSongDuration(
+              ref,
+              song,
+              catalogDuration: _metaOf(catalogTracks, song)?.duration,
+            );
             return ReorderableDragStartListener(
               key: ValueKey('${key}_$index'),
               index: index,
@@ -532,7 +540,7 @@ class _UiV2QueueSheetBodyState extends ConsumerState<UiV2QueueSheetBody> {
                 isCurrent: isCurrent,
                 isPlaying: isCurrent && playing,
                 isPending: isCurrent && pendingKey == key,
-                duration: song.duration ?? 0,
+                duration: duration,
                 onTap: () => ref.read(playbackControllerProvider).jumpTo(index),
                 onRemove: isCurrent ? null : () => _removeAt(context, ref, index, song),
               ),
