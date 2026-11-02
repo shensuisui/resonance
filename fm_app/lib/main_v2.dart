@@ -407,6 +407,66 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
                 'lyricLen': (row.lyric ?? '').length,
               },
       });
+    case 'playplaylist': {
+      // 发版前集成检查用：把某个歌单当作队列播起来（走 UI 同一条 playInQueue 路径）
+      final pls = await container.read(playlistsProvider.future);
+      if (pls.isEmpty) return 'no playlist';
+      final wanted = p['id'];
+      Playlist pl = pls.first;
+      if (wanted != null && wanted.isNotEmpty) {
+        for (final e in pls) {
+          if (e.id == wanted || e.name == wanted) {
+            pl = e;
+            break;
+          }
+        }
+      }
+      final songs = await container.read(playlistSongsProvider(pl.id).future);
+      if (songs.isEmpty) return 'empty playlist ' + pl.name;
+      final start = int.tryParse(p['index'] ?? '') ?? 0;
+      final started = await container
+          .read(playbackControllerProvider)
+          .playInQueue(
+            PlayQueue(
+              kind: PlayQueueKind.playlist,
+              id: pl.id,
+              title: pl.name,
+              songs: songs,
+            ),
+            startIndex: start,
+          );
+      print('PLAYPLAYLIST id=' + pl.id + ' name=' + pl.name +
+          ' songs=' + songs.length.toString() + ' started=' + started.toString());
+      return started ? 'ok' : 'not started';
+    }
+    case 'progress': {
+      // 发版前集成检查用：把 play_progress 表与当前队列/进度并排回读，
+      // 判断"能不能从上次继续"到底是没写、没读到、还是没恢复。
+      final rows = await gDatabaseProvider.playProgressDao.getAll();
+      final queue = container.read(queueProvider);
+      final pos = container.read(positionProvider).inMilliseconds;
+      final playing = container.read(isPlayingProvider);
+      final cur = container.read(currentTrackIdProvider);
+      print('PROGRESS ' +
+          jsonEncode({
+            'rows': [
+              for (final r in rows)
+                {
+                  'identity': r.identity,
+                  'songKey': r.songKey,
+                  'posMs': r.positionMs,
+                  'updatedAt': r.updatedAt,
+                },
+            ],
+            'queueKind': queue.kind.name,
+            'queueTitle': queue.title,
+            'queueLen': queue.length,
+            'current': cur,
+            'posMs': pos,
+            'playing': playing,
+          }));
+      return jsonEncode({'rows': rows.length, 'queue': queue.title, 'posMs': pos});
+    }
     case 'state':
       // 发版前集成检查用：把当前导航/曲目/主题等状态回读给驱动，
       // 让"点了之后到底变没变"可以被断言，而不是只看截图猜。

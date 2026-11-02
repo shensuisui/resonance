@@ -9,6 +9,7 @@ abstract class DatabaseProvider {
   RecentPlaysDao get recentPlaysDao;
   FavoritesDao get favoritesDao;
   SettingsDao get settingsDao;
+  PlayProgressDao get playProgressDao;
 }
 
 /// 歌曲 DAO 接口

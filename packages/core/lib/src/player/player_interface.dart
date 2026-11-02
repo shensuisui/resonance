@@ -67,6 +67,13 @@ abstract class Player {
   /// 跳转到队列中指定索引
   Future<void> jumpToIndex(int index);
 
+  /// **预置播放**：把队列第 [index] 首加载进播放器并定位到 [position]，但不出声
+  ///
+  /// 为什么需要：App 重启后要"从上次的队列与进度继续"，但打开就自动出声
+  /// 会吓人也不合用户预期 —— 因此只把音源装好、进度摆到位、暂停着，
+  /// 用户按播放时从这一毫秒继续。找不到索引/加载失败时如实报错，不假装就绪。
+  Future<void> prepareAt(int index, {Duration position = Duration.zero});
+
   /// 释放播放器资源
   Future<void> dispose();
 }

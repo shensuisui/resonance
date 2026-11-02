@@ -46,6 +46,8 @@ class UiV2AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // 保活：播放器三路事件流（进度 / 时长 / 播放态）与曲库
     ref.watch(playerStreamBindingProvider);
+    // 启动恢复：上次的队列 + 曲目 + 进度（暂停着，不出声）
+    ref.watch(startupResumeProvider);
     ref.watch(themeModeProvider);
     ref.watch(catalogProvider);
 

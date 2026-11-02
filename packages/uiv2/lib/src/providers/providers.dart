@@ -61,6 +61,12 @@ final songDaoProvider = Provider<SongDao>(
 );
 
 /// 设置 DAO
+/// 播放进度 DAO（启动恢复 / 歌单「继续播放」/ 定时落盘共用）
+final playProgressDaoProvider = Provider<PlayProgressDao>(
+  (ref) => ref.watch(appDatabaseProvider).playProgressDao,
+  name: 'playProgressDaoProvider',
+);
+
 final settingsDaoProvider = Provider<SettingsDao>(
   (ref) => ref.watch(appDatabaseProvider).settingsDao,
   name: 'settingsDaoProvider',
@@ -508,6 +514,8 @@ class PlaylistActions {
   /// 删除歌单
   Future<void> delete(String id) async {
     await _dao.deletePlaylist(id);
+    // 歌单没了，它的播放进度也没有意义（否则会留下永远恢复不了的行）
+    await ref.read(playProgressDaoProvider).delete(PlayQueueKind.playlist.name, id);
     ref.invalidate(playlistsProvider);
     ref.invalidate(playlistByIdProvider(id));
   }
@@ -577,6 +585,8 @@ class PlaylistActions {
   /// 取消收藏（只删这一行，不动其它歌单）
   Future<void> unfavorite(String playlistId) async {
     await _dao.deletePlaylist(playlistId);
+    // 同上：收藏歌单的进度也要一起清掉
+    await ref.read(playProgressDaoProvider).delete(PlayQueueKind.playlist.name, playlistId);
     ref.invalidate(playlistsProvider);
     ref.invalidate(playlistByIdProvider(playlistId));
   }
@@ -708,6 +718,103 @@ final playlistSongsProvider =
   if (playlist == null) return const [];
   return ref.watch(playlistActionsProvider).songsOf(playlist);
 }, name: 'playlistSongsProvider');
+
+// ==================== 启动恢复（上次的队列 + 曲目 + 进度） ====================
+
+/// 按队列身份重建曲目（不存队列内容，只按真实数据重建）
+///
+/// 四类队列都能从数据库推导，所以 play_progress 只存"听到哪"就够了；
+/// 存了队列内容反而会与真实数据不一致（歌单删了歌，队列里还留着）。
+Future<List<Song>> songsOfQueueIdentity(
+  Ref ref,
+  PlayQueueKind kind,
+  String? id,
+) async {
+  switch (kind) {
+    case PlayQueueKind.recent:
+      return ref.read(recentSongsProvider);
+    case PlayQueueKind.liked:
+      return ref.read(likedSongsProvider);
+    case PlayQueueKind.local:
+      return ref.read(localTracksProvider);
+    case PlayQueueKind.playlist:
+      if (id == null || id.isEmpty) return const [];
+      return ref.read(playlistSongsProvider(id).future);
+  }
+}
+
+/// 队列标题（按身份取真实名字，歌单改名后恢复出来的标题也是新的）
+Future<String> titleOfQueueIdentity(Ref ref, PlayQueueKind kind, String? id) async {
+  switch (kind) {
+    case PlayQueueKind.recent:
+      return '最近播放';
+    case PlayQueueKind.liked:
+      return '我喜欢的音乐';
+    case PlayQueueKind.local:
+      return '本地音乐';
+    case PlayQueueKind.playlist:
+      if (id == null || id.isEmpty) return '歌单';
+      final p = await ref.read(playlistByIdProvider(id).future);
+      return p?.name ?? '歌单';
+  }
+}
+
+/// 某歌单上次的播放进度（歌单详情「继续播放」按钮用）
+///
+/// 单独一个 family：按钮要在不触发任何播放的情况下就知道"上次听到哪"。
+final playlistProgressProvider =
+    FutureProvider.family<PlayProgress?, String>((ref, playlistId) {
+  return ref
+      .read(playProgressDaoProvider)
+      .get(PlayQueueKind.playlist.name, playlistId);
+}, name: 'playlistProgressProvider');
+
+/// 启动恢复：把上次的队列、曲目、进度装回播放器（**暂停着，不出声**）
+///
+/// 只在 AppShell 挂载时跑一次。为什么不用"退出时保存"：桌面端关窗/杀进程
+/// 不保证收到回调；进度是边播边写的，所以这里只需要读。
+final startupResumeProvider = FutureProvider<void>((ref) async {
+  final List<PlayProgress> rows;
+  try {
+    rows = await ref.read(playProgressDaoProvider).getAll();
+  } catch (_) {
+    return;
+  }
+  if (rows.isEmpty) return;
+
+  // 最近更新的那一行 = 上次活跃队列
+  final row = rows.first;
+  PlayQueueKind? kind;
+  for (final k in PlayQueueKind.values) {
+    if (k.name == row.queueKind) kind = k;
+  }
+  if (kind == null) return;
+  final id = row.queueId.isEmpty ? null : row.queueId;
+
+  final songs = await songsOfQueueIdentity(ref, kind, id);
+  if (songs.isEmpty) {
+    // 歌单被删/本地曲目被清空：这条进度没有意义了
+    await ref.read(playProgressDaoProvider).delete(row.queueKind, row.queueId);
+    return;
+  }
+
+  final index = songs.indexWhere((s) => s.globalKey == row.songKey);
+  if (index < 0) {
+    // 那首歌已不在这个队列里：整体恢复队列，但不假装有进度
+    return;
+  }
+
+  final title = await titleOfQueueIdentity(ref, kind, id);
+  final queue = PlayQueue(kind: kind, id: id, title: title, songs: songs);
+  await ref.read(playbackControllerProvider).prepareQueue(
+        queue,
+        index,
+        Duration(milliseconds: row.positionMs),
+      );
+  SourceLogBus.instance.emit('player', SourceLogLevel.info, '播放',
+      '已恢复上次队列「' + title + '」第 ' + (index + 1).toString() + ' 首，进度 ' +
+          (row.positionMs ~/ 1000).toString() + 's（暂停中）');
+});
 
 // ==================== 本地音乐（真实扫描源） ====================
 
@@ -1371,6 +1478,8 @@ final playerStreamBindingProvider = Provider<void>((ref) {
     }),
     player.positionStream.listen((ms) {
       ref.read(positionProvider.notifier).set(Duration(milliseconds: ms));
+      // 进度落库（内部节流）：App 被关掉也不会丢掉"听到哪"
+      ref.read(playbackControllerProvider).onPositionTick(ms);
     }),
     player.durationStream.listen((ms) {
       ref.read(durationProvider.notifier).set(Duration(milliseconds: ms));
@@ -1386,6 +1495,8 @@ final playerStreamBindingProvider = Provider<void>((ref) {
   // 最终都会走到播放器的 _playIndex，因此页面显示不可能与正在播放的东西脱节。
   if (player is CurrentSongSource) {
     subs.add((player as CurrentSongSource).currentSongStream.listen((song) {
+      // 换曲之前先把上一首的进度写下去（否则只有"最后播的那首"有进度）
+      ref.read(playbackControllerProvider).onSongChanged(song?.globalKey);
       ref.read(currentTrackIdProvider.notifier).set(song?.globalKey);
       // 同时留住完整对象：换队列后"在播的那首"可能不在队列里，
       // 只有 id 就会退化成「标题=id」的占位（真机：播放条标题显示成 "2"）
@@ -1546,6 +1657,8 @@ class PlaybackController {
   Future<bool> playInQueue(PlayQueue queue, {int startIndex = 0}) async {
     if (queue.isEmpty) return false;
     final i = startIndex.clamp(0, queue.length - 1);
+    // 换队列前把旧队列的进度落盘（同一队列重复点时也算一次立即保存）
+    await _flushProgress(force: true);
     final previous = ref.read(queueProvider);
     _player.setQueue(queue.songs);
     final started = await playSong(queue.songs[i]);
@@ -1564,6 +1677,151 @@ class PlaybackController {
     return playInQueue(queue);
   }
 
+  // ---------- 播放进度持久化 ----------
+
+  /// 进度写盘节流：至少间隔这么久
+  static const Duration _progressInterval = Duration(seconds: 5);
+
+  /// 进度写盘节流：位置至少变了这么多
+  static const int _progressMinDeltaMs = 3000;
+
+  /// 结尾这么多毫秒内视为"听完了"，下次从头开始
+  static const int _progressEndGuardMs = 3000;
+
+  /// 待落盘的进度快照：哪个队列的哪一首、听到哪
+  PlayQueue? _progressQueue;
+  String? _progressSongKey;
+  int _progressMs = 0;
+
+  /// 上次真正写盘的时刻与位置（节流用）
+  DateTime? _lastWriteAt;
+  int _lastWriteMs = 0;
+
+  /// 进度流每来一次都会调到这里（节流后再落盘）
+  ///
+  /// 为什么不"退出时保存"：桌面端关窗/杀进程都不保证收到回调，
+  /// 只有边播边写才靠得住。
+  void onPositionTick(int ms) {
+    final queue = ref.read(queueProvider);
+    if (queue.isEmpty) return;
+    // 优先用"在播的那一首"；退回可选契约（不实现它的播放器就拿不到，跳过保存）
+    final song = ref.read(playerCurrentSongProvider) ??
+        (_player is AudibleSongSource
+            ? (_player as AudibleSongSource).audibleSong
+            : null);
+    if (song == null) return;
+    _progressQueue = queue;
+    _progressSongKey = song.globalKey;
+    _progressMs = ms;
+
+    final last = _lastWriteAt;
+    if (last != null) {
+      if (DateTime.now().difference(last) < _progressInterval) return;
+      if ((ms - _lastWriteMs).abs() < _progressMinDeltaMs) return;
+    }
+    unawaited(_flushProgress());
+  }
+
+  /// 曲目切换：先把上一首的进度写下去，再把快照指向新曲
+  void onSongChanged(String? newKey) {
+    if (_progressSongKey != null && _progressSongKey != newKey) {
+      unawaited(_flushProgress(force: true));
+    }
+    _progressSongKey = newKey;
+    _progressMs = 0;
+  }
+
+  /// 把当前快照写进 play_progress
+  Future<void> _flushProgress({bool force = false}) async {
+    final queue = _progressQueue;
+    final key = _progressSongKey;
+    if (queue == null || key == null) return;
+    if (!force && queue.isEmpty) return;
+
+    var position = _progressMs;
+    if (position < 0) position = 0;
+    // 播到结尾附近 → 记 0：下次进这个队列从头开始，而不是"一进去就结束"
+    final total = ref.read(durationProvider).inMilliseconds;
+    if (total > 0 && position >= total - _progressEndGuardMs) position = 0;
+
+    _lastWriteAt = DateTime.now();
+    _lastWriteMs = _progressMs;
+    try {
+      await ref.read(playProgressDaoProvider).upsert(PlayProgress(
+            queueKind: queue.kind.name,
+            queueId: queue.id ?? '',
+            songKey: key,
+            positionMs: position,
+            updatedAt: DateTime.now().millisecondsSinceEpoch,
+          ));
+    } catch (e) {
+      // 落盘失败不该影响播放
+      SourceLogBus.instance.emit(
+          'player', SourceLogLevel.warn, '播放', '保存播放进度失败: $e');
+    }
+  }
+
+  /// 读某个队列上次听到哪（歌单详情「继续播放」用它决定要不要提示进度）
+  Future<PlayProgress?> savedProgress(PlayQueue queue) =>
+      ref.read(playProgressDaoProvider).get(queue.kind.name, queue.id ?? '');
+
+  /// **从该队列上次的位置继续播放**（无记录则等同从头播）
+  Future<bool> resumeInQueue(PlayQueue queue) async {
+    if (queue.isEmpty) return false;
+    var index = 0;
+    var position = Duration.zero;
+    final saved = await savedProgress(queue);
+    if (saved != null) {
+      final i = queue.songs.indexWhere((s) => s.globalKey == saved.songKey);
+      if (i >= 0) {
+        index = i;
+        position = Duration(milliseconds: saved.positionMs);
+      }
+    }
+    final started = await playInQueue(queue, startIndex: index);
+    if (started && position > Duration.zero) {
+      await _player.seek(position);
+      ref.read(positionProvider.notifier).set(position);
+    }
+    return started;
+  }
+
+  /// **预置**一个队列的某一首到指定进度（不播放）—— 启动恢复用
+  ///
+  /// 纪律同 playInQueue：只有底层真的把这个音源装上了，才把当前队列换过去。
+  /// 装不上（源没给地址）就恢复原队列，播放条不会显示一首其实没装好的歌。
+  Future<void> prepareQueue(
+    PlayQueue queue,
+    int index,
+    Duration position,
+  ) async {
+    if (queue.isEmpty) return;
+    final i = index.clamp(0, queue.length - 1);
+    final target = queue.songs[i];
+    final previous = ref.read(queueProvider);
+    _player.setQueue(queue.songs);
+    await _player.prepareAt(i, position: position);
+
+    final loaded = _player is AudibleSongSource
+        ? (_player as AudibleSongSource).audibleSong
+        : null;
+    if (loaded == null || loaded.globalKey != target.globalKey) {
+      _player.setQueue(previous.songs);
+      ref.read(queueProvider.notifier).setQueue(previous);
+      return;
+    }
+
+    ref.read(queueProvider.notifier).setQueue(queue);
+    // 让进度条立刻显示恢复到的位置（暂停中不会有进度事件）
+    _progressQueue = queue;
+    _progressSongKey = target.globalKey;
+    _progressMs = position.inMilliseconds;
+    _lastWriteMs = _progressMs;
+    ref.read(positionProvider.notifier).set(position);
+    ref.read(currentTrackIdProvider.notifier).set(target.globalKey);
+    ref.read(isPlayingProvider.notifier).set(false);
+  }
+
   /// 跳转到队列下标并播放
   Future<void> jumpTo(int index) async {
     await _player.jumpToIndex(index);
@@ -1579,6 +1837,8 @@ class PlaybackController {
     if (_player.currentState == PlayerState.playing) {
       await _player.pause();
       ref.read(isPlayingProvider.notifier).set(false);
+      // 暂停是最常见的"我要走了"信号：立刻落盘，不等节流
+      await _flushProgress(force: true);
       return;
     }
     if (_player.currentState == PlayerState.idle && _player.queue.isEmpty) {

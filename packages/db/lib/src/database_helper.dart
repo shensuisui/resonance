@@ -99,6 +99,21 @@ CREATE TABLE IF NOT EXISTS settings (
 )
 ''';
 
+/// 播放进度表（一个队列一行：种类 + id 作主键）
+///
+/// 只存"听到哪"，不存队列内容 —— 歌单/最近播放/我喜欢/本地音乐都能从
+/// 真实数据重建队列，存下来反而会和真实数据不一致。
+const String kCreatePlayProgressTable = '''
+CREATE TABLE IF NOT EXISTS play_progress (
+  queue_kind   TEXT NOT NULL,
+  queue_id     TEXT NOT NULL DEFAULT '',
+  song_key     TEXT NOT NULL,
+  position_ms  INTEGER NOT NULL,
+  updated_at   INTEGER NOT NULL,
+  PRIMARY KEY (queue_kind, queue_id)
+)
+''';
+
 /// 所有建表 SQL（按顺序执行）
 const List<String> kCreateAllTables = [
   kCreateSongsTable,
@@ -108,6 +123,7 @@ const List<String> kCreateAllTables = [
   kCreateRecentPlaysIndex,
   kCreateFavoritesTable,
   kCreateSettingsTable,
+  kCreatePlayProgressTable,
 ];
 
 /// 数据库助手
@@ -141,6 +157,11 @@ class DatabaseHelper {
       version: kDbVersion,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
+      // 每次打开都跑一遍建表（全部语句都是 IF NOT EXISTS，幂等）：
+      // 只在 onCreate 建表的话，**已经装过 App 的用户**永远拿不到新加的表
+      // ——真机实测：新增 play_progress 后老库报 "no such table"，进度一条写不进去。
+      // 这属于"加表"而不是"改数据"，因此不需要迁移、也不会动存量数据。
+      onOpen: (db) => _onCreate(db, kDbVersion),
     );
 
     return _database!;

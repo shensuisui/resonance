@@ -91,6 +91,21 @@ abstract final class TrackActions {
     return playInQueue(context, ref, recentQueue(songs), index < 0 ? 0 : index);
   }
 
+  /// **从该队列上次的位置继续播放**（无记录则等同从头播）
+  static Future<bool> resume(
+    BuildContext context,
+    WidgetRef ref,
+    PlayQueue queue,
+  ) async {
+    if (queue.isEmpty) return false;
+    final started =
+        await ref.read(playbackControllerProvider).resumeInQueue(queue);
+    if (!started && context.mounted) {
+      showUiV2Toast(context, '这个队列的来源没有提供播放地址');
+    }
+    return started;
+  }
+
   /// 切换喜欢并提示
   static Future<void> toggleLike(
       BuildContext context, WidgetRef ref, Song song) async {

@@ -180,6 +180,34 @@ class InMemorySettingsDao implements SettingsDao {
   }
 }
 
+/// 播放进度 DAO 内存实现（按"种类:id"存一行）
+class InMemoryPlayProgressDao implements PlayProgressDao {
+  final _store = <String, PlayProgress>{};
+
+  String _key(String kind, String id) => kind + ':' + id;
+
+  @override
+  Future<PlayProgress?> get(String queueKind, String queueId) async =>
+      _store[_key(queueKind, queueId)];
+
+  @override
+  Future<void> upsert(PlayProgress progress) async {
+    _store[_key(progress.queueKind, progress.queueId)] = progress;
+  }
+
+  @override
+  Future<void> delete(String queueKind, String queueId) async {
+    _store.remove(_key(queueKind, queueId));
+  }
+
+  @override
+  Future<List<PlayProgress>> getAll() async {
+    final list = _store.values.toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return list;
+  }
+}
+
 /// 内存数据库提供者（用于测试）
 class InMemoryDatabaseProvider implements DatabaseProvider {
   @override
@@ -192,6 +220,8 @@ class InMemoryDatabaseProvider implements DatabaseProvider {
   late final FavoritesDao favoritesDao = InMemoryFavoritesDao();
   @override
   late final SettingsDao settingsDao = InMemorySettingsDao();
+  @override
+  late final PlayProgressDao playProgressDao = InMemoryPlayProgressDao();
 
   @override
   Future<void> initialize() async {

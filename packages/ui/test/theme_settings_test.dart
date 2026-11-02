@@ -50,6 +50,9 @@ class FakeDatabaseProvider implements DatabaseProvider {
   RecentPlaysDao get recentPlaysDao => throw UnimplementedError();
 
   @override
+  PlayProgressDao get playProgressDao => throw UnimplementedError();
+
+  @override
   FavoritesDao get favoritesDao => throw UnimplementedError();
 
   @override

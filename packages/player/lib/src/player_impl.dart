@@ -136,7 +136,30 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
     return next;
   }
 
-  Future<void> _doPlayIndex(int index, int token) async {
+  @override
+  Future<void> prepareAt(int index, {Duration position = Duration.zero}) {
+    final token = ++_playToken;
+    final next = _serial.then((_) async {
+      if (token != _playToken) return;
+      await _doPlayIndex(index, token, autoplay: false);
+      if (token != _playToken) return;
+      if (position <= Duration.zero) return;
+      // 装载成功才 seek：源没给地址时 _doPlayIndex 已经回滚，不能在这里硬定位
+      try {
+        await _audioPlayer.seek(position);
+        _currentPosition = position.inMilliseconds;
+        _positionController.add(_currentPosition);
+      } catch (e) {
+        SourceLogBus.instance.emit(
+            _queue[index].sourceId, SourceLogLevel.warn, '播放器',
+            '预置进度定位失败（不影响播放）: $e');
+      }
+    });
+    _serial = next.catchError((Object _) {});
+    return next;
+  }
+
+  Future<void> _doPlayIndex(int index, int token, {bool autoplay = true}) async {
     if (index < 0 || index >= _queue.length) return;
     _loading = true;
     _currentIndex = index;
@@ -203,6 +226,14 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
           '等待加载完成（共 ${sw.elapsedMilliseconds}ms）→ play()');
       }
 
+      if (!autoplay) {
+        // 预置（启动恢复 / 继续播放）：音源装好、位置摆好，但**不出声**
+        _updateState(PlayerState.paused);
+        SourceLogBus.instance.emit(
+          song.sourceId, SourceLogLevel.info, '播放器',
+          '已预置 idx=$index id=${song.id}（等待用户按播放）');
+        return;
+      }
       await _audioPlayer.play();
       SourceLogBus.instance.emit(
         song.sourceId, SourceLogLevel.info, '播放器',

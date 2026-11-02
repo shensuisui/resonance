@@ -11,6 +11,7 @@ export 'src/models/source_info.dart';
 export 'src/models/play_mode.dart';
 export 'src/models/player_state.dart';
 export 'src/models/source_type.dart';
+export 'src/models/play_progress.dart';
 
 /// 音乐源接口
 export 'src/sources/abstract_music_source.dart';
