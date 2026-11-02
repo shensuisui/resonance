@@ -41,6 +41,9 @@ late RecentPlaysService gRecentPlaysService;
 late Player gPlayer;
 late DownloadManager gDownloadManager;
 
+/// 播放缓存（离线可用）：与「已下载」分开存放，不写 localPath
+late AudioCache gAudioCache;
+
 Future<void> main() async {
   // 调试层：debug 用 FlanBinding（agent 驱动：元素枚举/手势/截图/日志/热重载/圈选回传），
   // release 保持默认 binding。必须是 kDebugMode 这种**编译期常量分支**，
@@ -78,24 +81,20 @@ Future<void> main() async {
   // 播放器自己也会补地址：队列曲目来自快照时没有 playUrl，
   // 上一首/下一首只能靠这个 resolver 现取
   gPlayer = PlayerImpl(
-    // 播放器解析播放地址；顺带把同一次请求拿回的元数据登记+落库。
-    // 播放器对每一首都走这里，所以"下一首/上一首/跳转"这类只解析地址的
-    // 路径也能补上封面（旧实现只回传 url，把封面丢掉了）。
+    // 播放器解析播放地址，统一走 UI 层解析器：已下载 → 播放缓存（离线）→ 源。
+    // 前两者完全不请求源，所以"下一首/上一首/跳转"在断网或源失效时也能播；
+    // 回源那一趟顺带把元数据登记落库（详情不会重复请求）。
     urlResolver: (song) async {
-      final info = await gSourceManager.getPlayable(song.sourceId, song.id);
       final container = gContainer;
-      final meta = info.meta;
-      if (container != null && meta != null) {
-        unawaited(container
-            .read(songMetadataServiceProvider)
-            .enrich(song, detail: meta));
-      }
-      return info.url;
+      if (container == null) return '';
+      return container.read(playSourceResolverProvider)(song);
     },
   );
   gRecentPlaysService =
       RecentPlaysService(gDatabaseProvider.recentPlaysDao);
   gDownloadManager = DownloadManagerImpl(songDao: gDatabaseProvider.songDao);
+  gAudioCache = AudioCacheImpl();
+  await gAudioCache.init();
 
   // 3. 创建 SourceManager 并注册源
   gSourceManager = SourceManager();
@@ -138,8 +137,12 @@ Future<void> main() async {
     recentPlaysServiceProvider.overrideWith((ref) => gRecentPlaysService),
     playerProvider.overrideWith((ref) => gPlayer),
     downloadManagerProvider.overrideWith((ref) => gDownloadManager),
+    audioCacheProvider.overrideWith((ref) => gAudioCache),
     subscriptionHostProvider.overrideWith((ref) => gSubscriptions!.host),
   ]);
+
+  // 播放缓存：建立索引并把变更流接到版本号上（UI 的「离线可播」标记据此刷新）
+  gContainer!.read(audioCacheBindingProvider);
 
   // 发版前集成检查的 debug-only 扩展（release 不含）
   if (kDebugMode) {
@@ -253,6 +256,14 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
       await container
           .read(searchProvider.notifier)
           .search(p['keyword'] ?? '', recordHistory: false);
+    case 'sourceEnabled':
+      // 发版前集成检查用：停用/启用某个源（模拟"源失效"），状态会持久化
+      final sid = p['id'] ?? '';
+      if (sid.isEmpty) return 'missing id';
+      await container
+          .read(sourceEnabledProvider.notifier)
+          .toggle(sid, p['on'] == '1');
+      return 'source $sid enabled=${p['on'] == '1'}';
     case 'dbinfo':
       // 发版前集成检查用：把"当前曲目在 UI 侧的快照"与"DB 里存的行"并排回读，
       // 用于判断"显示不到封面"到底是源没给、还是缓存没写、还是展示层没读。

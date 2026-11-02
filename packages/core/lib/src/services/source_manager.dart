@@ -113,6 +113,19 @@ class SourceManager {
     }
   }
 
+  /// 该源的播放请求头（referer 等）；源没声明则为空
+  ///
+  /// 规则源的详情接口与音频 CDN 共用同一套头，所以直接读 ImageHeaderSource。
+  Map<String, String> playHeadersFor(String sourceId) {
+    final source = _sources[sourceId];
+    if (source == null) return const {};
+    if (source is ImageHeaderSource) {
+      // 显式转换：ImageHeaderSource 与 MusicSource 无继承关系，类型提升不生效
+      return (source as ImageHeaderSource).imageHeaders;
+    }
+    return const {};
+  }
+
   /// 获取指定源的播放地址，并尽可能顺带带回元数据
   ///
   /// 这是播放地址的唯一实现：[getSongUrl] 只是取它的地址。

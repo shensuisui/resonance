@@ -155,6 +155,20 @@ class PlayerImpl implements Player, CurrentSongSource {
     SourceLogBus.instance.emit(
       song.sourceId, SourceLogLevel.info, '播放器',
       '播放 idx=$index id=${song.id} url=$url');
+    // 空地址绝不能提交给播放器：just_audio_windows 收到空 URI 会直接让进程崩掉
+    // （实测：源返回空地址 → 应用 Lost connection to device）。
+    // 这里回滚索引并如实报错，既不假装在播，也不把空地址丢给底层。
+    if (url.isEmpty) {
+      SourceLogBus.instance.emit(song.sourceId, SourceLogLevel.warn, '播放器',
+          'id=${song.id} 源未提供播放地址，跳过加载（避免空地址导致崩溃）');
+      if (token == _playToken) {
+        _currentIndex = previousIndex;
+        _emitCurrentSong();
+      }
+      _updateState(PlayerState.error);
+      _loading = false;
+      return;
+    }
     try {
       await _audioPlayer.setAudioSource(
           AudioSource.uri(Uri.parse(url)),

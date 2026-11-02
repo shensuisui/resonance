@@ -13,5 +13,6 @@ export 'src/sqflite_recent_plays_dao.dart';
 export 'src/sqflite_favorites_dao.dart';
 export 'src/sqflite_settings_dao.dart';
 export 'src/sqflite_database_provider.dart';
+export 'src/audio_cache_impl.dart';
 export 'src/download_manager_impl.dart';
 export 'src/audiotags_metadata_reader.dart';

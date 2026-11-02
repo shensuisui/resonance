@@ -1279,6 +1279,23 @@ final playerStreamBindingProvider = Provider<void>((ref) {
     subs.add((player as CurrentSongSource).currentSongStream.listen((song) {
       ref.read(currentTrackIdProvider.notifier).set(song?.globalKey);
       ref.read(queueProvider.notifier).set(player.queue);
+      // 曲目一开始播就去取歌词并落库（点播/上一首/下一首/跳转/自动续播都走这里）：
+      // 这样"打开歌词"时是直接读缓存，断网或源失效也还有词。
+      // 旧实现要等歌词面板挂载才请求，即"显示时才取"，不满足离线要求。
+      if (song != null) {
+        unawaited(ref.read(songMetadataServiceProvider).ensureLyrics(song));
+        // 起播成功后把音频另存一份：开关默认开；已下载/已有缓存会自动跳过；
+        // 失败静默（下次再播会重试）。命中判断只认完整文件，绝不播半截文件。
+        if (ref.read(audioCacheEnabledProvider)) {
+          unawaited(ref.read(audioCacheProvider).cacheAfterPlay(
+                song,
+                song.playUrl ?? '',
+                headers: ref
+                    .read(sourceManagerProvider)
+                    .playHeadersFor(song.sourceId),
+              ));
+        }
+      }
     }));
   }
   ref.onDispose(() {
@@ -1307,10 +1324,10 @@ class PlaybackController {
     final pending = ref.read(pendingProvider.notifier);
     pending.set(song.globalKey);
     try {
-      // 取地址用 getPlayable：同一次详情请求顺带把封面/歌手带回来，
-      // 下面直接交给 enrich 用，避免为封面再请求一次详情（实测原本两次）
-      final info = await _sourceManager.getPlayable(song.sourceId, song.id);
-      final url = info.url;
+      // 统一走「实际要播的地址」解析：已下载 → 播放缓存 → 源。
+      // 前两者命中时完全不请求源（源失效/断网也能播）；回源那一趟顺带登记的
+      // 元数据由下面的 enrich 复用，所以一次播放只请求一次详情。
+      final url = await ref.read(playSourceResolverProvider)(song);
       if (url.isEmpty) {
         SourceLogBus.instance.emit(
           song.sourceId,
@@ -1324,9 +1341,8 @@ class PlaybackController {
       final playable = song.copyWith(playUrl: url);
       await _player.play(playable);
       // 封面等元数据异步补齐：不阻塞起播，失败静默
-      unawaited(ref
-          .read(songMetadataServiceProvider)
-          .enrich(playable, detail: info.meta));
+      // （详情已在解析地址时登记，这里不会重复请求）
+      unawaited(ref.read(songMetadataServiceProvider).enrich(playable));
       pending.set(null);
       ref.read(currentTrackIdProvider.notifier).set(playable.globalKey);
       ref.read(isPlayingProvider.notifier).set(true);
@@ -1473,6 +1489,9 @@ Song mergeSongMetadata(Song base, Song other) {
     duration: (base.duration ?? 0) > 0 ? base.duration : other.duration,
     playUrl: base.playUrl ?? other.playUrl,
     lyricUrl: base.lyricUrl ?? other.lyricUrl,
+    // 歌词也要"只补空"：否则后续任何一次时长/封面回写（REPLACE 语义）
+    // 都会把已缓存的歌词抹掉，歌词缓存等于白做（真机端到端抓到的 bug）
+    lyric: (base.lyric ?? '').isEmpty ? other.lyric : base.lyric,
   );
 }
 
@@ -1495,6 +1514,112 @@ final songMetaMapProvider = FutureProvider<Map<String, Song>>((ref) async {
   final all = await ref.watch(songDaoProvider).searchSongs('');
   return {for (final s in all) s.globalKey: s};
 }, name: 'songMetaMapProvider');
+
+// ==================== 播放缓存（离线可用） ====================
+
+/// 播放缓存实现（壳工程 override 为 AudioCacheImpl）
+final audioCacheProvider = Provider<AudioCache>(
+  (ref) => throw UnimplementedError('audioCacheProvider 必须被覆盖'),
+  name: 'audioCacheProvider',
+);
+
+/// 播放时自动缓存（默认开）
+class AudioCacheEnabledNotifier extends Notifier<bool> {
+  /// settings 键
+  static const String key = 'audio_cache_play';
+
+  @override
+  bool build() {
+    load();
+    return true;
+  }
+
+  /// 从 settings 恢复
+  Future<void> load() async {
+    final raw = await ref.read(settingsDaoProvider).get(key);
+    if (raw != null) state = raw == '1';
+  }
+
+  /// 设置并持久化
+  Future<void> set(bool value) async {
+    state = value;
+    await ref.read(settingsDaoProvider).set(key, value ? '1' : '0');
+  }
+}
+
+/// 播放时自动缓存 Provider
+final audioCacheEnabledProvider =
+    NotifierProvider<AudioCacheEnabledNotifier, bool>(
+        AudioCacheEnabledNotifier.new);
+
+/// 缓存版本号：缓存新增/清空后自增，UI 据此刷新「离线可用」标记
+class AudioCacheVersion extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  /// 缓存变化时调用
+  void bump() => state++;
+}
+
+/// 缓存版本 Provider
+final audioCacheVersionProvider =
+    NotifierProvider<AudioCacheVersion, int>(AudioCacheVersion.new);
+
+/// 把缓存实现的变更流接到版本号上（并在启动时建一次索引）
+final audioCacheBindingProvider = Provider<void>((ref) {
+  final cache = ref.watch(audioCacheProvider);
+  unawaited(cache.init());
+  final sub = cache.changes.listen((_) {
+    ref.read(audioCacheVersionProvider.notifier).bump();
+  });
+  ref.onDispose(sub.cancel);
+}, name: 'audioCacheBindingProvider');
+
+/// 「离线可用」标记：播放缓存命中（已下载的歌由调用方并上 localPath 判断）
+final offlineAvailableProvider = Provider.family<bool, String>((ref, songKey) {
+  ref.watch(audioCacheVersionProvider);
+  // 未注入缓存实现时（纯组件测试 / 预览）按「不可离线」降级，而不是让组件崩掉；
+  // 真正需要缓存的地方（设置页占用 / 清空）仍会直接读 audioCacheProvider 并如实报错。
+  try {
+    return ref.read(audioCacheProvider).isCached(songKey);
+  } catch (_) {
+    return false;
+  }
+}, name: 'offlineAvailableProvider');
+
+/// 播放缓存占用（设置页展示用）
+final audioCacheSizeProvider = FutureProvider<int>((ref) async {
+  ref.watch(audioCacheVersionProvider);
+  return ref.read(audioCacheProvider).sizeOnDisk();
+}, name: 'audioCacheSizeProvider');
+
+/// 解析「实际要播的地址」：已下载 → 播放缓存 → 源
+///
+/// 前两者命中时**完全不请求源**（源失效/断网也能播）。回源那一趟顺带把元数据
+/// 登记给 enrich 复用，所以一次播放只请求一次详情。
+final playSourceResolverProvider = Provider<Future<String> Function(Song)>((ref) {
+  return (song) async {
+    final cache = ref.read(audioCacheProvider);
+    // ① 用户主动下载过的文件
+    final downloaded = await cache.downloadedUrlFor(song);
+    if (downloaded != null && downloaded.isNotEmpty) return downloaded;
+    // ② 播放缓存（离线可用）
+    final cached = cache.localUrlFor(song.globalKey);
+    if (cached != null) return cached;
+    // ③ 回源：顺带拿元数据，登记 + 落库
+    final info = await ref
+        .read(sourceManagerProvider)
+        .getPlayable(song.sourceId, song.id);
+    final meta = info.meta;
+    if (meta != null) {
+      final svc = ref.read(songMetadataServiceProvider);
+      svc.rememberDetail(meta); // 供紧随其后的 enrich 复用，避免重复请求详情
+      unawaited(svc.enrich(song, detail: meta));
+    }
+    return info.url;
+  };
+}, name: 'playSourceResolverProvider');
+
 
 /// 读缓存里这首歌的最新快照（**必须 watch AsyncValue，而不是 Song 值**）
 ///
@@ -1612,11 +1737,102 @@ class SongMetadataService {
     await _persist(song.copyWith(duration: seconds), 'duration');
   }
 
+  // ==================== 歌词缓存 ====================
+
+  /// 进行中的歌词请求（按曲目键去重：播放触发与打开歌词页可能同时要）
+  final Map<String, Future<Lyrics?>> _lyricInFlight = {};
+
+  /// 确保这首歌的歌词已进缓存，并返回它
+  ///
+  /// 触发时机是**曲目开始播放时**（不是打开歌词页才请求），所以：
+  ///   ① 缓存里已有 → 直接返回，一次远程都不发；
+  ///   ② 同一首已有请求在飞 → 复用，不重复请求；
+  ///   ③ 否则问源，成功后写进 songs.lyric（下次就能离线看到）。
+  Future<Lyrics?> ensureLyrics(Song song) {
+    final inFlight = _lyricInFlight[song.globalKey];
+    if (inFlight != null) return inFlight;
+    final future = _loadOrFetchLyrics(song);
+    _lyricInFlight[song.globalKey] = future;
+    unawaited(future.whenComplete(() {
+      if (identical(_lyricInFlight[song.globalKey], future)) {
+        _lyricInFlight.remove(song.globalKey);
+      }
+    }));
+    return future;
+  }
+
+  /// 读缓存 → 未命中问源 → 成功落库
+  Future<Lyrics?> _loadOrFetchLyrics(Song song) async {
+    final cached = await _cachedLyrics(song);
+    if (cached != null && cached.lines.isNotEmpty) {
+      SourceLogBus.instance.emit(song.sourceId, SourceLogLevel.info, '歌词',
+          'id=${song.id} 命中缓存，未请求远程');
+      return cached;
+    }
+
+    // 源已失效（被删除/停用）时如实返回缓存，可能为 null —— 不造假歌词
+    final source = ref.read(sourceManagerProvider).getSource(song.sourceId);
+    if (source == null) {
+      SourceLogBus.instance.emit(song.sourceId, SourceLogLevel.warn, '歌词',
+          'id=${song.id} 源不存在，仅缓存可用');
+      return cached;
+    }
+
+    try {
+      final lyrics =
+          await ref.read(sourceManagerProvider).getLyrics(song.sourceId, song.id);
+      if (lyrics == null || lyrics.lines.isEmpty) return cached;
+      await _persistLyric(song, lyrics);
+      return lyrics;
+    } catch (e) {
+      SourceLogBus.instance.emit(song.sourceId, SourceLogLevel.warn, '歌词',
+          'id=${song.id} 取词失败，回落缓存: $e');
+      return cached;
+    }
+  }
+
+  /// 读 songs 表里的歌词缓存
+  Future<Lyrics?> _cachedLyrics(Song song) async {
+    final row = await _loadCached(song);
+    final text = row?.lyric;
+    if (text == null || text.trim().isEmpty) return null;
+    final isLrc = text.contains('[');
+    return Lyrics(
+      songId: song.id,
+      sourceId: song.sourceId,
+      // 与源侧口径一致：没有时间轴时整段作为一行文本，而不是丢弃
+      lines: isLrc
+          ? LrcParser.parse(text)
+          : [LyricLine(time: Duration.zero, text: text)],
+      isLrc: isLrc,
+    );
+  }
+
+  /// 歌词落库（复用 _persist：合并旧行 + 同曲只写一次 + bump）
+  Future<void> _persistLyric(Song song, Lyrics lyrics) async {
+    await _persist(song.copyWith(lyric: LrcParser.toLrc(lyrics)), 'lyric');
+  }
+
+  /// 同一首歌的写库链：把"读旧行 → 合并 → 替换"串起来
+  ///
+  /// 为什么必须串行：insertSong 是 REPLACE 语义，并发写会各自读到**旧快照**再
+  /// 整体覆盖。实测：歌词刚写完，紧接着的 meta 写用陈旧快照把它抹掉了
+  /// （真机日志：field=lyric 之后 field=meta，随后歌词缓存又得重新回源）。
+  final Map<String, Future<void>> _writeChain = {};
+
   /// 写库（保留已有的 localPath，避免把"已下载"标记冲掉）
-  Future<void> _persist(Song song, String field) async {
+  Future<void> _persist(Song song, String field) {
     final key = '${song.globalKey}:$field';
-    if (_written.contains(key)) return;
+    if (_written.contains(key)) return Future<void>.value();
     _written.add(key);
+    final prev = _writeChain[song.globalKey] ?? Future<void>.value();
+    final next = prev.then((_) => _persistNow(song, field));
+    _writeChain[song.globalKey] = next;
+    return next;
+  }
+
+  /// 真正的写入（只在 [_persist] 的串行链里被调用）
+  Future<void> _persistNow(Song song, String field) async {
     try {
       final dao = ref.read(songDaoProvider);
       final existing = await dao.getSong(song.id, song.sourceId);
@@ -1712,9 +1928,11 @@ class LyricsNotifier extends Notifier<Lyrics?> {
   }
 
   Future<void> _load(Song song) async {
+    // 统一走元数据服务：缓存优先 + 并发去重 + 成功后落库。
+    // 曲目一开始播就已经取过词，所以这里通常只是"读缓存"，不发远程。
     try {
       final lyrics =
-          await ref.read(sourceManagerProvider).getLyrics(song.sourceId, song.id);
+          await ref.read(songMetadataServiceProvider).ensureLyrics(song);
       if (ref.read(currentSongProvider)?.globalKey != song.globalKey) return;
       state = (lyrics != null && lyrics.lines.isNotEmpty) ? lyrics : null;
     } catch (_) {

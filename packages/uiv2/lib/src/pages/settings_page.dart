@@ -24,6 +24,7 @@ class SettingsPage extends ConsumerWidget {
     final playMode = ref.watch(playModeProvider);
     final shuffle = ref.watch(shuffleProvider);
     final wifiOnly = ref.watch(wifiOnlyProvider);
+    final audioCacheOn = ref.watch(audioCacheEnabledProvider);
     final scanDir = ref.watch(scanDirProvider).value;
     final scan = ref.watch(scanProvider);
     final volume = ref.watch(volumeProvider);
@@ -275,6 +276,37 @@ class SettingsPage extends ConsumerWidget {
                     ),
                   ),
                   UiV2ListRow(
+                    key: const ValueKey('settings_audio_cache'),
+                    label: '播放时自动缓存',
+                    hint: '听过的歌下次播放不再请求远程，源失效也能播（与「已下载」分开存放）',
+                    divider: true,
+                    trailing: UiV2Switch(
+                      value: audioCacheOn,
+                      semanticLabel: '播放时自动缓存',
+                      onChanged: (value) async {
+                        await ref.read(audioCacheEnabledProvider.notifier).set(value);
+                        if (context.mounted) {
+                          showUiV2Toast(
+                              context, value ? '播放时自动缓存：已开启' : '播放时自动缓存：已关闭');
+                        }
+                      },
+                    ),
+                  ),
+                  UiV2ListRow(
+                    key: const ValueKey('settings_audio_cache_clear'),
+                    label: '播放缓存',
+                    hint: _audioCacheHint(ref.watch(audioCacheSizeProvider)),
+                    divider: true,
+                    trailing: UiV2GhostMini(
+                      label: '清空',
+                      danger: true,
+                      onTap: () async {
+                        await ref.read(audioCacheProvider).clear();
+                        if (context.mounted) showUiV2Toast(context, '已清空播放缓存');
+                      },
+                    ),
+                  ),
+                  UiV2ListRow(
                     key: const ValueKey('settings_image_cache'),
                     label: '图片缓存',
                     hint: '封面等网络图：磁盘缓存 '
@@ -432,6 +464,18 @@ class _AboutBody extends StatelessWidget {
       ],
     );
   }
+}
+
+
+/// 播放缓存占用文案（设置页展示用）
+///
+/// 未就绪时显示"统计中…"；0 字节显示"暂无缓存"，避免"占用 0 MB"这种误导。
+String _audioCacheHint(AsyncValue<int> size) {
+  final bytes = size.value;
+  if (bytes == null) return '统计中…';
+  if (bytes <= 0) return '暂无缓存';
+  if (bytes < 1024 * 1024) return '占用 ${(bytes / 1024).toStringAsFixed(0)} KB';
+  return '占用 ${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
 }
 
 /// 设置主题模式（窄屏与宽屏两套布局共用同一份逻辑）

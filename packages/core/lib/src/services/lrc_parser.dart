@@ -12,6 +12,27 @@ import '../models/lyrics.dart';
 class LrcParser {
   LrcParser._();
 
+  /// 歌词 → LRC 文本（与 [parse] 成对）
+  ///
+  /// 源层只返回解析后的 [Lyrics]，而缓存要写进 songs 表的 TEXT 列，
+  /// 所以需要转回文本。带时间轴时按 [mm:ss.xx] 逐行输出；
+  /// 无时间轴（纯文本歌词）时按行输出，读取端会还原成单行文本。
+  static String toLrc(Lyrics lyrics) {
+    final buf = StringBuffer();
+    for (final line in lyrics.lines) {
+      if (!lyrics.isLrc) {
+        buf.writeln(line.text);
+        continue;
+      }
+      final ms = line.time.inMilliseconds;
+      final mm = (ms ~/ 60000).toString().padLeft(2, '0');
+      final ss = ((ms % 60000) ~/ 1000).toString().padLeft(2, '0');
+      final cs = ((ms % 1000) ~/ 10).toString().padLeft(2, '0');
+      buf.writeln('[$mm:$ss.$cs]${line.text}');
+    }
+    return buf.toString().trimRight();
+  }
+
   /// 解析 LRC 文本为歌词行列表（按时间排序）
   ///
   /// 无时间戳的行（元数据标签等）被忽略。

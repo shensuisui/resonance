@@ -373,6 +373,9 @@ class UiV2SongRow extends ConsumerWidget {
     final duration = durationOverride ??
         resolveSongDuration(ref, song, catalogDuration: meta?.duration);
     final downloaded = song.localPath != null && song.localPath!.isNotEmpty;
+    // 播放缓存命中 → 断网/源失效也能播（与「已下载」是两个来源，徽章分开显示）
+    final offlinePlayable =
+        !downloaded && ref.watch(offlineAvailableProvider(globalKey));
     final subtitle = subtitleOverride ??
         (showAlbum
             ? [song.artist, song.album ?? ''].where((s) => s.isNotEmpty).join(' · ')
@@ -451,6 +454,9 @@ class UiV2SongRow extends ConsumerWidget {
                       if (downloaded) ...[
                         const SizedBox(width: 6),
                         const UiV2Badge(label: '已下载', icon: UiV2Icons.check),
+                      ] else if (offlinePlayable) ...[
+                        const SizedBox(width: 6),
+                        const UiV2Badge(label: '离线可播', icon: UiV2Icons.download),
                       ],
                       if (showSource) ...[
                         const SizedBox(width: 6),
