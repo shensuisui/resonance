@@ -23,7 +23,7 @@ import 'lyrics.dart' as demo;
 const String kCatalogSourceId = 'demo_catalog';
 
 /// 演示曲库音乐源
-class CatalogMusicSource implements MusicSource {
+class CatalogMusicSource extends MusicSource {
   /// 曲库（由配表派生，构造时构建一次）
   final Catalog catalog;
 

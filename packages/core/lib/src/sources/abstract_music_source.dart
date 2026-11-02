@@ -28,6 +28,13 @@ abstract class MusicSource {
   /// 获取歌曲播放 URL
   Future<String> getSongUrl(String id);
 
+  /// 取播放地址，并尽可能顺带带回元数据
+  ///
+  /// 默认实现退回 [getSongUrl]（源不必改动）；能一次拿到元数据的源应覆写它 ——
+  /// 覆写后展示层就不必为了封面再单独请求一次详情。
+  Future<PlayableInfo> getPlayable(String id) async =>
+      PlayableInfo(url: await getSongUrl(id));
+
   /// 获取歌词
   Future<Lyrics?> getLyrics(String id);
 

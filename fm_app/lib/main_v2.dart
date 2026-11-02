@@ -27,6 +27,8 @@ import 'package:core/core.dart';
 import 'package:crawler/crawler.dart';
 import 'package:db/db.dart';
 import 'package:player/player.dart';
+import 'dart:async';
+
 import 'package:uiv2/uiv2.dart';
 import 'config/agent_debug_config.dart';
 import 'config/release_check_extensions.dart';
@@ -76,7 +78,20 @@ Future<void> main() async {
   // 播放器自己也会补地址：队列曲目来自快照时没有 playUrl，
   // 上一首/下一首只能靠这个 resolver 现取
   gPlayer = PlayerImpl(
-    urlResolver: (song) => gSourceManager.getSongUrl(song.sourceId, song.id),
+    // 播放器解析播放地址；顺带把同一次请求拿回的元数据登记+落库。
+    // 播放器对每一首都走这里，所以"下一首/上一首/跳转"这类只解析地址的
+    // 路径也能补上封面（旧实现只回传 url，把封面丢掉了）。
+    urlResolver: (song) async {
+      final info = await gSourceManager.getPlayable(song.sourceId, song.id);
+      final container = gContainer;
+      final meta = info.meta;
+      if (container != null && meta != null) {
+        unawaited(container
+            .read(songMetadataServiceProvider)
+            .enrich(song, detail: meta));
+      }
+      return info.url;
+    },
   );
   gRecentPlaysService =
       RecentPlaysService(gDatabaseProvider.recentPlaysDao);

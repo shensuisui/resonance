@@ -34,26 +34,40 @@ class RuleBasedMusicSource extends MusicSource implements ImageHeaderSource {
   }
 
   @override
-  Future<Song> getSongDetail(String id) async {
+  Future<Song> getSongDetail(String id) async =>
+      _songFromFields(id, await _executor.executeSongDetail(id));
+
+  @override
+  Future<String> getSongUrl(String id) async =>
+      _playUrlOf(await _executor.executeSongDetail(id));
+
+  @override
+  /// 规则源的详情接口一次就同时给出播放地址与封面/歌手/时长：
+  /// 这里复用同一次请求，避免"取地址"与"取封面"各打一次详情（实测两次请求）。
+  Future<PlayableInfo> getPlayable(String id) async {
     final fields = await _executor.executeSongDetail(id);
-    return Song(
-      id: id,
-      sourceId: _ruleConfig.source.id,
-      title: fields['title']?.toString() ?? '',
-      artist: fields['artist']?.toString() ?? '',
-      album: fields['album']?.toString(),
-      coverUrl: fields['cover']?.toString() ?? fields['coverUrl']?.toString(),
-      duration: parseDurationSeconds(fields['duration']),
-      playUrl: fields['playUrl']?.toString() ?? fields['url']?.toString(),
-      lyricUrl: fields['lyricUrl']?.toString(),
+    return PlayableInfo(
+      url: _playUrlOf(fields),
+      meta: _songFromFields(id, fields),
     );
   }
 
-  @override
-  Future<String> getSongUrl(String id) async {
-    final fields = await _executor.executeSongDetail(id);
-    return fields['playUrl']?.toString() ?? fields['url']?.toString() ?? '';
-  }
+  /// 详情字段 → 播放地址
+  String _playUrlOf(Map<String, dynamic> fields) =>
+      fields['playUrl']?.toString() ?? fields['url']?.toString() ?? '';
+
+  /// 详情字段 → 曲目（规则源详情缺失的字段保持为空，不造假）
+  Song _songFromFields(String id, Map<String, dynamic> fields) => Song(
+        id: id,
+        sourceId: _ruleConfig.source.id,
+        title: fields['title']?.toString() ?? '',
+        artist: fields['artist']?.toString() ?? '',
+        album: fields['album']?.toString(),
+        coverUrl: fields['cover']?.toString() ?? fields['coverUrl']?.toString(),
+        duration: parseDurationSeconds(fields['duration']),
+        playUrl: fields['playUrl']?.toString() ?? fields['url']?.toString(),
+        lyricUrl: fields['lyricUrl']?.toString(),
+      );
 
   @override
   Future<Lyrics?> getLyrics(String id) async {

@@ -113,22 +113,25 @@ class SourceManager {
     }
   }
 
-  /// 获取指定源的歌曲播放 URL
-  Future<String> getSongUrl(String sourceId, String songId) async {
+  /// 获取指定源的播放地址，并尽可能顺带带回元数据
+  ///
+  /// 这是播放地址的唯一实现：[getSongUrl] 只是取它的地址。
+  Future<PlayableInfo> getPlayable(String sourceId, String songId) async {
     final source = _sources[sourceId];
     if (source == null) {
       throw Exception('Source not found: $sourceId');
     }
     final sw = Stopwatch()..start();
     try {
-      final url = await source.getSongUrl(songId);
+      final info = await source.getPlayable(songId);
       SourceLogBus.instance.emit(
         sourceId,
-        url.isEmpty ? SourceLogLevel.warn : SourceLogLevel.info,
+        info.url.isEmpty ? SourceLogLevel.warn : SourceLogLevel.info,
         '播放URL',
-        'id=$songId ${url.isEmpty ? '未返回地址' : '成功'}，耗时 ${sw.elapsedMilliseconds}ms',
+        'id=$songId ${info.url.isEmpty ? '未返回地址' : '成功'}'
+            '${info.meta == null ? '' : '（含元数据）'}，耗时 ${sw.elapsedMilliseconds}ms',
       );
-      return url;
+      return info;
     } catch (e) {
       SourceLogBus.instance.emit(
         sourceId,
@@ -139,6 +142,10 @@ class SourceManager {
       rethrow;
     }
   }
+
+  /// 获取指定源的歌曲播放 URL
+  Future<String> getSongUrl(String sourceId, String songId) async =>
+      (await getPlayable(sourceId, songId)).url;
 
   /// 获取指定源的歌词
   Future<Lyrics?> getLyrics(String sourceId, String songId) async {

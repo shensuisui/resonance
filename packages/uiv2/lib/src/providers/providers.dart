@@ -1307,7 +1307,10 @@ class PlaybackController {
     final pending = ref.read(pendingProvider.notifier);
     pending.set(song.globalKey);
     try {
-      final url = await _sourceManager.getSongUrl(song.sourceId, song.id);
+      // 取地址用 getPlayable：同一次详情请求顺带把封面/歌手带回来，
+      // 下面直接交给 enrich 用，避免为封面再请求一次详情（实测原本两次）
+      final info = await _sourceManager.getPlayable(song.sourceId, song.id);
+      final url = info.url;
       if (url.isEmpty) {
         SourceLogBus.instance.emit(
           song.sourceId,
@@ -1321,7 +1324,9 @@ class PlaybackController {
       final playable = song.copyWith(playUrl: url);
       await _player.play(playable);
       // 封面等元数据异步补齐：不阻塞起播，失败静默
-      unawaited(ref.read(songMetadataServiceProvider).enrich(playable));
+      unawaited(ref
+          .read(songMetadataServiceProvider)
+          .enrich(playable, detail: info.meta));
       pending.set(null);
       ref.read(currentTrackIdProvider.notifier).set(playable.globalKey);
       ref.read(isPlayingProvider.notifier).set(true);
@@ -1539,17 +1544,40 @@ class SongMetadataService {
   /// 已写过的标记（key:field），避免同一首歌反复写库
   final Set<String> _written = {};
 
+  /// 最近几次「取播放地址时顺带拿到的详情」，供紧随其后的 enrich 复用
+  ///
+  /// 播放器解析地址时会走 getPlayable，那一趟已经把封面/歌手拿回来了；
+  /// 登记下来后 enrich 就不必为封面再请求一次详情。
+  final Map<String, Song> _pendingDetail = {};
+
+  /// 登记「取地址时顺带取回的详情」（最多留 8 条，超出整体清空）
+  void rememberDetail(Song detail) {
+    if (_pendingDetail.length >= 8) _pendingDetail.clear();
+    _pendingDetail[detail.globalKey] = detail;
+  }
+
   /// 用详情补齐封面/标题/歌手（只补空），必要时写库
+  ///
+  /// 依次合并三种来源，任一环节已经补齐就不再多打一次详情请求：
+  ///   ① 调用方给的详情  ② 登记过的详情  ③ 数据库里已有的行
+  /// 这样"取地址"和"补封面"共用同一份信息，同一次播放不会请求两次详情。
   Future<Song> enrich(Song song, {Song? detail}) async {
     var merged = song;
-    if (detail != null) merged = mergeSongMetadata(merged, detail);
+    final provided = detail ?? _pendingDetail[song.globalKey];
+    final existing = await _loadCached(song);
+
+    // 写库前已知的信息：用来判断"这一趟有没有带来新东西"。
+    // 不能因为"字段已经齐了"就提前返回 —— 详情是参数传进来的，
+    // 提前返回会把落库也跳掉，封面就永远进不了缓存（被测试抓到的缺陷）。
+    final knownCover = existing?.coverUrl ?? song.coverUrl ?? '';
+    final knownDuration = existing?.duration ?? song.duration ?? 0;
+
+    if (provided != null) merged = mergeSongMetadata(merged, provided);
+    if (existing != null) merged = mergeSongMetadata(merged, existing);
 
     final needsCover = (merged.coverUrl ?? '').isEmpty;
-    final needsDuration = (merged.duration ?? 0) <= 0;
-    if (!needsCover && !needsDuration) return merged;
-
-    // 还缺就回源问一次详情（规则源详情通常带封面）
-    if (detail == null && needsCover) {
+    // 还缺封面就回源问一次详情（规则源详情通常带封面）
+    if (provided == null && needsCover) {
       try {
         final source = ref.read(sourceManagerProvider).getSource(song.sourceId);
         if (source != null) {
@@ -1560,8 +1588,19 @@ class SongMetadataService {
             song.sourceId, SourceLogLevel.warn, '元数据', '取详情失败: $e');
       }
     }
-    await _persist(merged, 'meta');
+    final hasNewInfo = (merged.coverUrl ?? '') != knownCover ||
+        (merged.duration ?? 0) != knownDuration;
+    if (hasNewInfo) await _persist(merged, 'meta');
     return merged;
+  }
+
+  /// 读库里已经写过的行（读失败当"没有"，不影响主流程）
+  Future<Song?> _loadCached(Song song) async {
+    try {
+      return await ref.read(songDaoProvider).getSong(song.id, song.sourceId);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// 播放器实测时长回写（毫秒 → 秒），仅当原本没有时长

@@ -76,10 +76,14 @@ void main() {
     String? postedBody;
     String? postedReferer;
 
+    /// 详情页被请求的次数：用于断言 getPlayable 一次请求同时给出地址与元数据
+    int detailHits = 0;
+
     setUp(() async {
       playId = List<String>.filled(288, 'A').join();
       postedBody = null;
       postedReferer = null;
+      detailHits = 0;
 
       server = await HttpServer.bind('localhost', 0);
       port = server.port;
@@ -89,6 +93,7 @@ void main() {
         final res = request.response;
 
         if (path == '/music/123' && request.method == 'GET') {
+          detailHits++;
           // 模拟歌曲宝详情页：appData 里的字段用 \u0022 转义，和真实页面一致
           final html = '<html><body>'
               '<h1 class="song-title-styled"><span>真的爱你又如何</span></h1>'
@@ -207,6 +212,51 @@ void main() {
       final source = RuleBasedMusicSource(config);
       final url = await source.getSongUrl('123');
       expect(url, 'http://localhost:$port/audio/legacy.mp3');
+    });
+
+    test('getPlayable：一次详情请求同时给出播放地址与元数据', () async {
+      final config = RuleConfig.fromJson({
+        'source': {
+          'id': 'gqb',
+          'name': 'GQB',
+          'baseUrl': 'http://localhost:$port',
+        },
+        'songDetail': {
+          'steps': [
+            {
+              'url': '/music/{id}',
+              'responseType': 'html',
+              'extract': {
+                'playId': r'@Regex:play_id\\u0022:\\u0022([A-Za-z0-9+/=]{100,})',
+                'title': r'@CSS:h1.song-title-styled span@text',
+                'artist': r'@CSS:div.song-author-styled@text',
+                'coverUrl': r'@CSS:img.player-cover-img@src',
+                'duration': r'@Regex:mp3_duration.{0,20}([0-9]{1,2}:[0-9]{2})',
+              },
+            },
+            {
+              'url': '/member/common-play-url',
+              'method': 'POST',
+              'responseType': 'json',
+              'contentType': 'application/x-www-form-urlencoded',
+              'body': 'id={playId}&purpose=play',
+              'listRule': r'$',
+              'itemRules': {'playUrl': r'$.data.url'},
+            },
+          ],
+        },
+      });
+
+      final source = RuleBasedMusicSource(config);
+      final info = await source.getPlayable('123');
+
+      expect(info.url, 'http://localhost:$port/audio/a.mp3?bitrate=128');
+      expect(info.meta?.title, '真的爱你又如何');
+      expect(info.meta?.artist, '王一佳');
+      expect(info.meta?.coverUrl, 'http://localhost:$port/cover/a.jpg');
+      expect(info.meta?.duration, 209);
+      // 地址与元数据共用同一次详情请求：这正是"下一首没封面"与"封面迟到"的根因
+      expect(detailHits, 1, reason: '详情页只应被请求一次');
     });
 
     test('歌词：CSS @html 取首元素并把 <br /> 换成换行', () async {
