@@ -1345,14 +1345,31 @@ class PlaybackController {
   ///
   /// 返回值表示是否**真的开始播放**：源没给播放地址（例如演示曲库）时返回 false，
   /// 调用方据此提示用户，而不是让界面假装在播（核心注释明确 getSongUrl 可能为空串）。
-  Future<bool> playSong(Song song) async {
+  Future<bool> playSong(Song song,
+      {String? captchaCode, String? captchaKey}) async {
     final pending = ref.read(pendingProvider.notifier);
     pending.set(song.globalKey);
     try {
       // 统一走「实际要播的地址」解析：已下载 → 播放缓存 → 源。
       // 前两者命中时完全不请求源（源失效/断网也能播）；回源那一趟顺带登记的
       // 元数据由下面的 enrich 复用，所以一次播放只请求一次详情。
-      final url = await ref.read(playSourceResolverProvider)(song);
+      final res = await ref.read(playSourceResolverProvider)(
+        song,
+        captchaCode: captchaCode,
+        captchaKey: captchaKey,
+      );
+      // 源站要求人机验证：这不是"失败"，挂起挑战等用户输入验证码
+      // （旧实现把它当"没地址"，用户只看到含混的"无法播放"）
+      if (res.needsChallenge) {
+        SourceLogBus.instance.emit(song.sourceId, SourceLogLevel.warn, '播放',
+            'id=${song.id} 源站要求人机验证，等待用户输入验证码');
+        ref
+            .read(pendingCaptchaProvider.notifier)
+            .set(PendingCaptcha(song, res.challenge!));
+        pending.set(null);
+        return false;
+      }
+      final url = res.url;
       if (url.isEmpty) {
         SourceLogBus.instance.emit(
           song.sourceId,
@@ -1363,16 +1380,8 @@ class PlaybackController {
         pending.set(null);
         return false;
       }
-      final playable = song.copyWith(playUrl: url);
-      await _player.play(playable);
-      // 封面等元数据异步补齐：不阻塞起播，失败静默
-      // （详情已在解析地址时登记，这里不会重复请求）
-      unawaited(ref.read(songMetadataServiceProvider).enrich(playable));
+      await _startPlayback(song, url);
       pending.set(null);
-      ref.read(currentTrackIdProvider.notifier).set(playable.globalKey);
-      ref.read(isPlayingProvider.notifier).set(true);
-      ref.read(queueProvider.notifier).set(_player.queue);
-      await ref.read(recentProvider.notifier).record(playable);
       return true;
     } catch (e) {
       pending.set(null);
@@ -1385,6 +1394,61 @@ class PlaybackController {
       );
       return false;
     }
+  }
+
+  /// 起播（地址已解析好）：播放器 + 元数据 + 各处状态一起更新
+  ///
+  /// 抽出来给两条路径共用：正常点播，以及"用户过了人机验证之后"继续播。
+  Future<void> _startPlayback(Song song, String url) async {
+    final playable = song.copyWith(playUrl: url);
+    await _player.play(playable);
+    // 封面等元数据异步补齐：不阻塞起播，失败静默
+    // （详情已在解析地址时登记，这里不会重复请求）
+    unawaited(ref.read(songMetadataServiceProvider).enrich(playable));
+    ref.read(currentTrackIdProvider.notifier).set(playable.globalKey);
+    ref.read(isPlayingProvider.notifier).set(true);
+    ref.read(queueProvider.notifier).set(_player.queue);
+    await ref.read(recentProvider.notifier).record(playable);
+  }
+
+  /// 用户提交验证码
+  ///
+  /// 为什么不用 [playSong] 重播：验证码错误时源站会再回一次挑战，
+  /// 而 [playSong] 会把挑战写回 [pendingCaptchaProvider] → 面板监听者
+  /// 再弹一次 → 面板叠面板。这里直接返回结果，由面板**就地**换图重试。
+  Future<CaptchaSubmitResult> submitCaptcha(String code) async {
+    final pc = ref.read(pendingCaptchaProvider);
+    if (pc == null) return const CaptchaSubmitResult(ok: false);
+    final res = await ref.read(playSourceResolverProvider)(
+      pc.song,
+      captchaCode: code,
+      captchaKey: pc.challenge.key,
+    );
+    final challenge = res.challenge;
+    if (challenge != null) {
+      // 验证码不对（或源站换了新图）：就地更新，不重新挂起、不叠面板
+      return CaptchaSubmitResult(ok: false, challenge: challenge);
+    }
+    if (res.url.isEmpty) return const CaptchaSubmitResult(ok: false);
+    await _startPlayback(pc.song, res.url);
+    ref.read(pendingCaptchaProvider.notifier).set(null);
+    return const CaptchaSubmitResult(ok: true);
+  }
+
+  /// 换一张：重新向源站要一次挑战（新的验证图与 key）
+  ///
+  /// 刻意**不写回** [pendingCaptchaProvider]：面板自己持有当前挑战，
+  /// 写回会触发监听者再弹一个面板（叠面板）。
+  Future<PlaybackChallenge?> refreshCaptcha() async {
+    final pc = ref.read(pendingCaptchaProvider);
+    if (pc == null) return null;
+    final res = await ref.read(playSourceResolverProvider)(pc.song);
+    return res.challenge;
+  }
+
+  /// 用户取消验证（不放行播放，但界面明确告知原因）
+  void cancelCaptcha() {
+    ref.read(pendingCaptchaProvider.notifier).set(null);
   }
 
   /// 用队列替换播放器队列并从指定位置开始播放
@@ -1618,30 +1682,103 @@ final audioCacheSizeProvider = FutureProvider<int>((ref) async {
   return ref.read(audioCacheProvider).sizeOnDisk();
 }, name: 'audioCacheSizeProvider');
 
+/// 播放地址解析结果：要么可直接播，要么卡在源站人机验证上
+///
+/// 为什么不用空串表示"没地址"：源站要求人机验证是一种**可继续**的状态
+/// （用户输入验证码后就能播），不是失败。两者混在一起，UI 只会说"无法播放"，
+/// 用户也无从分辨是解析坏了还是源站拦了。
+class PlayResolution {
+  /// 可直接播放的地址（未卡验证时非空）
+  final String url;
+
+  /// 源站人机验证挑战（image / key / 回传字段名）
+  final PlaybackChallenge? challenge;
+
+  const PlayResolution({this.url = '', this.challenge});
+
+  /// 是否拿到可直接播放的地址
+  bool get hasUrl => url.isNotEmpty;
+
+  /// 是否卡在源站人机验证
+  bool get needsChallenge => challenge != null;
+}
+
+/// 一次待处理的人机验证（等用户输入验证码）
+class PendingCaptcha {
+  /// 触发验证的那首歌（验证通过后继续播它）
+  final Song song;
+
+  /// 源站给的挑战（含验证图与 key）
+  final PlaybackChallenge challenge;
+
+  const PendingCaptcha(this.song, this.challenge);
+}
+
+/// 待处理的人机验证（null = 没有；UI 监听它来弹验证面板）
+class PendingCaptchaNotifier extends Notifier<PendingCaptcha?> {
+  @override
+  PendingCaptcha? build() => null;
+
+  /// 设置（null 表示用户已取消，或已提交成功）
+  void set(PendingCaptcha? value) => state = value;
+}
+
+/// 提交验证码的结果
+///
+/// [challenge] 非空表示"没通过但源站给了新图"，面板据此就地刷新。
+class CaptchaSubmitResult {
+  /// 是否通过（通过即已开始播放）
+  final bool ok;
+
+  /// 未通过时源站给的新挑战（保持原图时为 null）
+  final PlaybackChallenge? challenge;
+
+  const CaptchaSubmitResult({required this.ok, this.challenge});
+}
+
+/// 待处理的人机验证 Provider
+final pendingCaptchaProvider =
+    NotifierProvider<PendingCaptchaNotifier, PendingCaptcha?>(
+        PendingCaptchaNotifier.new);
+
 /// 解析「实际要播的地址」：已下载 → 播放缓存 → 源
 ///
 /// 前两者命中时**完全不请求源**（源失效/断网也能播）。回源那一趟顺带把元数据
 /// 登记给 enrich 复用，所以一次播放只请求一次详情。
-final playSourceResolverProvider = Provider<Future<String> Function(Song)>((ref) {
-  return (song) async {
+///
+/// [captchaCode]/[captchaKey]：源站要求人机验证时，带用户输入的验证码重试；
+/// 验证码由用户提供，这里只负责按源站要求回传。
+final playSourceResolverProvider = Provider<
+    Future<PlayResolution> Function(Song song,
+        {String? captchaCode, String? captchaKey})>((ref) {
+  return (song, {String? captchaCode, String? captchaKey}) async {
     final cache = ref.read(audioCacheProvider);
     // ① 用户主动下载过的文件
     final downloaded = await cache.downloadedUrlFor(song);
-    if (downloaded != null && downloaded.isNotEmpty) return downloaded;
+    if (downloaded != null && downloaded.isNotEmpty) {
+      return PlayResolution(url: downloaded);
+    }
     // ② 播放缓存（离线可用）
     final cached = cache.localUrlFor(song.globalKey);
-    if (cached != null) return cached;
+    if (cached != null) return PlayResolution(url: cached);
     // ③ 回源：顺带拿元数据，登记 + 落库
-    final info = await ref
-        .read(sourceManagerProvider)
-        .getPlayable(song.sourceId, song.id);
+    final info = await ref.read(sourceManagerProvider).getPlayable(
+          song.sourceId,
+          song.id,
+          captchaCode: captchaCode,
+          captchaKey: captchaKey,
+        );
     final meta = info.meta;
     if (meta != null) {
       final svc = ref.read(songMetadataServiceProvider);
       svc.rememberDetail(meta); // 供紧随其后的 enrich 复用，避免重复请求详情
       unawaited(svc.enrich(song, detail: meta));
     }
-    return info.url;
+    // 源站要求人机验证：如实回传挑战（含验证图），交给 UI 让用户自己过验证
+    if (info.url.isEmpty && info.needsChallenge) {
+      return PlayResolution(challenge: info.challenge);
+    }
+    return PlayResolution(url: info.url);
   };
 }, name: 'playSourceResolverProvider');
 

@@ -93,7 +93,10 @@ Future<void> main() async {
     urlResolver: (song) async {
       final container = gContainer;
       if (container == null) return '';
-      return container.read(playSourceResolverProvider)(song);
+      final res = await container.read(playSourceResolverProvider)(song);
+      // 源站要求人机验证时这里没有地址：验证由 UI 层的验证面板接管
+      // （这一路拿不到验证码；空地址会被播放器安全跳过，不会崩）
+      return res.url;
     },
   );
   gRecentPlaysService =
@@ -274,6 +277,27 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
           'playUrl="${cur?.playUrl}" dur=${cur?.duration} local="${cur?.localPath}"');
       print('SONGINFO audible=${audible?.globalKey} title="${audible?.title}" '
           'index=${player.currentIndex} queueLen=${player.queue.length}');
+      return 'ok';
+    case 'captchaui':
+      // 发版前集成检查用：用真实验证图把"验证面板"走起来
+      // （不依赖源站此刻是否要验证；提交后仍会真的按规则回传验证码）
+      final fid = p['id'] ?? '61636';
+      final imgFile = File('G:/works/shelli/fm/.dsh/tmp/captcha.bin');
+      if (!await imgFile.exists()) return 'missing .dsh/tmp/captcha.bin';
+      final b64 = base64Encode(await imgFile.readAsBytes());
+      const demoSong =
+          Song(id: '61636', sourceId: 'gequbao', title: '默', artist: '那英');
+      container.read(pendingCaptchaProvider.notifier).set(PendingCaptcha(
+            demoSong,
+            PlaybackChallenge(
+              image: 'data:image/jpeg;base64,' + b64,
+              key: 'debug-key',
+              codeField: 'captchaCode',
+              keyField: 'key',
+              message: '真机演练：请输入图中验证码',
+            ),
+          ));
+      print('CAPTCHAUI 已挂起验证面板 id=' + fid + ' 图字节=' + b64.length.toString());
       return 'ok';
     case 'captchaimg':
       // 发版前集成检查用：取验证图并写成 PNG，供人工看图输入验证码

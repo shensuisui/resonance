@@ -47,6 +47,7 @@ export 'src/components/now_playing.dart';
 export 'src/components/player_bar.dart';
 export 'src/components/rows.dart';
 export 'src/components/source_icon.dart';
+export 'src/components/captcha_sheet.dart';
 export 'src/components/sheets.dart';
 export 'src/components/shell_parts.dart';
 export 'src/components/surfaces.dart';

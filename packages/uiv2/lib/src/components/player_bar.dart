@@ -19,6 +19,7 @@ import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../providers/providers.dart';
 import '../router.dart';
+import 'captcha_sheet.dart';
 import 'rows.dart';
 import 'sheets.dart';
 
@@ -436,6 +437,19 @@ class UiV2PlayerBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 源站要求人机验证时弹验证面板（挑战由播放控制器挂起）。
+    // 只在"从无到有"时弹：面板内部换图/重试**不写回**该状态，因此不会叠面板。
+    ref.listen(pendingCaptchaProvider, (previous, next) {
+      if (previous != null || next == null) return;
+      showUiV2CaptchaSheet(
+        context,
+        challenge: next.challenge,
+        onSubmit: (code) =>
+            ref.read(playbackControllerProvider).submitCaptcha(code),
+        onRefresh: () => ref.read(playbackControllerProvider).refreshCaptcha(),
+        onCancel: () => ref.read(playbackControllerProvider).cancelCaptcha(),
+      );
+    });
     final t = UiV2Theme.of(context);
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final position = ref.watch(positionProvider);
