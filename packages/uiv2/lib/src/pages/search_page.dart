@@ -449,8 +449,9 @@ class _SearchResults extends ConsumerWidget {
                           index: i,
                           showArt: true,
                           highlight: keyword,
-                          onTap: () =>
-                              TrackActions.playAt(context, ref, visible, i),
+                          // 搜索候选不是播放队列：记入最近播放并切到最近播放
+                          onTap: () => TrackActions.playAsRecent(
+                              context, ref, visible[i]),
                           onToggleLike: () => TrackActions.toggleLike(
                             context,
                             ref,

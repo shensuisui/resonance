@@ -81,7 +81,7 @@ void main() {
   test('在播曲目不在队列里时，标题仍是真实标题而不是 id 片段', () {
     container.read(currentTrackIdProvider.notifier).set(playing.globalKey);
     container.read(playerCurrentSongProvider.notifier).set(playing);
-    container.read(queueProvider.notifier).set(const [other]);
+    container.read(queueProvider.notifier).setSongs(const [other]);
 
     final cur = container.read(currentSongProvider);
     expect(cur?.title, '素颜', reason: '不能用「标题=id」的占位覆盖真实标题');
@@ -90,7 +90,7 @@ void main() {
 
   test('没有播放器对象时退回队列查找（旧行为不变）', () {
     container.read(currentTrackIdProvider.notifier).set(other.globalKey);
-    container.read(queueProvider.notifier).set(const [other]);
+    container.read(queueProvider.notifier).setSongs(const [other]);
 
     expect(container.read(currentSongProvider)?.title, '稻香');
   });

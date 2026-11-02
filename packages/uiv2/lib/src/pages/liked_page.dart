@@ -113,25 +113,15 @@ class _LikedPageState extends ConsumerState<LikedPage> {
                 label: '播放全部',
                 icon: UiV2Icons.play,
                 variant: UiV2ButtonVariant.primary,
-                onTap: () => TrackActions.playAll(context, ref, ordered),
+                onTap: () => TrackActions.playQueueAll(
+                    context, ref, TrackActions.likedQueue(ordered)),
               ),
               UiV2Button(
                 label: '随机播放',
                 icon: UiV2Icons.shuffle,
                 variant: UiV2ButtonVariant.soft,
-                onTap: () => TrackActions.shuffleAll(context, ref, ordered),
-              ),
-              UiV2Button(
-                label: '加入队列',
-                icon: UiV2Icons.queue,
-                variant: UiV2ButtonVariant.outline,
-                onTap: () {
-                  final added = TrackActions.addAllToQueue(ref, ordered);
-                  showUiV2Toast(
-                    context,
-                    added > 0 ? '已加入 $added 首到播放队列' : '这些歌曲已经在队列里了',
-                  );
-                },
+                onTap: () => TrackActions.shuffleQueueAll(
+                    context, ref, TrackActions.likedQueue(ordered)),
               ),
             ],
           ),
@@ -155,7 +145,8 @@ class _LikedPageState extends ConsumerState<LikedPage> {
                     meta: meta[ordered[i].id],
                     index: i,
                     showArt: true,
-                    onTap: () => TrackActions.playAt(context, ref, ordered, i),
+                    onTap: () => TrackActions.playInQueue(
+                        context, ref, TrackActions.likedQueue(ordered), i),
                     onToggleLike: () =>
                         TrackActions.toggleLike(context, ref, ordered[i]),
                     onMore: () =>

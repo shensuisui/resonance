@@ -450,7 +450,10 @@ class _UiV2QueueSheetBodyState extends ConsumerState<UiV2QueueSheetBody> {
   Widget build(BuildContext context) {
     final t = UiV2Theme.of(context);
     // 队列是 core 的 Song 列表（queueProvider），不再从配表还原曲目
-    final queue = ref.watch(queueProvider);
+    final queueState = ref.watch(queueProvider);
+    final queue = queueState.songs;
+    // 歌单即队列：非"最近播放"的队列只读（改队列就等于改歌单）
+    final editable = queueState.editable;
     final currentKey = ref.watch(currentTrackIdProvider);
     final mode = ref.watch(playModeProvider);
     final shuffle = ref.watch(shuffleProvider);
@@ -482,23 +485,29 @@ class _UiV2QueueSheetBodyState extends ConsumerState<UiV2QueueSheetBody> {
           children: [
             Expanded(
               child: Text(
-                '${queue.length} 首 · $modeText',
+                // 队列必须有身份：标题带上来源（默认1 / 最近播放 / 我喜欢的音乐…）
+                '${queueState.title} · ${queue.length} 首 · $modeText',
                 style: UiV2Text.hint.copyWith(color: t.textDim),
               ),
             ),
-            UiV2GhostMini(
-              label: '清空队列',
-              onTap: () {
-                // clearQueue 默认保留当前播放的那首（keepCurrent），与原型口径一致
-                ref.read(playbackControllerProvider).clearQueue();
-                _toast(ref, currentKey == null ? '队列已清空' : '已清空队列（保留正在播放的这首）');
-              },
-            ),
+            if (editable)
+              UiV2GhostMini(
+                label: '清空队列',
+                onTap: () {
+                  // clearQueue 默认保留当前播放的那首（keepCurrent），与原型口径一致
+                  ref.read(playbackControllerProvider).clearQueue();
+                  _toast(ref,
+                      currentKey == null ? '队列已清空' : '已清空队列（保留正在播放的这首）');
+                },
+              ),
           ],
         ),
         const SizedBox(height: UiV2Spacing.s3),
         Text(
-          '拖动左侧把手调整顺序，向左滑动可移除（2 秒内可撤销）。队列不持久化，重启后为空。',
+          editable
+              ? '拖动左侧把手调整顺序，移除后 2 秒内可撤销。'
+              : '这个队列来自「${queueState.title}」，顺序与内容跟随它本身；'
+                  '要调整请到对应页面操作。',
           style: UiV2Text.hint.copyWith(color: t.textDim),
         ),
         const SizedBox(height: UiV2Spacing.s3),
@@ -529,22 +538,32 @@ class _UiV2QueueSheetBodyState extends ConsumerState<UiV2QueueSheetBody> {
               song,
               catalogDuration: _metaOf(catalogTracks, song)?.duration,
             );
-            return ReorderableDragStartListener(
-              key: ValueKey('${key}_$index'),
+            final row = _QueueRow(
               index: index,
-              child: _QueueRow(
-                index: index,
-                title: song.title,
-                artist: song.artist,
-                cover: cover,
-                isCurrent: isCurrent,
-                isPlaying: isCurrent && playing,
-                isPending: isCurrent && pendingKey == key,
-                duration: duration,
-                onTap: () => ref.read(playbackControllerProvider).jumpTo(index),
-                onRemove: isCurrent ? null : () => _removeAt(context, ref, index, song),
-              ),
+              title: song.title,
+              artist: song.artist,
+              cover: cover,
+              isCurrent: isCurrent,
+              isPlaying: isCurrent && playing,
+              isPending: isCurrent && pendingKey == key,
+              duration: duration,
+              onTap: () => ref.read(playbackControllerProvider).jumpTo(index),
+              // 只读队列不提供移除（避免"在队列里删一首"意外改掉歌单）
+              onRemove: (!editable || isCurrent)
+                  ? null
+                  : () => _removeAt(context, ref, index, song),
             );
+            // 只读队列不给拖拽把手（ReorderableListView 仍需要 key）
+            return editable
+                ? ReorderableDragStartListener(
+                    key: ValueKey('${key}_$index'),
+                    index: index,
+                    child: row,
+                  )
+                : KeyedSubtree(
+                    key: ValueKey('${key}_$index'),
+                    child: row,
+                  );
           },
         ),
       ],
@@ -963,11 +982,9 @@ class _TrackMenuActions extends ConsumerWidget {
     final title = song.title;
     final meta = _metaOf(ref.watch(catalogTracksProvider), song);
     final liked = ref.watch(likedProvider).any((r) => r.songKey == key);
-    final inQueue = ref.watch(queueProvider).any((s) => s.globalKey == key);
+    final inQueue = ref.watch(queueProvider).songs.any((s) => s.globalKey == key);
     // 统一回落：配表 → 快照 → 元数据缓存
     final cover = resolveSongCover(ref, song, catalogCover: meta?.cover);
-    // Song.album 是专辑名：真实能力只有名字（没有 id），作为路由参数足够；为空则禁用该项
-    final albumParam = song.album ?? '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1007,8 +1024,17 @@ class _TrackMenuActions extends ConsumerWidget {
           label: '立即播放',
           onTap: () async {
             Navigator.of(context).maybePop();
-            // 源没给播放地址时 playSong 返回 false，由 TrackActions 统一提示
-            await TrackActions.play(context, ref, song);
+            // 队列纪律：它就在当前队列里 → 跳过去；不在（菜单从别处打开）→
+            // 按单曲入口记入最近播放并切过去。绝不"追加到队尾"了事。
+            final index = ref
+                .read(queueProvider)
+                .songs
+                .indexWhere((s) => s.globalKey == song.globalKey);
+            if (index >= 0) {
+              await ref.read(playbackControllerProvider).jumpTo(index);
+            } else {
+              await TrackActions.playAsRecent(context, ref, song);
+            }
           },
         ),
         UiV2ActionRow(
@@ -1018,20 +1044,6 @@ class _TrackMenuActions extends ConsumerWidget {
             ref.read(playbackControllerProvider).playNextUp(song);
             Navigator.of(context).maybePop();
             _toast(ref, '已设为下一首播放');
-          },
-        ),
-        UiV2ActionRow(
-          icon: UiV2Icons.queue,
-          label: '加入播放队列',
-          onTap: () {
-            if (inQueue) {
-              Navigator.of(context).maybePop();
-              _toast(ref, '队列里已经有「$title」');
-              return;
-            }
-            ref.read(playbackControllerProvider).addToQueue(song);
-            Navigator.of(context).maybePop();
-            _toast(ref, '已加入播放队列');
           },
         ),
         UiV2ActionRow(
@@ -1061,18 +1073,6 @@ class _TrackMenuActions extends ConsumerWidget {
               onRemove!();
             },
           ),
-        UiV2ActionRow(
-          icon: UiV2Icons.disc,
-          label: '查看专辑',
-          hint: albumParam.isEmpty ? '这首曲子没有专辑信息' : albumParam,
-          // 专辑名缺失时没有可跳转的目标，禁用比跳到空页面好
-          onTap: albumParam.isEmpty
-              ? null
-              : () {
-                  Navigator.of(context).maybePop();
-                  ref.read(navProvider.notifier).go('album', albumParam);
-                },
-        ),
         _DownloadActionRow(song: song, title: title),
         UiV2ActionRow(
           icon: UiV2Icons.share,

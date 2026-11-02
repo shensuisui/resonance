@@ -55,8 +55,6 @@ export 'src/widgets/page_shell.dart';
 export 'src/widgets/track_actions.dart';
 
 // 页面
-export 'src/pages/album_page.dart';
-export 'src/pages/artist_page.dart';
 export 'src/pages/downloads_page.dart';
 export 'src/pages/folder_page.dart';
 export 'src/pages/home_page.dart';

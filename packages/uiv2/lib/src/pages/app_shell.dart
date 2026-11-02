@@ -18,8 +18,6 @@ import '../components/rows.dart';
 import '../components/surfaces.dart';
 import '../design/icons.dart';
 import '../design/tokens.dart';
-import '../pages/album_page.dart';
-import '../pages/artist_page.dart';
 import '../pages/downloads_page.dart';
 import '../pages/folder_page.dart';
 import '../pages/home_page.dart';
@@ -153,8 +151,6 @@ class _RoutedView extends StatelessWidget {
 
   Widget _buildSub(NavEntry entry) {
     return switch (entry.name) {
-      'album' => AlbumPage(albumId: entry.param),
-      'artist' => ArtistPage(artistName: entry.param),
       'playlist' => PlaylistPage(playlistId: entry.param),
       'playlists' => const PlaylistsPage(),
       'folder' => FolderPage(folderName: entry.param),

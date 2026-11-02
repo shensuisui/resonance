@@ -102,7 +102,8 @@ class _PlaylistGridCard extends ConsumerWidget {
         // 播放整张歌单：快照优先，缺元数据的回源补
         final songs = await ref.read(playlistActionsProvider).songsOf(playlist);
         if (!context.mounted) return;
-        await TrackActions.playAll(context, ref, songs);
+        await TrackActions.playQueueAll(
+        context, ref, TrackActions.playlistQueue(playlist, songs));
       },
     );
   }

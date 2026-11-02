@@ -343,48 +343,48 @@ void main() {
       final notifier = container.read(queueProvider.notifier);
       notifier.append(song('a'));
       notifier.append(song('b'));
-      expect(container.read(queueProvider).map((s) => s.id), ['a', 'b']);
+      expect(container.read(queueProvider).songs.map((s) => s.id), ['a', 'b']);
     });
 
     test('insertAt 插入并 clamp 越界下标', () {
       final notifier = container.read(queueProvider.notifier);
-      notifier.set([song('a'), song('b')]);
+      notifier.setSongs([song('a'), song('b')]);
       notifier.insertAt(1, song('c'));
-      expect(container.read(queueProvider).map((s) => s.id), ['a', 'c', 'b']);
+      expect(container.read(queueProvider).songs.map((s) => s.id), ['a', 'c', 'b']);
       // 越界：clamp 到末尾
       notifier.insertAt(99, song('d'));
-      expect(container.read(queueProvider).map((s) => s.id),
+      expect(container.read(queueProvider).songs.map((s) => s.id),
           ['a', 'c', 'b', 'd']);
     });
 
     test('removeAt 移除并返回被移除歌曲；越界返回 null', () {
       final notifier = container.read(queueProvider.notifier);
-      notifier.set([song('a'), song('b'), song('c')]);
+      notifier.setSongs([song('a'), song('b'), song('c')]);
       final removed = notifier.removeAt(1);
       expect(removed!.id, 'b');
-      expect(container.read(queueProvider).map((s) => s.id), ['a', 'c']);
+      expect(container.read(queueProvider).songs.map((s) => s.id), ['a', 'c']);
       expect(notifier.removeAt(99), isNull);
       expect(notifier.removeAt(-1), isNull);
     });
 
     test('move 移动到新下标（含 clamp）', () {
       final notifier = container.read(queueProvider.notifier);
-      notifier.set([song('a'), song('b'), song('c'), song('d')]);
+      notifier.setSongs([song('a'), song('b'), song('c'), song('d')]);
       notifier.move(0, 2); // a 移到下标 2
-      expect(container.read(queueProvider).map((s) => s.id),
+      expect(container.read(queueProvider).songs.map((s) => s.id),
           ['b', 'c', 'a', 'd']);
       notifier.move(3, 99); // clamp 到末尾
-      expect(container.read(queueProvider).map((s) => s.id),
+      expect(container.read(queueProvider).songs.map((s) => s.id),
           ['b', 'c', 'a', 'd']);
-      expect(container.read(queueProvider).last.id, 'd');
+      expect(container.read(queueProvider).songs.last.id, 'd');
       // 非法 from 无副作用
       notifier.move(99, 0);
-      expect(container.read(queueProvider).length, 4);
+      expect(container.read(queueProvider).songs.length, 4);
     });
 
     test('containsKey 按全局键判断', () {
       final notifier = container.read(queueProvider.notifier);
-      notifier.set([song('a')]);
+      notifier.setSongs([song('a')]);
       expect(notifier.containsKey('demo_catalog:a'), isTrue);
       expect(notifier.containsKey('demo_catalog:zz'), isFalse);
     });

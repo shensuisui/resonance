@@ -224,7 +224,8 @@ class _OwnedPlaylistCard extends ConsumerWidget {
       showUiV2Toast(context, '这个歌单还没有歌曲');
       return;
     }
-    await TrackActions.playAll(context, ref, songs);
+    await TrackActions.playQueueAll(
+        context, ref, TrackActions.playlistQueue(playlist, songs));
   }
 }
 
@@ -272,7 +273,8 @@ class _FavoritePlaylistsBody extends ConsumerWidget {
       showUiV2Toast(context, '这个歌单暂时没有曲目');
       return;
     }
-    await TrackActions.playAll(context, ref, songs);
+    await TrackActions.playQueueAll(
+        context, ref, TrackActions.playlistQueue(p, songs));
   }
 }
 
@@ -439,7 +441,8 @@ class _SourcePlaylistCard extends ConsumerWidget {
       showUiV2Toast(context, '这个歌单暂时没有曲目');
       return;
     }
-    await TrackActions.playAll(context, ref, songs);
+    await TrackActions.playQueueAll(
+        context, ref, TrackActions.playlistQueue(playlist, songs));
   }
 }
 
@@ -554,11 +557,20 @@ class _DownloadedBodyState extends ConsumerState<_DownloadedBody> {
                       UiV2AlbumCard(
                         album: album,
                         width: double.infinity,
-                        // 下载视图没有专辑详情入口：点卡片直接播这一组
-                        onTap: () =>
-                            TrackActions.playAll(context, ref, album.songs),
-                        onPlay: () =>
-                            TrackActions.playAll(context, ref, album.songs),
+                        // 下载视图没有专辑详情入口：点卡片播这一组的第一首
+                        // （已下载属于"非列表入口" → 记入最近播放并切过去）
+                        onTap: () {
+                          if (album.songs.isNotEmpty) {
+                            TrackActions.playAsRecent(
+                                context, ref, album.songs.first);
+                          }
+                        },
+                        onPlay: () {
+                          if (album.songs.isNotEmpty) {
+                            TrackActions.playAsRecent(
+                                context, ref, album.songs.first);
+                          }
+                        },
                       ),
                   ],
                 ),
@@ -575,8 +587,8 @@ class _DownloadedBodyState extends ConsumerState<_DownloadedBody> {
                           meta: meta[local[i].id],
                           index: i,
                           showArt: true,
-                          onTap: () =>
-                              TrackActions.playAt(context, ref, local, i),
+                          onTap: () => TrackActions.playAsRecent(
+                              context, ref, local[i]),
                           onToggleLike: () =>
                               TrackActions.toggleLike(context, ref, local[i]),
                           onMore: () => showTrackMenu(

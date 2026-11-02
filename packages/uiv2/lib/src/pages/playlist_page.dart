@@ -121,27 +121,16 @@ class _PlaylistBody extends ConsumerWidget {
                 label: '播放',
                 icon: UiV2Icons.play,
                 variant: UiV2ButtonVariant.primary,
-                onTap: () => TrackActions.playAll(context, ref, songs),
+                onTap: () => TrackActions.playQueueAll(
+                    context, ref, TrackActions.playlistQueue(playlist, songs)),
               ),
               UiV2Button(
                 label: '随机播放',
                 icon: UiV2Icons.shuffle,
                 variant: UiV2ButtonVariant.soft,
-                onTap: () => TrackActions.shuffleAll(context, ref, songs),
+                onTap: () => TrackActions.shuffleQueueAll(
+                    context, ref, TrackActions.playlistQueue(playlist, songs)),
               ),
-              if (songs.isNotEmpty)
-                UiV2Button(
-                  label: '加入队列',
-                  icon: UiV2Icons.queue,
-                  variant: UiV2ButtonVariant.outline,
-                  onTap: () {
-                    final added = TrackActions.addAllToQueue(ref, songs);
-                    showUiV2Toast(
-                      context,
-                      added > 0 ? '已加入 $added 首到播放队列' : '这些歌曲已经在队列里了',
-                    );
-                  },
-                ),
               if (isRemote)
                 UiV2Button(
                   label: favorited != null ? '已收藏' : '收藏歌单',
@@ -258,8 +247,11 @@ class _PlaylistBody extends ConsumerWidget {
                           meta: ref.watch(catalogTracksProvider)[songs[i].id],
                           index: i,
                           showArt: true,
-                          onTap: () =>
-                              TrackActions.playAt(context, ref, songs, i),
+                          onTap: () => TrackActions.playInQueue(
+                              context,
+                              ref,
+                              TrackActions.playlistQueue(playlist, songs),
+                              i),
                           onToggleLike: () =>
                               TrackActions.toggleLike(context, ref, songs[i]),
                           onMore: () => showTrackMenu(
@@ -602,7 +594,8 @@ Future<void> _playPlaylist(
     showUiV2Toast(context, '「${playlist.name}」还没有歌曲', info: true);
     return;
   }
-  await TrackActions.playAll(context, ref, songs);
+  await TrackActions.playQueueAll(
+      context, ref, TrackActions.playlistQueue(playlist, songs));
 }
 
 /// 歌单副标题：首数 + 更新时间

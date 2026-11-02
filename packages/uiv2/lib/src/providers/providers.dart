@@ -135,7 +135,7 @@ final currentSongProvider = Provider<Song?>((ref) {
   // ② 队列里的同一个 Song：队列里放的是完整对象（标题/艺人/封面都在）。
   // 只走 resolver 的话，远程源会先给一个「标题=id」的占位，异步补齐后又不通知，
   // 表现就是播放页标题显示成一串数字、封面空白。
-  for (final song in ref.watch(queueProvider)) {
+  for (final song in ref.watch(queueProvider).songs) {
     if (song.globalKey == id) return song;
   }
   return ref.watch(songResolverProvider)(id);
@@ -994,48 +994,135 @@ final currentTrackIdProvider =
     NotifierProvider<CurrentTrackNotifier, String?>(CurrentTrackNotifier.new);
 
 /// 播放队列（[Song] 列表，与底层播放器保持同步）
-class QueueNotifier extends Notifier<List<Song>> {
+/// 播放队列的种类
+enum PlayQueueKind {
+  /// 最近播放（点搜索候选/首页单曲等"非列表"入口都进这里）
+  recent,
+
+  /// 歌单（自建 / 远程收藏 / 我喜欢 都各自是一张歌单式队列）
+  playlist,
+
+  /// 我喜欢的音乐
+  liked,
+
+  /// 本地音乐
+  local,
+}
+
+/// 一个播放队列
+///
+/// 规则（用户定）：所有播放都发生在某个队列里 —— 当一首歌在播时它必然属于
+/// 某个队列；上一首/下一首/播放模式都跟队列走。所以队列不能只是一串曲目，
+/// 还必须知道**它来自哪**（哪一类、哪一张、叫什么），列表页点行时才谈得上
+/// "成功起播后把当前队列换成它"。
+class PlayQueue {
+  /// 队列种类
+  final PlayQueueKind kind;
+
+  /// 歌单 id（[PlayQueueKind.playlist] 用）
+  final String? id;
+
+  /// 展示名：「默认1」「最近播放」「我喜欢的音乐」「本地音乐」
+  final String title;
+
+  /// 队列曲目
+  final List<Song> songs;
+
+  /// 构造
+  const PlayQueue({
+    required this.kind,
+    required this.title,
+    this.id,
+    this.songs = const [],
+  });
+
+  /// 是否为空
+  bool get isEmpty => songs.isEmpty;
+
+  /// 曲目数
+  int get length => songs.length;
+
+  /// 是否允许在队列面板里编辑（拖拽/移除/清空）
+  ///
+  /// 歌单即队列：编辑队列就等于编辑歌单（删一首真的会把歌单里的歌删掉），
+  /// 风险太大 —— 因此**歌单类队列只读**；只有最近播放可以编辑。
+  bool get editable => kind == PlayQueueKind.recent;
+
+  /// 复制（改标题或曲目，身份不变）
+  PlayQueue copyWith({String? title, List<Song>? songs}) => PlayQueue(
+        kind: kind,
+        id: id,
+        title: title ?? this.title,
+        songs: songs ?? this.songs,
+      );
+
   @override
-  List<Song> build() => const [];
+  String toString() => 'PlayQueue(' + kind.name + ', ' + title + ', ' +
+      songs.length.toString() + ' 首)';
+}
 
-  /// 覆盖队列
-  void set(List<Song> songs) => state = List.of(songs);
+class QueueNotifier extends Notifier<PlayQueue> {
+  @override
+  PlayQueue build() => const PlayQueue(
+        kind: PlayQueueKind.recent,
+        title: '最近播放',
+      );
 
-  /// 追加到队尾
-  void append(Song song) => state = [...state, song];
+  /// 换队列（**只在起播成功后**由 PlaybackController.playInQueue 调用）
+  void setQueue(PlayQueue next) => state = next;
+
+  /// 只同步曲目（播放器队列跟随变化：面板编辑、自动续播等）
+  ///
+  /// 曲目顺序完全一致时**不写 state**：否则每次换曲都会白白重建队列面板。
+  void setSongs(List<Song> songs) {
+    if (songs.length == state.songs.length) {
+      var same = true;
+      for (var i = 0; i < songs.length; i++) {
+        if (songs[i].globalKey != state.songs[i].globalKey) {
+          same = false;
+          break;
+        }
+      }
+      if (same) return;
+    }
+    state = state.copyWith(songs: songs);
+  }
+
+  /// 追加到队尾（队列身份不变）
+  void append(Song song) => state = state.copyWith(songs: [...state.songs, song]);
 
   /// 插入到指定下标
   void insertAt(int index, Song song) {
-    final next = List.of(state);
+    final next = List.of(state.songs);
     next.insert(index.clamp(0, next.length), song);
-    state = next;
+    state = state.copyWith(songs: next);
   }
 
   /// 移除指定下标（返回被移除的歌曲）
   Song? removeAt(int index) {
-    if (index < 0 || index >= state.length) return null;
-    final next = List.of(state);
+    if (index < 0 || index >= state.songs.length) return null;
+    final next = List.of(state.songs);
     final removed = next.removeAt(index);
-    state = next;
+    state = state.copyWith(songs: next);
     return removed;
   }
 
   /// 移动到新下标
   void move(int from, int to) {
-    if (from < 0 || from >= state.length) return;
-    final next = List.of(state);
+    if (from < 0 || from >= state.songs.length) return;
+    final next = List.of(state.songs);
     final moving = next.removeAt(from);
     next.insert(to.clamp(0, next.length), moving);
-    state = next;
+    state = state.copyWith(songs: next);
   }
 
   /// 某首歌是否在队列里
   bool containsKey(String songKey) =>
-      state.any((s) => s.globalKey == songKey);
+      state.songs.any((s) => s.globalKey == songKey);
 }
 
 /// 队列 Provider
-final queueProvider = NotifierProvider<QueueNotifier, List<Song>>(QueueNotifier.new);
+final queueProvider = NotifierProvider<QueueNotifier, PlayQueue>(QueueNotifier.new);
 
 /// 是否正在播放
 class IsPlayingNotifier extends Notifier<bool> {
@@ -1303,7 +1390,7 @@ final playerStreamBindingProvider = Provider<void>((ref) {
       // 同时留住完整对象：换队列后"在播的那首"可能不在队列里，
       // 只有 id 就会退化成「标题=id」的占位（真机：播放条标题显示成 "2"）
       ref.read(playerCurrentSongProvider.notifier).set(song);
-      ref.read(queueProvider.notifier).set(player.queue);
+      ref.read(queueProvider.notifier).setSongs(player.queue);
       // 曲目一开始播就去取歌词并落库（点播/上一首/下一首/跳转/自动续播都走这里）：
       // 这样"打开歌词"时是直接读缓存，断网或源失效也还有词。
       // 旧实现要等歌词面板挂载才请求，即"显示时才取"，不满足离线要求。
@@ -1407,7 +1494,7 @@ class PlaybackController {
     unawaited(ref.read(songMetadataServiceProvider).enrich(playable));
     ref.read(currentTrackIdProvider.notifier).set(playable.globalKey);
     ref.read(isPlayingProvider.notifier).set(true);
-    ref.read(queueProvider.notifier).set(_player.queue);
+    // 队列身份与曲目由 playInQueue（起播成功后）负责，这里不再写队列
     await ref.read(recentProvider.notifier).record(playable);
   }
 
@@ -1451,19 +1538,30 @@ class PlaybackController {
     ref.read(pendingCaptchaProvider.notifier).set(null);
   }
 
-  /// 用队列替换播放器队列并从指定位置开始播放
-  Future<bool> playQueue(List<Song> songs, {int startIndex = 0}) async {
-    if (songs.isEmpty) return false;
-    _player.setQueue(songs);
-    ref.read(queueProvider.notifier).set(songs);
-    return playSong(songs[startIndex.clamp(0, songs.length - 1)]);
+  /// **切换队列并播放（唯一入口）**
+  ///
+  /// 纪律：起播**成功后**才把当前队列换成 [queue] —— 否则点一首播不出来的歌，
+  /// 会连"在播的那首属于哪个队列"一起搞错（与之前修过的"失败不该动在播曲目"
+  /// 同源）。失败时把播放器队列恢复成原队列，保证在播的歌始终在它自己的队列里。
+  Future<bool> playInQueue(PlayQueue queue, {int startIndex = 0}) async {
+    if (queue.isEmpty) return false;
+    final i = startIndex.clamp(0, queue.length - 1);
+    final previous = ref.read(queueProvider);
+    _player.setQueue(queue.songs);
+    final started = await playSong(queue.songs[i]);
+    if (!started) {
+      _player.setQueue(previous.songs);
+      return false;
+    }
+    ref.read(queueProvider.notifier).setQueue(queue);
+    return true;
   }
 
-  /// 随机顺序播放
-  Future<bool> shuffleQueue(List<Song> songs) async {
-    if (songs.isEmpty) return false;
-    final shuffled = List.of(songs)..shuffle();
-    return playQueue(shuffled);
+  /// 随机播放一个队列：打乱交给播放器的随机模式，**队列身份不变**
+  Future<bool> shuffleInQueue(PlayQueue queue) async {
+    if (queue.isEmpty) return false;
+    await ref.read(shuffleProvider.notifier).set(true);
+    return playInQueue(queue);
   }
 
   /// 跳转到队列下标并播放
@@ -1520,10 +1618,15 @@ class PlaybackController {
   }
 
   /// 追加到队尾（同步播放器队列与 UI 队列）
-  void addToQueue(Song song) {
+  ///
+  /// 只对**可编辑队列**生效（最近播放）。歌单即队列：往歌单队列里追加一首歌
+  /// 等于悄悄改歌单，必须由"添加到歌单"这类显式动作来做。
+  bool addToQueue(Song song) {
+    if (!ref.read(queueProvider).editable) return false;
     final next = [..._player.queue, song];
     _player.setQueue(next);
-    ref.read(queueProvider.notifier).set(next);
+    ref.read(queueProvider.notifier).setSongs(next);
+    return true;
   }
 
   /// 插入到当前曲目之后
@@ -1532,16 +1635,17 @@ class PlaybackController {
     final at = ref.read(currentTrackIdProvider) == null ? 0 : _player.currentIndex + 1;
     queue.insert(at.clamp(0, queue.length), song);
     _player.setQueue(queue);
-    ref.read(queueProvider.notifier).set(queue);
+    ref.read(queueProvider.notifier).setSongs(queue);
   }
 
   /// 从队列移除下标（返回被移除的歌曲）
   Song? removeFromQueue(int index) {
     final queue = List.of(_player.queue);
     if (index < 0 || index >= queue.length) return null;
+    if (!ref.read(queueProvider).editable) return null;
     final removed = queue.removeAt(index);
     _player.setQueue(queue);
-    ref.read(queueProvider.notifier).set(queue);
+    ref.read(queueProvider.notifier).setSongs(queue);
     return removed;
   }
 
@@ -1549,10 +1653,11 @@ class PlaybackController {
   void reorderQueue(int from, int to) {
     final queue = List.of(_player.queue);
     if (from < 0 || from >= queue.length) return;
+    if (!ref.read(queueProvider).editable) return;
     final moving = queue.removeAt(from);
     queue.insert(to.clamp(0, queue.length), moving);
     _player.setQueue(queue);
-    ref.read(queueProvider.notifier).set(queue);
+    ref.read(queueProvider.notifier).setSongs(queue);
   }
 
   /// 清空队列（默认保留当前播放的那首）
@@ -1561,8 +1666,9 @@ class PlaybackController {
     final kept = keepCurrent
         ? _player.queue.where((s) => s.globalKey == currentKey).toList()
         : <Song>[];
+    if (!ref.read(queueProvider).editable) return;
     _player.setQueue(kept);
-    ref.read(queueProvider.notifier).set(kept);
+    ref.read(queueProvider.notifier).setSongs(kept);
   }
 }
 

@@ -56,8 +56,6 @@ bool isRootRoute(String name) => kRootRoutes.contains(name);
 
 /// 二级页面的上一级（原型 PARENT_ROUTE）
 const Map<String, String> kParentRoute = {
-  'album': 'library',
-  'artist': 'search',
   'playlist': 'library',
   'playlists': 'library',
   'folder': 'local',
@@ -92,9 +90,7 @@ const Map<String, String> kRouteTitles = {
 const Map<String, String> kNavFor = {
   'liked': 'liked',
   'local': 'local',
-  'album': 'library',
   'playlist': 'library',
-  'artist': 'library',
   'playlists': 'library',
   'recent': 'home',
   'downloads': 'profile',

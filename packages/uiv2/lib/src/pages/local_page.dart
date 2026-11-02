@@ -198,6 +198,7 @@ Widget localTrackRow(
   WidgetRef ref,
   Song song,
   int index,
+  List<Song> songs,
 ) {
   return UiV2SongRow(
     song: song,
@@ -205,7 +206,9 @@ Widget localTrackRow(
     showArt: song.coverUrl != null && song.coverUrl!.isNotEmpty,
     subtitleOverride: song.artist.isEmpty ? '本地文件' : null,
     sourceNameOverride: '本地',
-    onTap: () => TrackActions.play(context, ref, song),
+    // 本地音乐是一个队列：点行 = 切到本地音乐队列并从这一首开始
+    onTap: () => TrackActions.playInQueue(
+        context, ref, TrackActions.localQueue(songs), index),
     onToggleLike: () => TrackActions.toggleLike(context, ref, song),
     onMore: () => showTrackMenu(context, song: song),
   );

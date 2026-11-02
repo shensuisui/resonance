@@ -71,7 +71,8 @@ class RecentPage extends ConsumerWidget {
                       meta: meta[songs[i].id],
                       index: i,
                       showArt: true,
-                      onTap: () => TrackActions.playAt(context, ref, songs, i),
+                      onTap: () => TrackActions.playInQueue(context, ref,
+                          TrackActions.recentQueue(songs), i),
                       onToggleLike: () =>
                           TrackActions.toggleLike(context, ref, songs[i]),
                       onMore: () =>

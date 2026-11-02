@@ -68,7 +68,7 @@ class FolderPage extends ConsumerWidget {
             child: UiV2TrackList(
               rows: [
                 for (var i = 0; i < folder.songs.length; i++)
-                  localTrackRow(context, ref, folder.songs[i], i),
+                  localTrackRow(context, ref, folder.songs[i], i, folder.songs),
               ],
             ),
           ),

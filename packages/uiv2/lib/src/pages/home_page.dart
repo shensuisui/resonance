@@ -104,13 +104,10 @@ class _RecentCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cover = resolveSongCover(ref, song, catalogCover: meta?.cover);
-    // 专辑 id 只有配表曲目才有：拿不到就退化成「点一下播放」，
-    // 而不是跳到一个解析不出专辑的空详情页。
-    final albumId = meta?.albumId ?? '';
-    // 显式标注成 VoidCallback：两个分支的返回值（Future）都会被丢弃
-    final VoidCallback onCardTap = albumId.isEmpty
-        ? () => TrackActions.play(context, ref, song)
-        : () => ref.read(navProvider.notifier).go('album', albumId);
+    // 单曲入口：进最近播放队列（专辑页已移除，卡片点击就是播放）
+    // 显式标注成 VoidCallback：返回值（Future）会被丢弃
+    final VoidCallback onCardTap =
+        () => TrackActions.playAsRecent(context, ref, song);
     final title = song.title.isEmpty ? '（未知曲目）' : song.title;
 
     return UiV2CardShell(
@@ -118,7 +115,7 @@ class _RecentCard extends ConsumerWidget {
       art: UiV2CardArt(
         child: UiV2Cover(source: cover, size: double.infinity),
         onTap: onCardTap,
-        onPlay: () => TrackActions.play(context, ref, song),
+        onPlay: () => TrackActions.playAsRecent(context, ref, song),
         playLabel: '播放：$title',
         semanticLabel: [song.album ?? '', song.artist]
             .where((s) => s.isNotEmpty)
@@ -283,7 +280,8 @@ class _OwnedPlaylistCard extends ConsumerWidget {
       showUiV2Toast(context, '这个歌单还没有歌曲');
       return;
     }
-    await TrackActions.playAll(context, ref, songs);
+    await TrackActions.playQueueAll(
+        context, ref, TrackActions.playlistQueue(playlist, songs));
   }
 }
 
@@ -442,7 +440,7 @@ Widget _songList(
               meta: meta[songs[i].id],
               index: i,
               showArt: true,
-              onTap: () => TrackActions.playAt(context, ref, songs, i),
+              onTap: () => TrackActions.playAsRecent(context, ref, songs[i]),
               onToggleLike: () =>
                   TrackActions.toggleLike(context, ref, songs[i]),
               onMore: () => showTrackMenu(context, song: songs[i]),
