@@ -48,37 +48,35 @@ class SettingsPage extends ConsumerWidget {
                 children: [
                   // 窄屏放不下「三段控件 + 标签」：会把标签挤成竖排碎字（414px 实测）。
                   // 窄屏把控件换行到标签下方，宽屏才并排。
-                  UiV2ListRow(
-                    label: '主题模式',
-                    hint: '深色为原型默认，浅色为完整对偶主题',
-                    divider: MediaQuery.sizeOf(context).width < UiV2Breakpoints.wide,
-                    leading: const UiV2FolderIcon(),
-                    trailing: MediaQuery.sizeOf(context).width < UiV2Breakpoints.wide
-                        ? null
-                        : UiV2Segmented(
-                            options: const [('system', '跟随系统'), ('light', '浅色'), ('dark', '深色')],
-                            value: switch (themeMode) {
-                              ThemeMode.light => 'light',
-                              ThemeMode.dark => 'dark',
-                              ThemeMode.system => 'system',
-                            },
-                            onChanged: (value) => _setThemeMode(ref, value),
-                          ),
-                  ),
-                  if (MediaQuery.sizeOf(context).width < UiV2Breakpoints.wide)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        UiV2Spacing.s4, 0, UiV2Spacing.s4, UiV2Spacing.s3),
-                      child: UiV2Segmented(
-                        options: const [('system', '跟随系统'), ('light', '浅色'), ('dark', '深色')],
+                  Builder(
+                    builder: (context) {
+                      final narrow =
+                          MediaQuery.sizeOf(context).width < UiV2Breakpoints.wide;
+                      final segmented = UiV2Segmented(
+                        options: const [
+                          ('system', '跟随系统'),
+                          ('light', '浅色'),
+                          ('dark', '深色'),
+                        ],
                         value: switch (themeMode) {
                           ThemeMode.light => 'light',
                           ThemeMode.dark => 'dark',
                           ThemeMode.system => 'system',
                         },
                         onChanged: (value) => _setThemeMode(ref, value),
-                      ),
-                    ),
+                      );
+                      // 窄屏：三段控件换行到说明文字下方（作为行内 below，
+                      // 自动与文字左对齐，且不再插分隔线）；宽屏并排在右侧。
+                      return UiV2ListRow(
+                        label: '主题模式',
+                        hint: '深色为原型默认，浅色为完整对偶主题',
+                        leading: const UiV2FolderIcon(),
+                        divider: false,
+                        trailing: narrow ? null : segmented,
+                        below: narrow ? segmented : null,
+                      );
+                    },
+                  ),
                 ],
               ),
             ),

@@ -556,6 +556,12 @@ class UiV2ListRow extends StatelessWidget {
   /// 尾部控件
   final Widget? trailing;
 
+  /// 行内下方内容（窄屏放不下一行时用：如换行到说明文字下面的分段控件）
+  ///
+  /// 放在这里而不是"行外再包一段"，是为了自动与标签文字左对齐、
+  /// 且不会在行与控件之间插一条分隔线（真机上那样看起来又挤又歪）。
+  final Widget? below;
+
   /// 点击回调
   final VoidCallback? onTap;
 
@@ -570,6 +576,7 @@ class UiV2ListRow extends StatelessWidget {
     this.hintColor,
     this.leading,
     this.trailing,
+    this.below,
     this.onTap,
     this.divider = true,
   });
@@ -616,6 +623,10 @@ class UiV2ListRow extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
+                  if (below != null) ...[
+                    const SizedBox(height: UiV2Spacing.s3),
+                    below!,
+                  ],
                 ],
               ),
             ),
