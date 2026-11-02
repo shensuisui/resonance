@@ -63,15 +63,27 @@ void main() {
     expect(find.text('收藏'), findsOneWidget);
     expect(find.byKey(const ValueKey('liked_play_all')), findsOneWidget);
     expect(find.byKey(const ValueKey('liked_shuffle')), findsOneWidget);
+    expect(find.byType(UiV2ActionBar), findsOneWidget,
+        reason: '手机端两项动作走通栏操作栏');
   });
 
-  testWidgets('手机 444：头部明显变矮（封面顶到第一个排序 chip 不超过 260）', (tester) async {
+  testWidgets('手机 444：头部仍是精简排布 —— 统计在封面右侧，操作栏通栏在下方', (tester) async {
     await pumpAt(tester, 444);
     final coverTop = tester.getTopLeft(find.byType(LikedHeartArt)).dy;
+    final coverRight = tester.getTopRight(find.byType(LikedHeartArt)).dx;
     final chipTop = tester.getTopLeft(find.text('最近喜欢')).dy;
-    // 封面本身 220 + 上边距 s2 + 底部 s3 ≈ 248；给一点余量卡在 260
-    expect(chipTop - coverTop, lessThan(260),
-        reason: '头部高度应只由封面决定，不再叠加标题/统计/按钮那一段');
+
+    // 统计在封面右边（左右并排），不是排在封面下方
+    expect(tester.getTopLeft(find.text('收藏')).dx, greaterThan(coverRight),
+        reason: '类型/统计应在封面右侧');
+    expect(tester.getTopLeft(find.text('播放全部')).dy,
+        greaterThan(tester.getBottomLeft(find.byType(LikedHeartArt)).dy),
+        reason: '操作栏应排在信息块下方（照参考页的位置关系）');
+
+    // 相对老排布仍然明显更矮：老排布是「220 封面 + 下方再堆标题/统计/按钮」，
+    // 实测封面顶到第一个 chip 为 451px；现在封面上方到 chip 走完信息块 + 操作栏
+    expect(chipTop - coverTop, lessThan(400),
+        reason: '老排布实测 451，精简排布应明显更矮');
   });
 
   testWidgets('宽屏 1200：走 hero，但封面同样是固定心形', (tester) async {

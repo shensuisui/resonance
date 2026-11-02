@@ -95,6 +95,12 @@ class _PlaylistBody extends ConsumerWidget {
         }
       }
     }
+    // 有进度就写「继续播放」：从本队列上次的曲目与进度接着听（没有记录时等同从头播）
+    final hasProgress =
+        (ref.watch(playlistProgressProvider(playlist.id)).value?.positionMs ??
+            0) >
+        0;
+
     // 手机（< 768）用精简头部：歌名已在顶部标题栏，页面里不再重复大封面墙
     final compact = MediaQuery.sizeOf(context).width < UiV2Breakpoints.wide;
     final typeLabel = '歌单${mine ? ' · 我的' : ' · 来源歌单'}';
@@ -113,18 +119,41 @@ class _PlaylistBody extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (compact)
-            _compactHeader(
-              context,
-              ref,
-              covers: covers,
+            // 封面与文字左右并排 + 操作栏独占一行通栏（照参考页排布）
+            UiV2DetailHeader(
+              art: UiV2Mosaic(covers: covers, fallback: t.accentSoft2, radius: 0),
               type: typeLabel,
-              songCount: songs.length,
-              totalSec: totalSec,
-              mine: mine,
-              isRemote: isRemote,
-              favorited: favorited,
-              sourceId: sourceId,
-              sourcePlaylistId: sourcePlaylistId,
+              line1: '${songs.length} 首 · ${(totalSec / 60).round()} 分钟',
+              line2: '更新于 ${_formatDate(playlist.modifiedTime)}',
+              actions: [
+                UiV2ActionItem(
+                  key: const ValueKey('playlist_primary'),
+                  icon: UiV2Icons.play,
+                  label: hasProgress ? '继续播放' : '播放',
+                  onTap: () => TrackActions.resume(
+                      context, ref, TrackActions.playlistQueue(playlist, songs)),
+                ),
+                UiV2ActionItem(
+                  icon: UiV2Icons.shuffle,
+                  label: '随机播放',
+                  onTap: () => TrackActions.shuffleQueueAll(
+                      context, ref, TrackActions.playlistQueue(playlist, songs)),
+                ),
+                UiV2ActionItem(
+                  key: const ValueKey('playlist_more'),
+                  icon: UiV2Icons.more,
+                  label: '更多',
+                  onTap: () => _showCompactMenu(
+                    context,
+                    ref,
+                    mine: mine,
+                    isRemote: isRemote,
+                    favorited: favorited,
+                    sourceId: sourceId,
+                    sourcePlaylistId: sourcePlaylistId,
+                  ),
+                ),
+              ],
             )
           else
             UiV2Hero(
@@ -335,111 +364,6 @@ class _PlaylistBody extends ConsumerWidget {
   /// 手机端精简头部（方案 A）
   ///
   /// 用户要求：封面保持和原来一样大（窄屏 Hero 是 min(宽×0.56, 220)），
-  /// 靠**改排布**来降高度 —— 封面与文字左右并排，歌单名已上移到标题栏，
-  /// 类型与首数/时长分两行放在右侧，按钮压成一行。
-  /// 主按钮文案随进度变化：能续播就写「继续播放」，否则写「播放」。
-  Widget _compactHeader(
-    BuildContext context,
-    WidgetRef ref, {
-    required List<String> covers,
-    required String type,
-    required int songCount,
-    required int totalSec,
-    required bool mine,
-    required bool isRemote,
-    required Playlist? favorited,
-    required String sourceId,
-    required String sourcePlaylistId,
-  }) {
-    final t = UiV2Theme.of(context);
-    final width = MediaQuery.sizeOf(context).width;
-    // 与 UiV2Hero 的窄屏封面尺寸保持一致，不再缩小
-    final artSize = (width * 0.56).clamp(120.0, 220.0);
-    final hasProgress =
-        (ref.watch(playlistProgressProvider(playlist.id)).value?.positionMs ?? 0) >
-            0;
-
-    final queueOf = TrackActions.playlistQueue(playlist, songsOf(ref));
-    return Padding(
-      padding: const EdgeInsets.only(bottom: UiV2Spacing.s3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: artSize,
-            height: artSize,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: UiV2Radii.brLg,
-                boxShadow: t.shadow3,
-                color: t.surface2,
-              ),
-              child: ClipRRect(
-                borderRadius: UiV2Radii.brLg,
-                child: UiV2Mosaic(
-                  covers: covers,
-                  fallback: t.accentSoft2,
-                  radius: 0,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: UiV2Spacing.s4),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  type,
-                  style: UiV2Text.capsLabel.copyWith(color: t.textDim),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: UiV2Spacing.s2),
-                Text(
-                  songCount.toString() +
-                      ' 首 · ' +
-                      (totalSec / 60).round().toString() +
-                      ' 分钟',
-                  style: UiV2Text.bodyDim.copyWith(color: t.textDim),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: UiV2Spacing.s3),
-                Row(
-                  children: [
-                    UiV2Button(
-                      key: const ValueKey('playlist_primary'),
-                      label: hasProgress ? '继续播放' : '播放',
-                      icon: UiV2Icons.play,
-                      variant: UiV2ButtonVariant.primary,
-                      compact: true,
-                      onTap: () => TrackActions.resume(context, ref, queueOf),
-                    ),
-                    const SizedBox(width: UiV2Spacing.s2),
-                    UiV2IconButton(
-                      key: const ValueKey('playlist_more'),
-                      icon: UiV2Icons.more,
-                      semanticLabel: '更多歌单操作',
-                      onTap: () => _showCompactMenu(
-                        context,
-                        ref,
-                        mine: mine,
-                        isRemote: isRemote,
-                        favorited: favorited,
-                        sourceId: sourceId,
-                        sourcePlaylistId: sourcePlaylistId,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   /// 当前歌单的曲目（头部按钮用；与曲目列表同源）
   List<Song> songsOf(WidgetRef ref) {
