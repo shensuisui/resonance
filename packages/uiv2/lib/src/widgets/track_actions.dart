@@ -82,13 +82,36 @@ abstract final class TrackActions {
 
   /// **单曲入口**（搜索候选 / 首页卡片 / 推荐单曲 / 已下载）：
   /// 先记入最近播放（它成为队首），再把当前队列切成最近播放。
+  ///
+  /// 若"上次听到的正是这一首"，就接着上次的位置 —— 用户点同一首歌两次，
+  /// 期望的是继续听，而不是从 0:00 重来。播放失败时不定位（避免空地址上硬 seek）。
   static Future<bool> playAsRecent(
       BuildContext context, WidgetRef ref, Song song) async {
+    PlayProgress? saved;
+    try {
+      saved = await ref
+          .read(playProgressDaoProvider)
+          .get(PlayQueueKind.recent.name, '');
+    } catch (_) {
+      saved = null; // 读不到进度不影响播放
+    }
+
     // 记一笔：最近播放以"最近一次播放"为序，所以它就是队首
     await ref.read(recentProvider.notifier).record(song);
     final songs = ref.read(recentSongsProvider);
     final index = songs.indexWhere((s) => s.globalKey == song.globalKey);
-    return playInQueue(context, ref, recentQueue(songs), index < 0 ? 0 : index);
+    final started =
+        await playInQueue(context, ref, recentQueue(songs), index < 0 ? 0 : index);
+
+    if (started &&
+        saved != null &&
+        saved.songKey == song.globalKey &&
+        saved.positionMs > 0) {
+      await ref
+          .read(playbackControllerProvider)
+          .seekTo(Duration(milliseconds: saved.positionMs));
+    }
+    return started;
   }
 
   /// **从该队列上次的位置继续播放**（无记录则等同从头播）

@@ -439,6 +439,51 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
           ' songs=' + songs.length.toString() + ' started=' + started.toString());
       return started ? 'ok' : 'not started';
     }
+    case 'restorenow':
+      // 发版前集成检查用：手动重跑一次"启动恢复"（invalidte 会让它对同一 Ref 重跑，
+      // 这样不用重启 App 也能看到它每一步走到哪、失败在哪）
+      container.invalidate(startupResumeProvider);
+      await container.read(startupResumeProvider.future);
+      print('RESTORENOW done');
+      return 'ok';
+    case 'resumeplaylist': {
+      // 发版前集成检查用：走"歌单卡片的播放键"同一条路径（TrackActions.resume → resumeInQueue）
+      final pls = await container.read(playlistsProvider.future);
+      if (pls.isEmpty) return 'no playlist';
+      final wanted = p['id'];
+      Playlist pl = pls.first;
+      if (wanted != null && wanted.isNotEmpty) {
+        for (final e in pls) {
+          if (e.id == wanted || e.name == wanted) {
+            pl = e;
+            break;
+          }
+        }
+      }
+      final songs = await container.read(playlistSongsProvider(pl.id).future);
+      if (songs.isEmpty) return 'empty playlist ' + pl.name;
+      final saved = await container
+          .read(playbackControllerProvider)
+          .savedProgress(PlayQueue(
+            kind: PlayQueueKind.playlist,
+            id: pl.id,
+            title: pl.name,
+            songs: songs,
+          ));
+      final started = await container
+          .read(playbackControllerProvider)
+          .resumeInQueue(PlayQueue(
+            kind: PlayQueueKind.playlist,
+            id: pl.id,
+            title: pl.name,
+            songs: songs,
+          ));
+      print('RESUMEPLAYLIST name=' + pl.name +
+          ' savedSong=' + (saved?.songKey ?? 'none') +
+          ' savedMs=' + (saved?.positionMs ?? 0).toString() +
+          ' started=' + started.toString());
+      return started ? 'ok' : 'not started';
+    }
     case 'progress': {
       // 发版前集成检查用：把 play_progress 表与当前队列/进度并排回读，
       // 判断"能不能从上次继续"到底是没写、没读到、还是没恢复。

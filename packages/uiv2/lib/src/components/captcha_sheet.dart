@@ -15,7 +15,6 @@ import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 
 import '../design/motion.dart';
-import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../providers/providers.dart';

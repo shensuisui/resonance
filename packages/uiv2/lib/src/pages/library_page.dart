@@ -224,7 +224,8 @@ class _OwnedPlaylistCard extends ConsumerWidget {
       showUiV2Toast(context, '这个歌单还没有歌曲');
       return;
     }
-    await TrackActions.playQueueAll(
+    // 继续播放：有进度接着听，没有就从头
+    await TrackActions.resume(
         context, ref, TrackActions.playlistQueue(playlist, songs));
   }
 }
@@ -273,7 +274,7 @@ class _FavoritePlaylistsBody extends ConsumerWidget {
       showUiV2Toast(context, '这个歌单暂时没有曲目');
       return;
     }
-    await TrackActions.playQueueAll(
+    await TrackActions.resume(
         context, ref, TrackActions.playlistQueue(p, songs));
   }
 }
@@ -441,7 +442,7 @@ class _SourcePlaylistCard extends ConsumerWidget {
       showUiV2Toast(context, '这个歌单暂时没有曲目');
       return;
     }
-    await TrackActions.playQueueAll(
+    await TrackActions.resume(
         context, ref, TrackActions.playlistQueue(playlist, songs));
   }
 }

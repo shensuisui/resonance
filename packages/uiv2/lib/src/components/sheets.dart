@@ -982,7 +982,6 @@ class _TrackMenuActions extends ConsumerWidget {
     final title = song.title;
     final meta = _metaOf(ref.watch(catalogTracksProvider), song);
     final liked = ref.watch(likedProvider).any((r) => r.songKey == key);
-    final inQueue = ref.watch(queueProvider).songs.any((s) => s.globalKey == key);
     // 统一回落：配表 → 快照 → 元数据缓存
     final cover = resolveSongCover(ref, song, catalogCover: meta?.cover);
 

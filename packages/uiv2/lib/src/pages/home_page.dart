@@ -280,7 +280,8 @@ class _OwnedPlaylistCard extends ConsumerWidget {
       showUiV2Toast(context, '这个歌单还没有歌曲');
       return;
     }
-    await TrackActions.playQueueAll(
+    // 卡片的播放键 = 继续播放：有进度接着听，没有就从头（同一入口，不另设按钮）
+    await TrackActions.resume(
         context, ref, TrackActions.playlistQueue(playlist, songs));
   }
 }

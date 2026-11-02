@@ -157,7 +157,9 @@ void main() {
       sourceManagerProvider
           .overrideWithValue(SourceManager()..registerSource(_StubSource())),
       audioCacheProvider.overrideWithValue(_FakeCache()),
-      recentPlaysServiceProvider.overrideWithValue(_FakeRecent()),
+      // 用真实服务跑内存 DAO：最近播放队列是由数据库记录推导的，用假服务测不出真行为
+      recentPlaysServiceProvider
+          .overrideWithValue(RecentPlaysService(db.recentPlaysDao)),
     ]);
   });
 
@@ -256,6 +258,100 @@ void main() {
       expect(ok, isTrue);
       expect(container.read(currentTrackIdProvider), songA.globalKey);
       expect(player.lastSeek, isNull);
+    });
+  });
+
+  group('启动恢复（runStartupResume）', () {
+    test('歌单有进度：恢复队列并把位置摆好（不播）', () async {
+      // 真实数据：歌单 + 3 首歌，进度记在第 2 首的 1:12
+      await db.playlistDao.insertPlaylist(Playlist(
+        id: 'p1',
+        name: '默认1',
+        songKeys: const ['stub:a', 'stub:b', 'stub:c'],
+        songSnapshots: const {'stub:a': songA, 'stub:b': songB, 'stub:c': songC},
+        createdTime: DateTime(2026, 11, 2),
+        modifiedTime: DateTime(2026, 11, 2),
+      ));
+      await db.playProgressDao.upsert(PlayProgress(
+        queueKind: PlayQueueKind.playlist.name,
+        queueId: 'p1',
+        songKey: songB.globalKey,
+        positionMs: 72000,
+        updatedAt: 5,
+      ));
+
+      // 关键断言：必须能结束（曾经真机上它静默卡住/没生效）
+      await container.read(startupResumeProvider.future).timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => fail('启动恢复没能结束（卡住了？）'),
+          );
+
+      expect(container.read(queueProvider).id, 'p1');
+      expect(container.read(queueProvider).title, '默认1');
+      expect(container.read(currentTrackIdProvider), songB.globalKey);
+      expect(container.read(isPlayingProvider), isFalse, reason: '恢复但不自动出声');
+    });
+
+    test('最近播放队列：记录是异步加载的，也要恢复（不得误判为空而删进度）', () async {
+      // 最近播放的记录在启动时由 RecentNotifier 异步 load 进来；
+      // 旧实现直接读同步快照，读到空列表就当成"队列已空"删了进度。
+      await db.recentPlaysDao.insertOrUpdateRecentPlay(
+        songB.globalKey,
+        DateTime(2026, 11, 2).millisecondsSinceEpoch,
+        title: '乙',
+      );
+      await db.playProgressDao.upsert(PlayProgress(
+        queueKind: PlayQueueKind.recent.name,
+        songKey: songB.globalKey,
+        positionMs: 30000,
+        updatedAt: 5,
+      ));
+
+      await container.read(startupResumeProvider.future).timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => fail('恢复没能结束'),
+          );
+
+      expect(container.read(queueProvider).kind, PlayQueueKind.recent);
+      expect(container.read(currentTrackIdProvider), songB.globalKey);
+      expect(await db.playProgressDao.get('recent', ''), isNotNull,
+          reason: '进度不能被误删');
+    });
+
+    test('上次活跃队列以指针为准（不靠时间戳，避免队列漂移）', () async {
+      // 歌单 p1 的进度比"最近播放"的旧 —— 若按时间戳会选错
+      await db.playlistDao.insertPlaylist(Playlist(
+        id: 'p1',
+        name: '默认1',
+        songKeys: const ['stub:a', 'stub:b'],
+        songSnapshots: const {'stub:a': songA, 'stub:b': songB},
+        createdTime: DateTime(2026, 11, 2),
+        modifiedTime: DateTime(2026, 11, 2),
+      ));
+      await db.playProgressDao.upsert(PlayProgress(
+        queueKind: PlayQueueKind.playlist.name,
+        queueId: 'p1',
+        songKey: songB.globalKey,
+        positionMs: 72000,
+        updatedAt: 1,
+      ));
+      await db.settingsDao.set(QueueNotifier.lastQueueKey, 'playlist:p1');
+
+      await container.read(startupResumeProvider.future).timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => fail('恢复没能结束'),
+          );
+
+      expect(container.read(queueProvider).id, 'p1');
+      expect(container.read(queueProvider).title, '默认1');
+    });
+
+    test('没有进度记录：什么都不做，不崩', () async {
+      await container.read(startupResumeProvider.future).timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => fail('没有记录时也必须立刻结束'),
+          );
+      expect(container.read(queueProvider).isEmpty, isTrue);
     });
   });
 
