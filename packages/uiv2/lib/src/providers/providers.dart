@@ -1491,11 +1491,16 @@ final songMetaMapProvider = FutureProvider<Map<String, Song>>((ref) async {
   return {for (final s in all) s.globalKey: s};
 }, name: 'songMetaMapProvider');
 
-/// 单曲缓存（缺失返回 null）：列表/播放条用它补封面与时长
-final songMetaProvider = Provider.family<Song?, String>((ref, key) {
+/// 读缓存里这首歌的最新快照（**必须 watch AsyncValue，而不是 Song 值**）
+///
+/// 坑在这里：Song 的 == 只比 (id, sourceId)，所以"封面/时长被补齐"这种变化
+/// 会被 Riverpod 判成"值没变"，跳过通知 —— 表现在界面上就是：正在播放的那首
+/// 封面永远不更新，切到下一首时"上一首的封面"才补显出来（实测到的问题）。
+/// songMetaMapProvider 的 AsyncValue 每次解析都是新对象，watch 它才有通知。
+Song? _cachedSongMeta(WidgetRef ref, String key) {
   ref.watch(songMetaVersionProvider);
   return ref.watch(songMetaMapProvider).value?[key];
-}, name: 'songMetaProvider');
+}
 
 /// 曲目展示封面：配表 → 快照 → 元数据缓存（songs 表）
 ///
@@ -1505,7 +1510,7 @@ final songMetaProvider = Provider.family<Song?, String>((ref, key) {
 String? resolveSongCover(WidgetRef ref, Song song, {String? catalogCover}) {
   final direct = catalogCover ?? song.coverUrl;
   if (direct != null && direct.isNotEmpty) return direct;
-  return ref.watch(songMetaProvider(song.globalKey))?.coverUrl;
+  return _cachedSongMeta(ref, song.globalKey)?.coverUrl;
 }
 
 /// 曲目展示时长（秒）：快照 → 配表 → 元数据缓存
@@ -1516,7 +1521,7 @@ int resolveSongDuration(WidgetRef ref, Song song, {int? catalogDuration}) {
   if (direct != null && direct > 0) return direct;
   final catalog = catalogDuration;
   if (catalog != null && catalog > 0) return catalog;
-  return ref.watch(songMetaProvider(song.globalKey))?.duration ?? 0;
+  return _cachedSongMeta(ref, song.globalKey)?.duration ?? 0;
 }
 
 /// 曲目元数据补齐服务

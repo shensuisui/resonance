@@ -238,6 +238,39 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
       await container
           .read(searchProvider.notifier)
           .search(p['keyword'] ?? '', recordHistory: false);
+    case 'dbinfo':
+      // 发版前集成检查用：把"当前曲目在 UI 侧的快照"与"DB 里存的行"并排回读，
+      // 用于判断"显示不到封面"到底是源没给、还是缓存没写、还是展示层没读。
+      final cur = container.read(currentSongProvider);
+      if (cur == null) return jsonEncode({'error': 'no current song'});
+      final row = await gDatabaseProvider.songDao.getSong(cur.id, cur.sourceId);
+      // 同时打进 App 日志，便于驱动跑完后直接取证
+      print('DBINFO ' +
+          jsonEncode({
+            'key': cur.globalKey,
+            'snapCover': cur.coverUrl,
+            'snapDur': cur.duration,
+            'dbCover': row?.coverUrl,
+            'dbDur': row?.duration,
+            'dbLocal': row?.localPath,
+          }));
+      return jsonEncode({
+        'key': cur.globalKey,
+        'snapshot': {
+          'title': cur.title,
+          'cover': cur.coverUrl,
+          'duration': cur.duration,
+        },
+        'db': row == null
+            ? null
+            : {
+                'title': row.title,
+                'cover': row.coverUrl,
+                'duration': row.duration,
+                'localPath': row.localPath,
+                'lyricLen': (row.lyric ?? '').length,
+              },
+      });
     case 'state':
       // 发版前集成检查用：把当前导航/曲目/主题等状态回读给驱动，
       // 让"点了之后到底变没变"可以被断言，而不是只看截图猜。

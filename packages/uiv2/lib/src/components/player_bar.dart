@@ -617,6 +617,9 @@ class _NowPlayingInfo extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final song = ref.watch(currentSongProvider);
     final meta = song == null ? null : ref.watch(catalogTracksProvider)[song.id];
+    final cover = song == null
+        ? null
+        : resolveSongCover(ref, song, catalogCover: meta?.cover);
 
     return Row(
       children: [
@@ -626,9 +629,7 @@ class _NowPlayingInfo extends ConsumerWidget {
               : () => ref.read(nowPlayingProvider.notifier).open(),
           pressedScale: 1,
           child: UiV2Cover(
-            source: song == null
-                ? null
-                : resolveSongCover(ref, song, catalogCover: meta?.cover),
+            source: cover,
             size: coverSize,
             sourceId: song?.sourceId,
           ),
