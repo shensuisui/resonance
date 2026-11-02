@@ -328,6 +328,13 @@ class UiV2SongRow extends ConsumerWidget {
   /// 覆盖来源名
   final String? sourceNameOverride;
 
+  /// 本行所属队列的身份（如 'playlist:p1' / 'recent' / 'liked' / 'local'）
+  ///
+  /// null 表示"这一列不是队列"（搜索候选、推荐单曲、已下载列表）——
+  /// 此时永不显示播放态：用户要求播放中样式**只在所属队列的列表里**出现，
+  /// 否则同一个歌在几个页面都染着色，会让人以为多处都在播。
+  final String? queueIdentity;
+
   /// 点击行（播放）
   final VoidCallback onTap;
 
@@ -353,6 +360,7 @@ class UiV2SongRow extends ConsumerWidget {
     this.subtitleOverride,
     this.durationOverride,
     this.sourceNameOverride,
+    this.queueIdentity,
   });
 
   @override
@@ -365,8 +373,14 @@ class UiV2SongRow extends ConsumerWidget {
 
     final globalKey = song.globalKey;
     final isCurrent = currentKey == globalKey || currentKey == song.id;
-    final isPending = isCurrent && pendingKey == globalKey;
-    final isPlay = isCurrent && isPlaying && !isPending;
+    // 是否属于"当前这一轮播放"的队列（决定要不要显示播放态）
+    final inActiveQueue =
+        queueIdentity != null && queueIdentity == ref.watch(queueProvider).identity;
+    final showPlaying = isCurrent && inActiveQueue;
+    final isPending = showPlaying && pendingKey == globalKey;
+    // 播放中：遮罩 + 三柱动画；暂停中也保留遮罩与三柱，只是动画停住
+    final isPlay = showPlaying && isPlaying && !isPending;
+    final isPaused = showPlaying && !isPlaying && !isPending;
     final isLiked = liked.any((r) => r.songKey == globalKey);
     // 统一回落（配表 → 快照 → 元数据缓存），与卡片/播放条同一套规则
     final cover = resolveSongCover(ref, song, catalogCover: meta?.cover);
@@ -381,7 +395,7 @@ class UiV2SongRow extends ConsumerWidget {
             ? [song.artist, song.album ?? ''].where((s) => s.isNotEmpty).join(' · ')
             : song.artist);
 
-    final overlay = (isPlay || isPending)
+    final overlay = (isPlay || isPending || isPaused)
         ? Container(
             color: const Color(0x8C060709),
             alignment: Alignment.center,
@@ -390,12 +404,15 @@ class UiV2SongRow extends ConsumerWidget {
                     trackColor: const Color(0x57FFFFFF),
                     color: const Color(0xFFFFFFFF),
                   )
-                : UiV2Eq(color: const Color(0xFFFFFFFF)),
+                : UiV2Eq(color: const Color(0xFFFFFFFF), animated: isPlay),
           )
         : null;
 
     return UiV2Pressable(
-      onTap: onTap,
+      // 播放态的行：点它 = 暂停/继续（用户要求）；其它行照常"切过去并播这首"
+      onTap: (showPlaying && !isPending)
+          ? () => ref.read(playbackControllerProvider).toggle()
+          : onTap,
       pressedScale: 1,
       radius: UiV2Radii.brMd,
       hoverColor: t.surface2,
@@ -407,7 +424,7 @@ class UiV2SongRow extends ConsumerWidget {
           vertical: UiV2Spacing.s2,
         ),
         decoration: BoxDecoration(
-          color: isCurrent ? t.accentSoft : const Color(0x00000000),
+          color: showPlaying ? t.accentSoft : const Color(0x00000000),
           borderRadius: UiV2Radii.brMd,
         ),
         child: Row(
@@ -423,13 +440,11 @@ class UiV2SongRow extends ConsumerWidget {
               SizedBox(
                 width: 28,
                 child: Center(
-                  child: isPlay
-                      ? UiV2Eq(color: t.accent)
+                  child: (isPlay || isPaused)
+                      ? UiV2Eq(color: t.accent, animated: isPlay)
                       : Text(
                           '${index + 1}',
-                          style: UiV2Text.duration.copyWith(
-                            color: isCurrent ? t.accent : t.textMute,
-                          ),
+                          style: UiV2Text.duration.copyWith(color: t.textMute),
                         ),
                 ),
               ),
@@ -439,7 +454,7 @@ class UiV2SongRow extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _title(t, isCurrent),
+                  _title(t, showPlaying),
                   const SizedBox(height: 1),
                   Row(
                     children: [

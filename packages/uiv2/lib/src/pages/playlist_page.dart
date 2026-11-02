@@ -94,8 +94,6 @@ class _PlaylistBody extends ConsumerWidget {
         }
       }
     }
-    // 上次听到哪（按钮常显：没有记录时点它等于从头播）
-    final savedProgress = ref.watch(playlistProgressProvider(playlist.id)).value;
     // 统一实现（带完整曲目，回落链更全）
     final covers = resolvePlaylistCovers(ref, playlist, songs: songs);
     final otherPlaylists =
@@ -127,12 +125,11 @@ class _PlaylistBody extends ConsumerWidget {
                     context, ref, TrackActions.playlistQueue(playlist, songs)),
               ),
               // 继续播放：从本队列上次的曲目与进度接着听。
-              // 常显（没有记录时等同从头播），标签带上上次位置便于确认。
+              // 常显（没有记录时等同从头播）。**不显示时间**：那是上次离开时的快照，
+              // 切回来时不会变，看着像"卡住的实时读数"，反而误导。
               UiV2Button(
                 key: const ValueKey('playlist_resume'),
-                label: savedProgress == null
-                    ? '继续播放'
-                    : '继续播放 ${_fmtProgress(savedProgress.positionMs)}',
+                label: '继续播放',
                 icon: UiV2Icons.play,
                 variant: UiV2ButtonVariant.soft,
                 onTap: () => TrackActions.resume(
@@ -261,6 +258,8 @@ class _PlaylistBody extends ConsumerWidget {
                           meta: ref.watch(catalogTracksProvider)[songs[i].id],
                           index: i,
                           showArt: true,
+                          // 本列就是这张歌单的队列：只有这里显示播放态
+                          queueIdentity: 'playlist:' + playlist.id,
                           onTap: () => TrackActions.playInQueue(
                               context,
                               ref,
@@ -610,14 +609,6 @@ Future<void> _playPlaylist(
   }
   await TrackActions.playQueueAll(
       context, ref, TrackActions.playlistQueue(playlist, songs));
-}
-
-/// 毫秒 → m:ss（「继续播放」按钮上的位置提示）
-String _fmtProgress(int ms) {
-  final total = ms ~/ 1000;
-  final minutes = total ~/ 60;
-  final seconds = (total % 60).toString().padLeft(2, '0');
-  return '$minutes:$seconds';
 }
 
 /// 歌单副标题：首数 + 更新时间

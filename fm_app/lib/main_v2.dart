@@ -439,6 +439,21 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
           ' songs=' + songs.length.toString() + ' started=' + started.toString());
       return started ? 'ok' : 'not started';
     }
+    case 'playrecent': {
+      // 发版前集成检查用：切到"最近播放"队列（用于验证"切队列时先把旧队列进度存下来"）
+      final songs = container.read(recentSongsProvider);
+      if (songs.isEmpty) return 'recent empty';
+      final started = await container.read(playbackControllerProvider).playInQueue(
+            PlayQueue(
+              kind: PlayQueueKind.recent,
+              title: '最近播放',
+              songs: songs,
+            ),
+          );
+      print('PLAYRECENT songs=' + songs.length.toString() +
+          ' started=' + started.toString());
+      return started ? 'ok' : 'not started';
+    }
     case 'restorenow':
       // 发版前集成检查用：手动重跑一次"启动恢复"（invalidte 会让它对同一 Ref 重跑，
       // 这样不用重启 App 也能看到它每一步走到哪、失败在哪）

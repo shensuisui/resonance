@@ -15,6 +15,8 @@ import 'dart:convert';
 
 import 'package:core/core.dart';
 import 'package:flutter/material.dart' show ThemeMode;
+import 'package:flutter/widgets.dart'
+    show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/catalog.dart';
@@ -765,16 +767,6 @@ Future<String> titleOfQueueIdentity(Ref ref, PlayQueueKind kind, String? id) asy
   }
 }
 
-/// 某歌单上次的播放进度（歌单详情「继续播放」按钮用）
-///
-/// 单独一个 family：按钮要在不触发任何播放的情况下就知道"上次听到哪"。
-final playlistProgressProvider =
-    FutureProvider.family<PlayProgress?, String>((ref, playlistId) {
-  return ref
-      .read(playProgressDaoProvider)
-      .get(PlayQueueKind.playlist.name, playlistId);
-}, name: 'playlistProgressProvider');
-
 /// 启动恢复：把上次的队列、曲目、进度装回播放器（**暂停着，不出声**）
 ///
 /// 只在 AppShell 挂载时跑一次。为什么不用"退出时保存"：桌面端关窗/杀进程
@@ -1210,6 +1202,10 @@ class PlayQueue {
     this.songs = const [],
   });
 
+  /// 身份（kind 或 kind:id）—— 用于"这一行是不是当前队列里的歌"的比对
+  String get identity =>
+      (id == null || id!.isEmpty) ? kind.name : kind.name + ':' + id!;
+
   /// 是否为空
   bool get isEmpty => songs.isEmpty;
 
@@ -1551,9 +1547,37 @@ final sleepTimerProvider =
 
 // ==================== 播放绑定与控制器 ====================
 
+/// 生命周期哨兵：App 被挂起/隐藏/关闭时立刻落盘
+///
+/// 为什么需要：桌面端点关闭按钮不保证给我们"退出前"的回调，
+/// 进度是边播边写的（5 秒节流），这里再补一次"离开时"的即时保存。
+class _ProgressLifecycleFlusher with WidgetsBindingObserver {
+  _ProgressLifecycleFlusher(this.ref);
+
+  final Ref ref;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      unawaited(ref.read(playbackControllerProvider).flushProgressNow());
+    }
+  }
+}
+
 /// 播放器事件流绑定 —— 在 AppShell 顶层 watch 一次即可保持存活
 final playerStreamBindingProvider = Provider<void>((ref) {
   final player = ref.watch(playerProvider);
+  // 离开 App 前保存进度（测试环境没有 WidgetsBinding 时跳过）
+  try {
+    final flusher = _ProgressLifecycleFlusher(ref);
+    WidgetsBinding.instance.addObserver(flusher);
+    ref.onDispose(() => WidgetsBinding.instance.removeObserver(flusher));
+  } catch (_) {
+    // 非 Flutter 绑定环境：忽略
+  }
   final subs = <StreamSubscription<dynamic>>[
     player.stateStream.listen((s) {
       ref.read(isPlayingProvider.notifier).set(s == PlayerState.playing);
@@ -1812,6 +1836,12 @@ class PlaybackController {
     _progressMs = 0;
   }
 
+  /// 立刻把当前进度落盘（切队列 / 暂停 / 离开 App 都会调）
+  ///
+  /// 用播放器的**实时位置**而不是上次 tick 的值：切队列这类时刻必须准，
+  /// 否则会少记最多一个 tick 间隔（真机上表现为"进度比听到的少一点"）。
+  Future<void> flushProgressNow() => _flushProgress(force: true);
+
   /// 把当前快照写进 play_progress
   Future<void> _flushProgress({bool force = false}) async {
     final queue = _progressQueue;
@@ -1821,7 +1851,19 @@ class PlaybackController {
     // 写了就会产出一条假进度，还会把"上次活跃队列"抢走（真机实测踩过）。
     if (queue.isEmpty || !queue.songs.any((s) => s.globalKey == key)) return;
 
+    // 正在播的就是快照里那首时，以播放器的实时位置为准
+    final audible = _player is AudibleSongSource
+        ? (_player as AudibleSongSource).audibleSong
+        : null;
     var position = _progressMs;
+    if (audible != null && audible.globalKey == key) {
+      try {
+        final live = _player.currentPosition;
+        if (live > 0) position = live;
+      } catch (_) {
+        // 播放器实现读不到实时位置时退回上次 tick 的值，不影响落盘
+      }
+    }
     if (position < 0) position = 0;
     // 播到结尾附近 → 记 0：下次进这个队列从头开始，而不是"一进去就结束"
     final total = ref.read(durationProvider).inMilliseconds;
@@ -1881,6 +1923,8 @@ class PlaybackController {
     if (queue.isEmpty) return false;
     final i = index.clamp(0, queue.length - 1);
     final target = queue.songs[i];
+    // 换队列前先把当前队列的进度存下来（用户明确要求）
+    await _flushProgress(force: true);
     final previous = ref.read(queueProvider);
     _player.setQueue(queue.songs);
     await _player.prepareAt(i, position: position);

@@ -203,6 +203,8 @@ Widget localTrackRow(
   return UiV2SongRow(
     song: song,
     index: index,
+    // 本地音乐是一个队列：只有本地列表显示播放态
+    queueIdentity: 'local',
     showArt: song.coverUrl != null && song.coverUrl!.isNotEmpty,
     subtitleOverride: song.artist.isEmpty ? '本地文件' : null,
     sourceNameOverride: '本地',

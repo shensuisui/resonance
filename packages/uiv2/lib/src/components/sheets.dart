@@ -547,7 +547,10 @@ class _UiV2QueueSheetBodyState extends ConsumerState<UiV2QueueSheetBody> {
               isPlaying: isCurrent && playing,
               isPending: isCurrent && pendingKey == key,
               duration: duration,
-              onTap: () => ref.read(playbackControllerProvider).jumpTo(index),
+              // 正在播的那行：点它 = 暂停/继续；其它行照常跳过去播
+              onTap: (isCurrent && !(isCurrent && pendingKey == key))
+                  ? () => ref.read(playbackControllerProvider).toggle()
+                  : () => ref.read(playbackControllerProvider).jumpTo(index),
               // 只读队列不提供移除（避免"在队列里删一首"意外改掉歌单）
               onRemove: (!editable || isCurrent)
                   ? null
@@ -639,7 +642,8 @@ class _QueueRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = UiV2Theme.of(context);
-    final overlay = (isPlaying || isPending)
+    // 播放中：遮罩 + 三柱动画；暂停中也保留（只是动画停住），与列表页同一套视觉
+    final overlay = isCurrent
         ? Container(
             color: const Color(0x8C060709),
             alignment: Alignment.center,
@@ -648,7 +652,7 @@ class _QueueRow extends ConsumerWidget {
                     trackColor: const Color(0x57FFFFFF),
                     color: const Color(0xFFFFFFFF),
                   )
-                : UiV2Eq(color: const Color(0xFFFFFFFF)),
+                : UiV2Eq(color: const Color(0xFFFFFFFF), animated: isPlaying),
           )
         : null;
 

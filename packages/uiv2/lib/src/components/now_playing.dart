@@ -218,6 +218,25 @@ class _Background extends StatelessWidget {
   }
 }
 
+/// 播放页顶部「正在播放」下面那一行
+///
+/// 用户要求这里显示**播放队列的名字**（默认1 / 最近播放 / 我喜欢的音乐…），
+/// 这样一眼能看出"当前这轮播放属于哪个队列"；有睡眠倒计时时并列显示。
+/// 没有队列（还没播过任何东西）才退回占位符。
+String nowPlayingContextLine({
+  required bool pending,
+  required String queueTitle,
+  required bool hasQueue,
+  required Duration? sleep,
+}) {
+  if (pending) return '准备播放中';
+  final parts = <String>[
+    if (hasQueue && queueTitle.isNotEmpty) queueTitle,
+    if (sleep != null) '睡眠 ' + formatDuration(sleep.inSeconds),
+  ];
+  return parts.isEmpty ? '—' : parts.join(' · ');
+}
+
 /// 顶部行（.np__top）：收起、上下文、更多
 class _TopRow extends ConsumerWidget {
   const _TopRow();
@@ -229,9 +248,12 @@ class _TopRow extends ConsumerWidget {
     final pending = ref.watch(pendingProvider) != null;
     final sleep = ref.watch(sleepTimerProvider);
 
-    final contextLine = pending
-        ? '准备播放中'
-        : (sleep == null ? '—' : '睡眠 ${formatDuration(sleep.inSeconds)}');
+    final contextLine = nowPlayingContextLine(
+      pending: pending,
+      queueTitle: ref.watch(queueProvider).title,
+      hasQueue: !ref.watch(queueProvider).isEmpty,
+      sleep: sleep,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: UiV2Spacing.s3),

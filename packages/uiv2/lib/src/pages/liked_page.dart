@@ -145,6 +145,7 @@ class _LikedPageState extends ConsumerState<LikedPage> {
                     meta: meta[ordered[i].id],
                     index: i,
                     showArt: true,
+                    queueIdentity: 'liked',
                     onTap: () => TrackActions.playInQueue(
                         context, ref, TrackActions.likedQueue(ordered), i),
                     onToggleLike: () =>
