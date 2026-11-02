@@ -63,6 +63,8 @@ class SettingsPage extends ConsumerWidget {
                           ThemeMode.dark => 'dark',
                           ThemeMode.system => 'system',
                         },
+                        // 窄屏换行到整行 → 等分铺满，右边不留空；宽屏并排在行尾
+                        expand: narrow,
                         onChanged: (value) => _setThemeMode(ref, value),
                       );
                       // 窄屏：三段控件换行到说明文字下方（作为行内 below，

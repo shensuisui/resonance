@@ -72,6 +72,8 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
           UiV2Segmented(
             options: options,
             value: tab,
+            // 独立摆放，需要与下方内容留出原来的节奏（控件自身已不再内置留白）
+            bottomGap: UiV2Spacing.s5,
             onChanged: (value) => setState(() => _tab = value),
           ),
           if (tab == 'downloaded')

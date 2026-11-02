@@ -398,19 +398,54 @@ class UiV2Segmented extends StatelessWidget {
   /// 选择回调
   final ValueChanged<String> onChanged;
 
+  /// 是否**通栏铺满**（每个选项等分宽度）
+  ///
+  /// false（默认）：按内容取宽度，窄了可横向滚动 —— 适合放在行尾。
+  /// true：等分撑满整行 —— 适合窄屏换行到整行时用，否则右边会空一大块。
+  final bool expand;
+
+  /// 底部留白
+  ///
+  /// 默认 **0**：控件自身的上下必须对称，否则放进列表行里就会出现「上窄下宽」
+  /// （真实踩过：写死 s5 导致行内垂直居中失效、宽屏右侧上下留白不一致）。
+  /// 独立摆放、需要与下方内容拉开时，由调用方显式传值。
+  final double bottomGap;
+
   /// 构造分段控件
   const UiV2Segmented({
     super.key,
     required this.options,
     required this.value,
     required this.onChanged,
+    this.expand = false,
+    this.bottomGap = 0,
   });
 
   @override
   Widget build(BuildContext context) {
     final t = UiV2Theme.of(context);
+    final segments = <Widget>[
+      for (final (id, label) in options)
+        expand
+            ? Expanded(
+                child: _Segment(
+                  label: label,
+                  selected: id == value,
+                  onTap: () => onChanged(id),
+                ),
+              )
+            : Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: _Segment(
+                  label: label,
+                  selected: id == value,
+                  onTap: () => onChanged(id),
+                ),
+              ),
+    ];
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: UiV2Spacing.s5),
+      padding: EdgeInsets.only(bottom: bottomGap),
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
@@ -418,21 +453,12 @@ class UiV2Segmented extends StatelessWidget {
           border: Border.all(color: t.line),
           borderRadius: UiV2Radii.brPill,
         ),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final (id, label) in options) ...[
-                const SizedBox(width: 4),
-                _Segment(
-                  label: label,
-                  selected: id == value,
-                  onTap: () => onChanged(id),
-                ),
-              ],
-            ],
-          ),
-        ),
+        child: expand
+            ? Row(children: segments)
+            : SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: segments),
+              ),
       ),
     );
   }
@@ -599,7 +625,11 @@ class UiV2ListRow extends StatelessWidget {
               ? Border(bottom: BorderSide(color: t.line))
               : null,
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (leading != null) ...[
               leading!,
@@ -623,16 +653,21 @@ class UiV2ListRow extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  if (below != null) ...[
-                    const SizedBox(height: UiV2Spacing.s3),
-                    below!,
-                  ],
                 ],
               ),
             ),
             if (trailing != null) ...[
               const SizedBox(width: UiV2Spacing.s4),
               trailing!,
+            ],
+          ],
+        ),
+            if (below != null) ...[
+              // 上下留白必须对称：上方是说明文字到控件，下方是控件到行底。
+              // 只给上方留白会让这一块"上松下紧"（真机量过：上 29px / 下 16px）。
+              const SizedBox(height: UiV2Spacing.s3),
+              below!,
+              const SizedBox(height: UiV2Spacing.s3),
             ],
           ],
         ),
