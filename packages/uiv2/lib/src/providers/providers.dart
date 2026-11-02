@@ -773,6 +773,14 @@ Future<String> titleOfQueueIdentity(Ref ref, PlayQueueKind kind, String? id) asy
   }
 }
 
+/// 某歌单上次的播放进度（歌单详情头部的主按钮据此决定「播放」还是「继续播放」）
+final playlistProgressProvider =
+    FutureProvider.family<PlayProgress?, String>((ref, playlistId) {
+  return ref
+      .read(playProgressDaoProvider)
+      .get(PlayQueueKind.playlist.name, playlistId);
+}, name: 'playlistProgressProvider');
+
 /// 启动恢复：把上次的队列、曲目、进度装回播放器（**暂停着，不出声**）
 ///
 /// 只在 AppShell 挂载时跑一次。为什么不用"退出时保存"：桌面端关窗/杀进程
