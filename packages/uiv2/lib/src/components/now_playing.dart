@@ -130,7 +130,14 @@ class UiV2NowPlayingScreen extends ConsumerWidget {
                       maxWidth: UiV2Metrics.nowPlayingMax,
                     ),
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: gutter),
+                      // 底部除了安全域再留一点间距：工具行（歌词/队列/睡眠/设备）
+                      // 紧贴屏幕下缘很难看（用户指出）
+                      padding: EdgeInsets.fromLTRB(
+                        gutter,
+                        0,
+                        gutter,
+                        UiV2Spacing.s4,
+                      ),
                       child: Column(
                         children: [
                           const _TopRow(),
