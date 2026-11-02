@@ -109,7 +109,19 @@ NavEntry navEntryFromUri(Uri uri) {
   return NavEntry(name, uri.queryParameters['p'] ?? '');
 }
 
-/// 二级页转场：右侧滑入 + 淡入（一级页不转场，切 tab 要即时）
+/// 二级页转场的起始位移（纯函数，便于单测）
+///
+/// 规则按**窗口宽度**分两档（断点见 [UiV2Breakpoints.wide] = 768，平板也算大屏）：
+///   * 窄屏：从右侧滑入（`Offset(0.12, 0)`）——手机上一页推进来是天然的层级隐喻；
+///   * 宽屏/平板：只做**轻微上浮**（`Offset(0, 0.04)`），水平位移必须为 0。
+///
+/// 为什么宽屏不能横向滑：宽屏内容区很宽，横向位移会让整块内容「被推着走」，
+/// 侧栏与播放条却纹丝不动，看起来像页面在壳子里滑动 —— 很突兀（用户指出过）。
+Offset subPageSlideFrom(double width) => width >= UiV2Breakpoints.wide
+    ? const Offset(0, 0.04)
+    : const Offset(0.12, 0);
+
+/// 二级页转场：位移（按屏宽分档）+ 淡入；一级页不转场，切 tab 要即时
 CustomTransitionPage<void> _subPage(GoRouterState state, Widget child) {
   return CustomTransitionPage<void>(
     key: state.pageKey,
@@ -124,7 +136,7 @@ CustomTransitionPage<void> _subPage(GoRouterState state, Widget child) {
       );
       return SlideTransition(
         position: Tween<Offset>(
-          begin: const Offset(0.12, 0),
+          begin: subPageSlideFrom(MediaQuery.sizeOf(context).width),
           end: Offset.zero,
         ).animate(curved),
         child: FadeTransition(opacity: curved, child: child),
