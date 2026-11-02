@@ -18,8 +18,8 @@
     "listRule": "@CSS:div.row.no-gutters.py-2d5@html",
     "itemRules": {
       "id": "@CSS:a.hover-zoom@href && @Regex:/music/(\\d+)",
-      "title": "@CSS:span.text-primary@text",
-      "artist": "@CSS:small.text-jade@text"
+      "title": "@CSS:span.text-primary@text##^\\[|\\]$||",
+      "artist": "@CSS:small.text-jade@text##^\\[|\\]$||"
     }
   },
   "songDetail": {
@@ -34,8 +34,8 @@
         },
         "extract": {
           "playId": "@Regex:play_id\\\\u0022:\\\\u0022([A-Za-z0-9+/=]{100,})",
-          "title": "@CSS:h1.song-title-styled span@text",
-          "artist": "@CSS:div.song-author-styled@text",
+          "title": "@CSS:h1.song-title-styled span@text##^\\[|\\]$||",
+          "artist": "@CSS:div.song-author-styled@text##^\\[|\\]$||",
           "coverUrl": "@CSS:img.player-cover-img@src",
           "duration": "@Regex:mp3_duration.{0,20}([0-9]{1,2}:[0-9]{2})"
         }

@@ -439,20 +439,23 @@ class RuleExecutor {
 
   /// 将提取的字段映射为 Song 对象
   Song? _fieldsToSong(Map<String, dynamic> fields) {
-    final id = fields['id']?.toString();
-    final title = fields['title']?.toString();
+    // 统一走 parseFieldText：@CSS/@XPath 命中多个节点时字段是 List，
+    // 直接 toString() 会把 List 的「[x]」表示法当成标题（真机标题全是 [稻香]）
+    final id = parseFieldText(fields['id']);
+    final title = parseFieldText(fields['title']);
     if (id == null || title == null) return null;
 
     return Song(
       id: id,
       sourceId: _rule.source.id,
       title: title,
-      artist: fields['artist']?.toString() ?? '',
-      album: fields['album']?.toString(),
-      coverUrl: fields['cover']?.toString() ?? fields['coverUrl']?.toString(),
-      duration: parseDurationSeconds(fields['duration']),
-      playUrl: fields['playUrl']?.toString() ?? fields['url']?.toString(),
-      lyricUrl: fields['lyricUrl']?.toString(),
+      artist: parseFieldText(fields['artist']) ?? '',
+      album: parseFieldText(fields['album']),
+      coverUrl:
+          parseFieldText(fields['cover']) ?? parseFieldText(fields['coverUrl']),
+      duration: parseDurationSeconds(parseFieldText(fields['duration'])),
+      playUrl: parseFieldText(fields['playUrl']) ?? parseFieldText(fields['url']),
+      lyricUrl: parseFieldText(fields['lyricUrl']),
       extra: Map.from(fields)
         ..removeWhere((k, v) => [
               'id', 'title', 'artist', 'album', 'cover', 'coverUrl',

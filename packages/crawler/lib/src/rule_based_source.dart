@@ -54,19 +54,22 @@ class RuleBasedMusicSource extends MusicSource implements ImageHeaderSource {
 
   /// 详情字段 → 播放地址
   String _playUrlOf(Map<String, dynamic> fields) =>
-      fields['playUrl']?.toString() ?? fields['url']?.toString() ?? '';
+      parseFieldText(fields['playUrl']) ?? parseFieldText(fields['url']) ?? '';
 
   /// 详情字段 → 曲目（规则源详情缺失的字段保持为空，不造假）
   Song _songFromFields(String id, Map<String, dynamic> fields) => Song(
         id: id,
         sourceId: _ruleConfig.source.id,
-        title: fields['title']?.toString() ?? '',
-        artist: fields['artist']?.toString() ?? '',
-        album: fields['album']?.toString(),
-        coverUrl: fields['cover']?.toString() ?? fields['coverUrl']?.toString(),
-        duration: parseDurationSeconds(fields['duration']),
-        playUrl: fields['playUrl']?.toString() ?? fields['url']?.toString(),
-        lyricUrl: fields['lyricUrl']?.toString(),
+        // 统一走 parseFieldText：多值命中时取首个，
+        // 直接 toString() 会把 List 的「[x]」表示法当成标题（真机标题全是 [稻香]）
+        title: parseFieldText(fields['title']) ?? '',
+        artist: parseFieldText(fields['artist']) ?? '',
+        album: parseFieldText(fields['album']),
+        coverUrl:
+            parseFieldText(fields['cover']) ?? parseFieldText(fields['coverUrl']),
+        duration: parseDurationSeconds(parseFieldText(fields['duration'])),
+        playUrl: parseFieldText(fields['playUrl']) ?? parseFieldText(fields['url']),
+        lyricUrl: parseFieldText(fields['lyricUrl']),
       );
 
   @override
