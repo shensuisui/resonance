@@ -2,7 +2,7 @@
 ///
 /// 排布照参考页（漫画详情页）：操作栏**通栏 + 各项等分 + 图标在上文字在下**，
 /// 且颜色一律次级灰（不做主色高亮）。头部则是封面与文字左右并排，
-/// 封面尺寸只受屏宽约束（不再因为要塞按钮而缩水或换行）。
+/// 文字块相对封面**垂直居中**（贴顶会让右侧几行挤在顶上）。
 library;
 
 import 'package:flutter/material.dart';
@@ -11,6 +11,9 @@ import 'package:uiv2/src/components/hero.dart';
 import 'package:uiv2/src/design/icons.dart';
 import 'package:uiv2/src/design/theme.dart';
 import 'package:uiv2/src/design/tokens.dart';
+
+/// 空回调（只关心排布时用）
+void _noop() {}
 
 /// 包一层主题作用域
 Widget _wrap(Widget child) => MaterialApp(
@@ -22,7 +25,7 @@ Widget _wrap(Widget child) => MaterialApp(
 
 void main() {
   testWidgets('操作栏：三项等分铺满内容宽，图标在文字上方', (tester) async {
-    var taps = <String>[];
+    final taps = <String>[];
     tester.view.physicalSize = const Size(444, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -44,21 +47,19 @@ void main() {
     )));
     await tester.pump();
 
-    // 内容宽 444 - 16*2 = 412，三等分每份 137.33，中心应落在 16+68.7 / 16+206 / 16+343.3
-    final c1 = tester.getCenter(find.text('播放')).dx;
-    final c2 = tester.getCenter(find.text('随机播放')).dx;
-    final c3 = tester.getCenter(find.text('更多')).dx;
+    // 内容宽 444 - 16*2 = 412，三等分每份约 137.33，中心落在 16+68.7 / 16+206 / 16+343.3
     const unit = 412 / 3;
-    expect(c1, closeTo(16 + unit * 0.5, 1.0), reason: '第一项应居中于第一等分');
-    expect(c2, closeTo(16 + unit * 1.5, 1.0), reason: '第二项应居中于第二等分');
-    expect(c3, closeTo(16 + unit * 2.5, 1.0), reason: '第三项应居中于第三等分');
+    expect(tester.getCenter(find.text('播放')).dx,
+        closeTo(16 + unit * 0.5, 1.0), reason: '第一项应居中于第一等分');
+    expect(tester.getCenter(find.text('随机播放')).dx,
+        closeTo(16 + unit * 1.5, 1.0), reason: '第二项应居中于第二等分');
+    expect(tester.getCenter(find.text('更多')).dx,
+        closeTo(16 + unit * 2.5, 1.0), reason: '第三项应居中于第三等分');
 
-    // 图标在上、文字在下
     final iconY = tester.getCenter(find.byType(UiV2Icon).first).dy;
     final labelY = tester.getCenter(find.text('播放')).dy;
     expect(iconY, lessThan(labelY), reason: '图标应排在文字上方');
 
-    // 三项都能点
     await tester.tap(find.text('播放'));
     await tester.tap(find.text('随机播放'));
     await tester.tap(find.text('更多'));
@@ -73,11 +74,11 @@ void main() {
       ],
     )));
     await tester.pump();
-    final t = UiV2Tokens.of(Brightness.light);
+    final tone = UiV2Tokens.of(Brightness.light);
     final icon = tester.widget<UiV2Icon>(find.byType(UiV2Icon));
-    expect(icon.color, t.textDim, reason: '图标用次级灰，不用主色');
+    expect(icon.color, tone.textDim, reason: '图标用次级灰，不用主色');
     final label = tester.widget<Text>(find.text('播放'));
-    expect(label.style?.color, t.textDim, reason: '文字用次级灰');
+    expect(label.style?.color, tone.textDim, reason: '文字用次级灰');
   });
 
   testWidgets('头部：封面尺寸按屏宽收缩并夹在 120–220', (tester) async {
@@ -120,6 +121,30 @@ void main() {
     expect(find.text('4 首 · 16 分钟'), findsOneWidget);
     expect(find.byType(UiV2ActionBar), findsNothing, reason: '没给动作就不渲染操作栏');
   });
-}
 
-void _noop() {}
+  testWidgets('头部：文字块相对封面垂直居中（不是贴顶）', (tester) async {
+    tester.view.physicalSize = const Size(444, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_wrap(const UiV2DetailHeader(
+      art: SizedBox.expand(),
+      type: '歌单 · 我的',
+      line1: '3 首 · 13 分钟',
+      line2: '更新于 2026-11-02',
+      actions: [
+        UiV2ActionItem(icon: UiV2Icons.play, label: '播放', onTap: _noop),
+      ],
+    )));
+    await tester.pump();
+
+    final cover =
+        tester.getRect(find.byKey(const ValueKey('detail_header_art')));
+    final textTop = tester.getTopLeft(find.text('歌单 · 我的')).dy;
+    final textBottom = tester.getBottomLeft(find.text('更新于 2026-11-02')).dy;
+    // 文字块（首行顶 → 末行底）的中点应落在封面中线附近：
+    // 贴顶排布时这里会差 70+px，就是用户报的「右侧几行太偏上」。
+    expect(((textTop + textBottom) / 2 - cover.center.dy).abs(), lessThan(4),
+        reason: '右侧文字块要相对封面垂直居中');
+  });
+}

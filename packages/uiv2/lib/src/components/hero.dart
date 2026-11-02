@@ -243,7 +243,9 @@ class UiV2DetailHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            // 文字列相对封面**垂直居中**：贴顶会让右侧三行挤在顶上、下面空一大截
+            // （用户指出「有点太偏上了」）。封面是本行最高元素，居中即相对正方形中间对齐。
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(
                 key: const ValueKey('detail_header_art'),
