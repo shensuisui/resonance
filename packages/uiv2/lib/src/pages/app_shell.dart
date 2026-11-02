@@ -7,6 +7,7 @@
 ///   768–1180 播放条按平板口径（隐藏歌名与音量组）
 library;
 
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -37,6 +38,23 @@ import '../providers/providers.dart';
 import '../router.dart';
 import '../widgets/page_shell.dart';
 
+/// 当前页面标题
+///
+/// 二级页的标题以前只有固定表（歌单详情显示成「歌单」）。这里让"歌单详情"
+/// 用**真实歌单名**：顶部标题栏就不再需要一个占高度的页面内标题。
+/// 放在外壳而不是 providers：只有这里同时知道路由与歌单数据，
+/// 让 providers 反向依赖 router 会形成循环。
+final pageTitleProvider = Provider<String>((ref) {
+  final entry = ref.watch(navProvider).current;
+  if (entry.name == 'playlist') {
+    final list = ref.watch(playlistsProvider).value ?? const <Playlist>[];
+    for (final p in list) {
+      if (p.id == entry.param) return p.name;
+    }
+  }
+  return titleOf(entry);
+});
+
 /// 应用外壳
 class UiV2AppShell extends ConsumerWidget {
   /// 构造外壳
@@ -60,7 +78,7 @@ class UiV2AppShell extends ConsumerWidget {
 
     final isRoot = kRootWide.contains(nav.current.name);
     final showBack = wide ? !isRoot : !kRootMobile.contains(nav.current.name);
-    final title = titleOf(nav.current);
+    final title = ref.watch(pageTitleProvider);
 
     // 栅格（原型 .app）：纵向 = [上区 | 播放条 | 底栏]，上区 = [侧栏 | 内容]。
     // 两个要点：

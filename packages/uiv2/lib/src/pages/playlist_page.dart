@@ -75,8 +75,9 @@ class _PlaylistBody extends ConsumerWidget {
             const <Song>[])
         : (ref.watch(playlistSongsProvider(playlist.id)).value ??
             const <Song>[]);
+    // 时长必须走统一回落：快照里的 duration 经常是 null，直接求和会显示「0 分钟」
     final totalSec =
-        songs.fold<int>(0, (sum, song) => sum + (song.duration ?? 0));
+        songs.fold<int>(0, (sum, song) => sum + resolveSongDuration(ref, song));
     // 没有来源标记的歌单就是本机自建的，可以改名/删除/增删曲目
     final mine = (playlist.sourceId ?? '').isEmpty;
 
@@ -94,6 +95,8 @@ class _PlaylistBody extends ConsumerWidget {
         }
       }
     }
+    // 手机（< 768）用精简头部：歌名已在顶部标题栏，页面里不再重复大封面墙
+    final compact = MediaQuery.sizeOf(context).width < UiV2Breakpoints.wide;
     // 统一实现（带完整曲目，回落链更全）
     final covers = resolvePlaylistCovers(ref, playlist, songs: songs);
     final otherPlaylists =
@@ -103,11 +106,26 @@ class _PlaylistBody extends ConsumerWidget {
             .toList(growable: false);
 
     return PageShell(
-      topPadding: UiV2Spacing.s4,
+      // 手机端头部已经很矮，上边距也收紧一点，把高度让给曲目列表
+      topPadding: compact ? UiV2Spacing.s2 : UiV2Spacing.s4,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          UiV2Hero(
+          if (compact)
+            _compactHeader(
+              context,
+              ref,
+              covers: covers,
+              songCount: songs.length,
+              totalSec: totalSec,
+              mine: mine,
+              isRemote: isRemote,
+              favorited: favorited,
+              sourceId: sourceId,
+              sourcePlaylistId: sourcePlaylistId,
+            )
+          else
+            UiV2Hero(
             art: UiV2Mosaic(
               covers: covers,
               fallback: t.accentSoft2,
@@ -178,7 +196,7 @@ class _PlaylistBody extends ConsumerWidget {
               ),
             ],
           ),
-          if (mine)
+          if (!compact && mine)
             Padding(
               padding: const EdgeInsets.only(bottom: UiV2Spacing.s4),
               child: Wrap(
@@ -307,6 +325,190 @@ class _PlaylistBody extends ConsumerWidget {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  /// 手机端精简头部
+  ///
+  /// 用户要求：小屏上封面墙 + 两排操作按钮占了太多高度 —— 歌单名已经挪到
+  /// 顶部标题栏，这里只留一行：小封面 + 首数/时长 + 播放 + 更多。
+  /// 「继续播放 / 随机播放 / 收藏 / 添加歌曲 / 重命名 / 删除」全部收进「更多」菜单。
+  Widget _compactHeader(
+    BuildContext context,
+    WidgetRef ref, {
+    required List<String> covers,
+    required int songCount,
+    required int totalSec,
+    required bool mine,
+    required bool isRemote,
+    required Playlist? favorited,
+    required String sourceId,
+    required String sourcePlaylistId,
+  }) {
+    final t = UiV2Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: UiV2Spacing.s3),
+      child: Row(
+        children: [
+          // 44px 的小方块放拼贴会碎得看不出内容，用第一首封面更易辨认
+          UiV2Cover(
+            source: covers.isNotEmpty && covers.first.isNotEmpty
+                ? covers.first
+                : null,
+            size: 44,
+            radius: 10,
+          ),
+          const SizedBox(width: UiV2Spacing.s3),
+          Expanded(
+            child: Text(
+              songCount.toString() +
+                  ' 首 · ' +
+                  (totalSec / 60).round().toString() +
+                  ' 分钟 · 更新于 ' +
+                  _formatDate(playlist.modifiedTime),
+              style: UiV2Text.hint.copyWith(color: t.textDim),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          UiV2IconButton(
+            icon: UiV2Icons.play,
+            semanticLabel: '播放歌单',
+            onTap: () => TrackActions.playQueueAll(
+                context, ref, TrackActions.playlistQueue(playlist, songsOf(ref))),
+          ),
+          UiV2IconButton(
+            key: const ValueKey('playlist_more'),
+            icon: UiV2Icons.more,
+            semanticLabel: '更多歌单操作',
+            onTap: () => _showCompactMenu(
+              context,
+              ref,
+              mine: mine,
+              isRemote: isRemote,
+              favorited: favorited,
+              sourceId: sourceId,
+              sourcePlaylistId: sourcePlaylistId,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 当前歌单的曲目（头部按钮用；与曲目列表同源）
+  List<Song> songsOf(WidgetRef ref) {
+    final loader = remoteParam != null
+        ? remotePlaylistSongsProvider(remoteParam!)
+        : playlistSongsProvider(playlist.id);
+    return ref.watch(loader).value ?? const <Song>[];
+  }
+
+  /// 手机端「更多」菜单：把不常用操作从头部收进来
+  Future<void> _showCompactMenu(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool mine,
+    required bool isRemote,
+    required Playlist? favorited,
+    required String sourceId,
+    required String sourcePlaylistId,
+  }) {
+    final queue = TrackActions.playlistQueue(playlist, songsOf(ref));
+    return showUiV2Sheet(
+      context,
+      title: '歌单操作 · ' + playlist.name,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          UiV2ActionRow(
+            icon: UiV2Icons.play,
+            label: '继续播放',
+            hint: '从上次听到的位置接着听',
+            onTap: () async {
+              Navigator.of(context).maybePop();
+              await TrackActions.resume(context, ref, queue);
+            },
+          ),
+          UiV2ActionRow(
+            icon: UiV2Icons.shuffle,
+            label: '随机播放',
+            onTap: () async {
+              Navigator.of(context).maybePop();
+              await TrackActions.shuffleQueueAll(context, ref, queue);
+            },
+          ),
+          if (isRemote)
+            UiV2ActionRow(
+              icon: favorited != null ? UiV2Icons.check : UiV2Icons.heart,
+              label: favorited != null ? '取消收藏歌单' : '收藏歌单',
+              onTap: () async {
+                Navigator.of(context).maybePop();
+                final actions = ref.read(playlistActionsProvider);
+                if (favorited != null) {
+                  await actions.unfavorite(favorited.id);
+                  if (!context.mounted) return;
+                  showUiV2Toast(context, '已取消收藏「' + playlist.name + '」');
+                  return;
+                }
+                await actions.favoriteRemote(
+                  sourceId: sourceId,
+                  sourcePlaylistId: sourcePlaylistId,
+                  name: playlist.name,
+                  coverUrl: playlist.coverUrl,
+                );
+                if (!context.mounted) return;
+                showUiV2Toast(context, '已收藏「' + playlist.name + '」');
+              },
+            ),
+          if (mine) ...[
+            UiV2ActionRow(
+              icon: UiV2Icons.plus,
+              label: '添加歌曲',
+              onTap: () {
+                Navigator.of(context).maybePop();
+                showUiV2Sheet(
+                  context,
+                  title: '管理歌曲 · ' + playlist.name,
+                  child: UiV2PlaylistPickerBody(playlistId: playlist.id),
+                );
+              },
+            ),
+            UiV2ActionRow(
+              icon: UiV2Icons.edit,
+              label: '重命名歌单',
+              onTap: () {
+                Navigator.of(context).maybePop();
+                showUiV2Sheet(
+                  context,
+                  title: '重命名歌单',
+                  child: UiV2RenamePlaylistBody(playlist: playlist),
+                );
+              },
+            ),
+            UiV2ActionRow(
+              icon: UiV2Icons.trash,
+              label: '删除歌单',
+              danger: true,
+              onTap: () {
+                Navigator.of(context).maybePop();
+                showConfirmSheet(
+                  context,
+                  title: '删除歌单',
+                  text: '删除后无法恢复，「' + playlist.name + '」里的歌曲仍保留在音乐库中。',
+                  confirmLabel: '删除歌单',
+                  onConfirm: () async {
+                    await ref.read(playlistActionsProvider).delete(playlist.id);
+                    if (!context.mounted) return;
+                    ref.read(navProvider.notifier).go('playlists');
+                    showUiV2Toast(context, '已删除「' + playlist.name + '」');
+                  },
+                );
+              },
+            ),
+          ],
         ],
       ),
     );
