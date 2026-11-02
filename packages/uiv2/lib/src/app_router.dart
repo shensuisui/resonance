@@ -109,6 +109,27 @@ NavEntry navEntryFromUri(Uri uri) {
   return NavEntry(name, uri.queryParameters['p'] ?? '');
 }
 
+/// 路由页自带的不透明底色
+///
+/// 为什么必须有：go_router 的 CustomTransitionPage.opaque 默认 true，含义是
+/// 「过渡**结束后**，后面那页就不再构建」—— 所以不带底色的页面静止时看着正常，
+/// 但过渡**进行中**两页是同时绘制的，页面自己不画底色，上一页的内容就会透过来
+/// （真机中间帧拍得很清楚：上一页的「听歌的人 / 免费账户·在线与本地同步」与
+/// 设置页的标题叠在一起）。
+///
+/// 这层就是页面自己的不透明背景，和页面一起位移，因此不参与淡入。
+class UiV2RouteSurface extends StatelessWidget {
+  /// 子组件（页面内容）
+  final Widget child;
+
+  /// 构造路由页底色
+  const UiV2RouteSurface({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) =>
+      ColoredBox(color: UiV2Theme.of(context).bg, child: child);
+}
+
 /// 二级页转场的起始位移（纯函数，便于单测）
 ///
 /// 规则按**窗口宽度**分两档（断点见 [UiV2Breakpoints.wide] = 768，平板也算大屏）：
@@ -139,7 +160,11 @@ CustomTransitionPage<void> _subPage(GoRouterState state, Widget child) {
           begin: subPageSlideFrom(MediaQuery.sizeOf(context).width),
           end: Offset.zero,
         ).animate(curved),
-        child: FadeTransition(opacity: curved, child: child),
+        // 底色铺实（不淡入），内容在实底色上淡入：
+        // 若连底色一起淡入，过渡途中依旧能透出上一页的文字，等于没修
+        child: UiV2RouteSurface(
+          child: FadeTransition(opacity: curved, child: child),
+        ),
       );
     },
   );

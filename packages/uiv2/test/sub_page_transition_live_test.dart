@@ -164,4 +164,38 @@ void main() {
     expect(offset.dx, greaterThan(0), reason: '窄屏保留横向滑入的层级隐喻');
     expect(offset.dy, 0);
   });
+
+  testWidgets('过渡中途：页面自带不透明底色，且底色在淡入之外侧、位移之内侧', (tester) async {
+    // 只用它把路由推进到过渡一半（之后的断言不需要再泵帧）
+    await slideAtMidTransition(tester, 444);
+
+    final pageEl =
+        tester.element(find.byType(SettingsPage, skipOffstage: false).first);
+    final order = <String>[];
+    pageEl.visitAncestorElements((el) {
+      order.add(el.widget.runtimeType.toString());
+      return order.length < 60;
+    });
+    final iFade = order.indexOf('FadeTransition');
+    final iSurface = order.indexOf('UiV2RouteSurface');
+    final iSlide = order.indexOf('SlideTransition');
+
+    expect(iFade, greaterThanOrEqualTo(0), reason: '内容应带淡入');
+    expect(iSurface, greaterThanOrEqualTo(0), reason: '页面必须自带不透明底色');
+    expect(iSurface, greaterThan(iFade),
+        reason: '底色必须在淡入的**外侧**：若底色跟着一起淡入，过渡中途依旧会透出上一页的文字');
+    expect(iSlide, greaterThan(iSurface),
+        reason: '位移必须在底色外侧：底色要跟页面一起滑动，不能原地不动');
+
+    // 底色必须真的不透明（alpha 满），否则等于没铺
+    final box = tester.widget<ColoredBox>(
+      find
+          .descendant(
+            of: find.byType(UiV2RouteSurface, skipOffstage: false),
+            matching: find.byType(ColoredBox, skipOffstage: false),
+          )
+          .first,
+    );
+    expect(box.color.a, 1.0, reason: '底色不透明才能挡住上一页');
+  });
 }
