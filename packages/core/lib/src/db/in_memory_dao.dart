@@ -104,6 +104,11 @@ class InMemoryRecentPlaysDao implements RecentPlaysDao {
   }
 
   @override
+  Future<void> deleteRecentPlay(String songKey) async {
+    _store.remove(songKey);
+  }
+
+  @override
   Future<void> cleanOldest(int maxCount) async {
     if (_store.length <= maxCount) return;
     final sorted = _store.values.toList()

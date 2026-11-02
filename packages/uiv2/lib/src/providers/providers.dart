@@ -418,6 +418,12 @@ class RecentNotifier extends Notifier<List<RecentPlayRecord>> {
     await load();
   }
 
+  /// 从最近播放里移除一条（只删记录，不动缓存/收藏/歌单）
+  Future<void> remove(String songKey) async {
+    await ref.read(recentPlaysServiceProvider).remove(songKey);
+    await load();
+  }
+
   /// 清空最近播放
   Future<void> clear() async {
     await ref.read(recentPlaysServiceProvider).clear();
@@ -2024,15 +2030,6 @@ class PlaybackController {
     _player.setQueue(next);
     ref.read(queueProvider.notifier).setSongs(next);
     return true;
-  }
-
-  /// 插入到当前曲目之后
-  void playNextUp(Song song) {
-    final queue = List.of(_player.queue);
-    final at = ref.read(currentTrackIdProvider) == null ? 0 : _player.currentIndex + 1;
-    queue.insert(at.clamp(0, queue.length), song);
-    _player.setQueue(queue);
-    ref.read(queueProvider.notifier).setSongs(queue);
   }
 
   /// 从队列移除下标（返回被移除的歌曲）

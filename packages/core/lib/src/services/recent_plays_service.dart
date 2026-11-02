@@ -77,6 +77,13 @@ class RecentPlaysService {
     return _dao.getRecentPlayRecords(limit: limit);
   }
 
+  /// 移除一条记录（列表里"我不想在这里再看到它"）
+  ///
+  /// 只删最近播放这一行，不影响歌曲本身的缓存/收藏/歌单归属。
+  Future<void> remove(String songKey) async {
+    await _dao.deleteRecentPlay(songKey);
+  }
+
   /// 清空最近播放记录
   ///
   /// 通过 cleanOldest(0) 间接清空。

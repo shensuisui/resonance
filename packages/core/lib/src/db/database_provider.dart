@@ -51,6 +51,9 @@ abstract class RecentPlaysDao {
   Future<List<RecentPlayRecord>> getRecentPlayRecords({int limit = 500});
 
   Future<void> cleanOldest(int maxCount);
+
+  /// 移除一条记录（最近播放列表里的「移除」用）
+  Future<void> deleteRecentPlay(String songKey);
 }
 
 /// 收藏 DAO 接口

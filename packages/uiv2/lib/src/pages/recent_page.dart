@@ -76,8 +76,19 @@ class RecentPage extends ConsumerWidget {
                           TrackActions.recentQueue(songs), i),
                       onToggleLike: () =>
                           TrackActions.toggleLike(context, ref, songs[i]),
-                      onMore: () =>
-                          showTrackMenu(context, song: songs[i]),
+                      onMore: () => showTrackMenu(
+                        context,
+                        song: songs[i],
+                        removeLabel: '从最近播放移除',
+                        onRemove: () async {
+                          await ref
+                              .read(recentProvider.notifier)
+                              .remove(songs[i].globalKey);
+                          if (!context.mounted) return;
+                          showUiV2Toast(
+                              context, '已从最近播放移除「${songs[i].title}」');
+                        },
+                      ),
                     ),
                 ],
               ),

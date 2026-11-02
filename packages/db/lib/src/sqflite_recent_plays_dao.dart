@@ -59,6 +59,12 @@ class SqfliteRecentPlaysDao implements RecentPlaysDao {
   }
 
   @override
+  Future<void> deleteRecentPlay(String songKey) async {
+    final db = await _db;
+    await db.delete('recent_plays', where: 'song_key = ?', whereArgs: [songKey]);
+  }
+
+  @override
   Future<void> cleanOldest(int maxCount) async {
     final db = await _db;
     // 查总数

@@ -901,11 +901,17 @@ Future<void> showTrackMenu(
   Song? song,
   String? trackId,
   VoidCallback? onRemove,
+  String removeLabel = '从歌单移除',
 }) {
   return showUiV2Sheet(
     context,
     title: '更多操作',
-    child: UiV2TrackMenuBody(song: song, trackId: trackId, onRemove: onRemove),
+    child: UiV2TrackMenuBody(
+      song: song,
+      trackId: trackId,
+      onRemove: onRemove,
+      removeLabel: removeLabel,
+    ),
   );
 }
 
@@ -921,14 +927,24 @@ class UiV2TrackMenuBody extends ConsumerWidget {
   final VoidCallback? onRemove;
 
   /// 构造内容
-  const UiV2TrackMenuBody({super.key, this.song, this.trackId, this.onRemove});
+  /// 「移除」那一项的文案（歌单里是"从歌单移除"，最近播放里是"从最近播放移除"）
+  final String removeLabel;
+
+  const UiV2TrackMenuBody({
+    super.key,
+    this.song,
+    this.trackId,
+    this.onRemove,
+    this.removeLabel = '从歌单移除',
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // 三种来源的优先级：显式 Song > 当前播放曲目 > 显式 id（需要异步解析）
     final target = song ?? (trackId == null ? ref.watch(currentSongProvider) : null);
     if (target != null) {
-      return _TrackMenuActions(song: target, onRemove: onRemove);
+      return _TrackMenuActions(
+          song: target, onRemove: onRemove, removeLabel: removeLabel);
     }
 
     final id = trackId ?? ref.watch(currentTrackIdProvider);
@@ -942,7 +958,8 @@ class UiV2TrackMenuBody extends ConsumerWidget {
     // 只有 id 时回源补一次详情（远程源首次进入才需要）
     return ref.watch(songByIdProvider(id)).when(
           data: (resolved) => resolved != null
-              ? _TrackMenuActions(song: resolved, onRemove: onRemove)
+              ? _TrackMenuActions(
+              song: resolved, onRemove: onRemove, removeLabel: removeLabel)
               : const UiV2Empty(
                   title: '这首曲子暂时取不到详情',
                   text: '来源没有返回它的信息，稍后再试试。',
@@ -977,7 +994,14 @@ class _TrackMenuActions extends ConsumerWidget {
   final VoidCallback? onRemove;
 
   /// 构造动作列表
-  const _TrackMenuActions({required this.song, this.onRemove});
+  /// 「移除」文案
+  final String removeLabel;
+
+  const _TrackMenuActions({
+    required this.song,
+    this.onRemove,
+    this.removeLabel = '从歌单移除',
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1041,15 +1065,6 @@ class _TrackMenuActions extends ConsumerWidget {
           },
         ),
         UiV2ActionRow(
-          icon: UiV2Icons.next,
-          label: '下一首播放',
-          onTap: () {
-            ref.read(playbackControllerProvider).playNextUp(song);
-            Navigator.of(context).maybePop();
-            _toast(ref, '已设为下一首播放');
-          },
-        ),
-        UiV2ActionRow(
           icon: liked ? UiV2Icons.heartFill : UiV2Icons.heart,
           label: liked ? '取消喜欢' : '喜欢',
           onTap: () async {
@@ -1068,7 +1083,7 @@ class _TrackMenuActions extends ConsumerWidget {
         if (onRemove != null)
           UiV2ActionRow(
             icon: UiV2Icons.trash,
-            label: '从歌单移除',
+            label: removeLabel,
             hint: '这首歌会从当前歌单里删掉，歌曲本身不受影响',
             danger: true,
             onTap: () {
