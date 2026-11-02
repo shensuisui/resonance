@@ -141,7 +141,12 @@ class UiV2AppShell extends ConsumerWidget {
   }
 }
 
-/// 路由分发：一级页走 IndexedStack（保留状态），二级页按需构建
+/// 路由分发：一级页常驻 IndexedStack，二级页**叠在它上面**
+///
+/// 为什么不是"二级页替换一级页"：那样进「下载任务 / 设置 / 歌单」时，
+/// 当前一级页面（比如「我的」）整棵子树会被 dispose，返回后滚动位置、
+/// 展开状态全部重置 —— 用户实测就是"返回后滚动条回到最顶"。
+/// 现在一级页始终挂载，二级页用 Stack 覆盖上去，返回即恢复原样。
 class _RoutedView extends StatelessWidget {
   final NavState nav;
 
@@ -149,23 +154,43 @@ class _RoutedView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 六个一级页面统一走 IndexedStack：切换时保留各自的滚动位置与状态
-    if (isRootRoute(nav.current.name)) {
-      return IndexedStack(
-        index: rootIndexOf(nav.current.name),
-        children: const [
-          HomePage(),
-          SearchPage(),
-          LibraryPage(),
-          LikedPage(),
-          LocalPage(),
-          ProfilePage(),
-        ],
-      );
-    }
-    return KeyedSubtree(
-      key: ValueKey(nav.current.key),
-      child: _buildSub(nav.current),
+    final onRoot = isRootRoute(nav.current.name);
+    // 二级页下面该露出哪个一级页：取来路里最近的一级路由（没有则首页）
+    final base = onRoot
+        ? nav.current
+        : ([...nav.trail.reversed].firstWhere(
+            (e) => isRootRoute(e.name),
+            orElse: () => const NavEntry('home'),
+          ));
+
+    final roots = IndexedStack(
+      index: rootIndexOf(base.name),
+      children: const [
+        HomePage(),
+        SearchPage(),
+        LibraryPage(),
+        LikedPage(),
+        LocalPage(),
+        ProfilePage(),
+      ],
+    );
+
+    if (onRoot) return roots;
+    return Stack(
+      children: [
+        Positioned.fill(child: roots),
+        Positioned.fill(
+          // 二级页必须自带不透明底色：它现在是叠在一级页之上的，
+          // PageShell 自己不画背景，不铺底色就会把下面的首页透出来（真机预览踩过）
+          child: ColoredBox(
+            color: UiV2Theme.of(context).bg,
+            child: KeyedSubtree(
+              key: ValueKey(nav.current.key),
+              child: _buildSub(nav.current),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
