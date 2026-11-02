@@ -4,6 +4,7 @@
 /// 收起交互：顶部下箭头或下滑手势；Escape 亦可（Flutter 侧由 PopScope 处理）。
 library;
 
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:core/core.dart';
@@ -295,22 +296,64 @@ class _TopRow extends ConsumerWidget {
 }
 
 /// 窄屏主体（≤1023）：舞台 + 面板纵向排列
+///
+/// **整页不滚**（用户要求）：以前是 SingleChildScrollView，手机上稍微一推就整页滑。
+/// 现在按可用高度分配：面板先占它需要的高度，剩下的全给正方形舞台（封面/歌词），
+/// 舞台因此会自动缩成正方形而不会顶出去。
+/// 极端情况（窗口被拉得很扁）用 FittedBox 等比缩小，也不再出现滚动条。
 class _CompactBody extends StatelessWidget {
   final double gutter;
 
   const _CompactBody({required this.gutter});
 
+  /// 面板（标题/进度/主控/工具行）压紧后的高度上界
+  ///
+  /// 故意取比实际略大的值：宁可舞台小 2px，也不要因为估少了而溢出。
+  static const double _panelEstimate = 252;
+
+  /// 舞台的最小可用高度（再小就整体等比缩小）
+  static const double _stageMin = 140;
+
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          const _Stage(),
-          const SizedBox(height: UiV2Spacing.s5),
-          const _Panel(),
-          const SizedBox(height: UiV2Spacing.s5),
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, c) {
+        final gap = UiV2Spacing.s3;
+        final room = c.maxHeight - _panelEstimate - gap;
+        if (room < _stageMin) {
+          // 极端小窗：按"刚好放得下"的设计尺寸整体等比缩放（不会裁切、不会滚）
+          final designHeight = _panelEstimate + _stageMin + gap;
+          return FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              width: c.maxWidth,
+              height: designHeight,
+              child: _layout(c.maxWidth, _stageMin, gap),
+            ),
+          );
+        }
+        return _layout(c.maxWidth, math.min(c.maxWidth, room), gap);
+      },
+    );
+  }
+
+  /// 固定高度的两段式布局：舞台（正方形）+ 面板
+  Widget _layout(double width, double stageSize, double gap) {
+    return Column(
+      children: [
+        Expanded(
+          child: Center(
+            child: SizedBox(
+              width: stageSize,
+              height: stageSize,
+              child: const _Stage(),
+            ),
+          ),
+        ),
+        SizedBox(height: gap),
+        const _Panel(tight: true),
+      ],
     );
   }
 }
@@ -632,7 +675,10 @@ class _UiV2LyricsStageState extends ConsumerState<UiV2LyricsStage> {
 
 /// 信息与控件面板（.np__panelcol）
 class _Panel extends ConsumerWidget {
-  const _Panel();
+  /// 是否压紧（窄屏用：标题只留一行、各段间距收窄，把高度让给封面）
+  final bool tight;
+
+  const _Panel({this.tight = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -643,6 +689,8 @@ class _Panel extends ConsumerWidget {
     final song = ref.watch(currentSongProvider);
     final lyricsOpen = ref.watch(lyricsOpenProvider);
     final sleep = ref.watch(sleepTimerProvider);
+    // 压紧模式（窄屏）：各段间距从 s5 收到 s3，标题只留一行
+    final gap = tight ? UiV2Spacing.s3 : UiV2Spacing.s5;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -657,7 +705,7 @@ class _Panel extends ConsumerWidget {
                   Text(
                     song?.title ?? '未在播放',
                     style: UiV2Text.npTitle.copyWith(color: t.text),
-                    maxLines: 2,
+                    maxLines: tight ? 1 : 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
@@ -673,16 +721,16 @@ class _Panel extends ConsumerWidget {
             _LikeToggle(song: song),
           ],
         ),
-        const SizedBox(height: UiV2Spacing.s5),
+        SizedBox(height: gap),
         const UiV2ProgressBar(
           stacked: true,
           trackHeight: 24,
           barHeight: 5,
           thumbSize: 14,
         ),
-        const SizedBox(height: UiV2Spacing.s5),
+        SizedBox(height: gap),
         UiV2Transport(buttonSize: 48, largePlay: true, spread: true),
-        const SizedBox(height: UiV2Spacing.s5),
+        SizedBox(height: gap),
         Row(
           mainAxisAlignment:
               compact ? MainAxisAlignment.center : MainAxisAlignment.spaceBetween,

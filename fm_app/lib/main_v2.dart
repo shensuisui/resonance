@@ -499,6 +499,14 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
           ' started=' + started.toString());
       return started ? 'ok' : 'not started';
     }
+    case 'npopen':
+      // 发版前集成检查用：打开沉浸播放页（不依赖点击播放条上的展开键）
+      container.read(nowPlayingProvider.notifier).open();
+      print('NPOPEN opened=' + container.read(nowPlayingProvider).toString());
+      return 'ok';
+    case 'npclose':
+      container.read(nowPlayingProvider.notifier).close();
+      return 'ok';
     case 'recentrows': {
       // 发版前集成检查用：最近播放前几条的"行内 key / 是否缓存 / localPath"对照
       final cache = container.read(audioCacheProvider);
