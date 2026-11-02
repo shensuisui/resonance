@@ -163,7 +163,12 @@ CustomTransitionPage<void> _subPage(GoRouterState state, Widget child) {
         // 底色铺实（不淡入），内容在实底色上淡入：
         // 若连底色一起淡入，过渡途中依旧能透出上一页的文字，等于没修
         child: UiV2RouteSurface(
-          child: FadeTransition(opacity: curved, child: child),
+          // 只在**进入**方向淡入；**退出**（出栈）方向整页原样滑走。
+          // 同一根动画反向时 FadeTransition 会变成淡出，把整页内容先褪成白板
+          // 再滑走 —— 就是用户报的「出栈时页面变白」。
+          child: animation.status == AnimationStatus.reverse
+              ? child
+              : FadeTransition(opacity: curved, child: child),
         ),
       );
     },

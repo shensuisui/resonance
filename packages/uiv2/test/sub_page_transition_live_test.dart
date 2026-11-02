@@ -198,4 +198,49 @@ void main() {
     );
     expect(box.color.a, 1.0, reason: '底色不透明才能挡住上一页');
   });
+
+  testWidgets('出栈中途：页面内容不得淡出（否则先褪成白板再滑走）', (tester) async {
+    tester.view.physicalSize = const Size(444, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp.router(
+        routerConfig: container.read(appRouterProvider),
+        theme: UiV2DesignTheme.dark(),
+        builder: (context, c) =>
+            c == null ? const SizedBox() : UiV2Scope(child: c),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 600));
+
+    // 先完整进入设置页（等它进到位，再做出栈）
+    container.read(navProvider.notifier).go('profile');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    container.read(navProvider.notifier).go('settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // 出栈，并停在动画中途
+    container.read(navProvider.notifier).back();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 110));
+
+    final pageEl =
+        tester.element(find.byType(SettingsPage, skipOffstage: false).first);
+    final order = <String>[];
+    pageEl.visitAncestorElements((el) {
+      order.add(el.widget.runtimeType.toString());
+      return order.length < 60;
+    });
+    final iSurface = order.indexOf('UiV2RouteSurface');
+    final iFade = order.indexOf('FadeTransition');
+
+    expect(iSurface, greaterThanOrEqualTo(0), reason: '出栈时页面仍应带不透明底色');
+    expect(iFade, anyOf(-1, greaterThan(iSurface)),
+        reason: '出栈时内容不能有淡出：同一根动画反向时淡入会变淡出，'
+            '把整页内容先褪成白板再滑走（用户报的「出栈时页面变白」）');
+  });
 }
