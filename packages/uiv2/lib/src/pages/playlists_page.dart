@@ -89,12 +89,8 @@ class _PlaylistGridCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final covers = playlist.songKeys
-        .map((k) => playlist.songSnapshots[k]?.coverUrl)
-        .whereType<String>()
-        .where((s) => s.isNotEmpty)
-        .take(4)
-        .toList();
+    // 统一实现（同上）
+    final covers = resolvePlaylistCovers(ref, playlist);
     return UiV2PlaylistCard(
       playlist: playlist,
       covers: covers,

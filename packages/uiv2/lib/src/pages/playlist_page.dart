@@ -94,10 +94,8 @@ class _PlaylistBody extends ConsumerWidget {
         }
       }
     }
-    final covers = songs
-        .take(4)
-        .map((song) => resolveSongCover(ref, song) ?? '')
-        .toList(growable: false);
+    // 统一实现（带完整曲目，回落链更全）
+    final covers = resolvePlaylistCovers(ref, playlist, songs: songs);
     final otherPlaylists =
         (ref.watch(playlistsProvider).value ?? const <Playlist>[])
             .where((item) => item.id != playlist.id)
@@ -292,7 +290,7 @@ class _PlaylistBody extends ConsumerWidget {
                     for (final other in otherPlaylists)
                       UiV2PlaylistCard(
                         playlist: other,
-                        covers: _coversOf(other),
+                        covers: resolvePlaylistCovers(ref, other),
                         subtitle: _subtitleOf(other),
                         owned: (other.sourceId ?? '').isEmpty,
                         onTap: () => ref
@@ -606,12 +604,6 @@ Future<void> _playPlaylist(
   }
   await TrackActions.playAll(context, ref, songs);
 }
-
-/// 歌单封面：写入时保存的前 4 首快照的封面（不足 4 首由拼贴补齐占位色）
-List<String> _coversOf(Playlist playlist) => playlist.songSnapshots.values
-    .take(4)
-    .map((song) => song.coverUrl ?? '')
-    .toList(growable: false);
 
 /// 歌单副标题：首数 + 更新时间
 String _subtitleOf(Playlist playlist) =>

@@ -200,11 +200,8 @@ class _OwnedPlaylistCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final covers = playlist.songKeys
-        .map((key) => playlist.songSnapshots[key]?.coverUrl ?? '')
-        .where((url) => url.isNotEmpty)
-        .take(4)
-        .toList();
+    // 统一实现（见 resolvePlaylistCovers 注释）
+    final covers = resolvePlaylistCovers(ref, playlist);
     final count = playlist.songKeys.length;
 
     return UiV2PlaylistCard(
@@ -411,11 +408,8 @@ class _SourcePlaylistCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // 源歌单也带歌曲快照（CatalogMusicSource 会填），直接取前 4 首封面
-    final covers = playlist.songKeys
-        .map((key) => playlist.songSnapshots[key]?.coverUrl ?? '')
-        .where((url) => url.isNotEmpty)
-        .take(4)
-        .toList();
+    // 统一实现（见 resolvePlaylistCovers 注释）
+    final covers = resolvePlaylistCovers(ref, playlist);
     final count = playlist.songKeys.length;
 
     return UiV2PlaylistCard(

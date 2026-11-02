@@ -1073,12 +1073,14 @@ class UiV2PlaylistCard extends ConsumerWidget {
     return UiV2CardShell(
       width: width,
       art: UiV2CardArt(
-        // 拼贴优先（多首曲子各一张封面）；没有曲目快照时退回歌单自身的封面；
-        // 再没有才用补位色 —— 远端歌单列表往往没有曲目，只有 coverUrl。
+        // 样式统一：**自有歌单永远用拼贴**（4 格），缺封面走补位色 ——
+        // 旧实现在没有曲目封面时会退回歌单自身的 coverUrl 单图铺满，
+        // 于是同一个歌单在有的页面是拼贴、有的页面是单图（实测的不一致）。
+        // 远端歌单（收藏）列表接口不给曲目，只有官方封面，才用单图。
         child: Stack(
           fit: StackFit.expand,
           children: [
-            covers.isNotEmpty
+            (owned || covers.isNotEmpty)
                 ? UiV2Mosaic(
                     covers: covers,
                     fallback: fallback,

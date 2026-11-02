@@ -1805,6 +1805,32 @@ String? resolveSongCover(WidgetRef ref, Song song, {String? catalogCover}) {
   return _cachedSongMeta(ref, song.globalKey)?.coverUrl;
 }
 
+/// 歌单拼贴封面（**唯一实现**，所有页面共用）
+///
+/// 为什么必须唯一：此前首页 / 音乐库 / 全部歌单 / 歌单详情 / 其他歌单各自实现了
+/// 一遍，于是同一个歌单在不同页面出现不同封面：
+///   * 卡片页只读快照封面、还过滤掉空值 → 缺封面就少格子，后面的格子还被挤动；
+///   * 详情页走 [resolveSongCover]（快照 → 元数据缓存）→ 四张齐全；
+///   * 其他歌单用 songSnapshots.values（map 顺序）→ 顺序也可能不同。
+/// 这里统一：**按曲目顺序**取前 4 首，逐首走与行/卡片一致的回落链，缺封面**留空位**
+/// （空位由拼贴画补位色）—— 同一歌单在任何页面的格子数、顺序、内容都一致。
+///
+/// [songs] 非空时优先用它（详情页手上有完整曲目，回落链更全）。
+List<String> resolvePlaylistCovers(
+  WidgetRef ref,
+  Playlist playlist, {
+  List<Song>? songs,
+}) {
+  final covers = <String>[];
+  for (var i = 0; i < playlist.songKeys.length && covers.length < 4; i++) {
+    final key = playlist.songKeys[i];
+    final full = (songs != null && i < songs.length) ? songs[i] : null;
+    final song = full ?? playlist.songSnapshots[key];
+    covers.add(song == null ? '' : (resolveSongCover(ref, song) ?? ''));
+  }
+  return covers;
+}
+
 /// 曲目展示时长（秒）：快照 → 配表 → 元数据缓存
 ///
 /// 列表接口不给时长时靠播放器实测回写，读的时候统一在这里回落。

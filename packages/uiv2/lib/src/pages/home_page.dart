@@ -260,11 +260,8 @@ class _OwnedPlaylistCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = UiV2Theme.of(context);
     // 写库时保存了歌曲快照：直接取前 4 首的封面拼贴，不用回源
-    final covers = playlist.songKeys
-        .map((key) => playlist.songSnapshots[key]?.coverUrl ?? '')
-        .where((url) => url.isNotEmpty)
-        .take(4)
-        .toList();
+    // 统一实现：避免同一歌单在不同页面出现不同拼贴（见 resolvePlaylistCovers 注释）
+    final covers = resolvePlaylistCovers(ref, playlist);
     final count = playlist.songKeys.length;
 
     return UiV2PlaylistCard(
