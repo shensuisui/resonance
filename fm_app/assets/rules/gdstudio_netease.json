@@ -3,7 +3,6 @@
     "id": "gdstudio_netease",
     "name": "GD音乐台·网易云",
     "baseUrl": "https://music-api.gdstudio.xyz",
-    "icon": "https://music.gdstudio.xyz/favicon.ico",
     "showInLibrary": false,
     "visible": true
   },
