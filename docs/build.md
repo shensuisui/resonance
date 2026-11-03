@@ -23,4 +23,6 @@
 
 - Flutter 版本取自根目录 `.fvmrc`，与本地 fvm 开发保持一致。
 - Android release 目前使用 debug 签名（见 `fm_app/android/app/build.gradle.kts` 的 TODO），仅供测试；正式发布需另行配置签名。
+- Android：`fm_app/pubspec.yaml` 通过 `dependency_overrides` 将 `flutter_inappwebview_android` 覆盖为 `1.2.0-beta.3`——AGP 9 移除了 `getDefaultProguardFile('proguard-android.txt')`，1.1.3 的 release 构建会直接失败；上游发布稳定版修复后可移除该覆盖。
+- Windows：工作流会先开启开发者模式，否则插件符号链接（`.plugin_symlinks`）创建失败导致 CMake 解包报错。
 - iOS / macOS / Linux / Web 暂未纳入打包，需要时再扩展。

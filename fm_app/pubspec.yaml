@@ -69,6 +69,14 @@ dev_dependencies:
   # App 图标生成：`dart run flutter_launcher_icons`（配置见文件末尾）
   flutter_launcher_icons: ^0.14.4
 
+# AGP 9 移除了 getDefaultProguardFile('proguard-android.txt')，
+# flutter_inappwebview_android 1.1.3 的 release 构建因此在评估阶段直接失败。
+# 1.2.0-beta.3 已改用 proguard-android-optimize.txt；Dart 主包仍用稳定版 6.1.5，
+# 仅覆盖 Android 实现及其要求的 platform_interface 版本。
+dependency_overrides:
+  flutter_inappwebview_android: 1.2.0-beta.3
+  flutter_inappwebview_platform_interface: 1.4.0-beta.3
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
