@@ -2,7 +2,8 @@
 name: Tmp lock dump
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [agent/add-build-workflow-2a47a2c0c9ea]
 
 jobs:
   dump:
