@@ -66,6 +66,8 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   # Flan 的 MCP server：只是宿主拉起的独立进程，不进 App 依赖图
   flan_mcp: ^0.6.1
+  # App 图标生成：`dart run flutter_launcher_icons`（配置见文件末尾）
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -90,3 +92,37 @@ flutter:
     - family: Space Grotesk
       fonts:
         - asset: assets/fonts/SpaceGrotesk-VariableFont_wght.ttf
+
+# ---------------------------------------------------------------------------
+# App 图标生成（flutter_launcher_icons）
+#
+# 源图：assets/icon/app_icon.png —— 1024×1024，精确两色 #C9341C + #FFFFFF。
+#   app_icon.png            满底版（iOS / Windows / Web / macOS / 旧版 Android）
+#   app_icon_foreground.png 透明底白标记（Android 自适应图标前景层）
+#   app_icon.svg            同一份几何的矢量版，将来改尺寸/多平台可直接用
+#
+# 改图标后执行：`dart run flutter_launcher_icons`（在 fm_app 目录下）
+# 注意：assets/icon 只给这个工具读，**不要**登记到 assets: 里，免得打进包里。
+# Linux 不在该工具支持范围内，桌面端图标另行处理。
+# ---------------------------------------------------------------------------
+flutter_launcher_icons:
+  image_path: "assets/icon/app_icon.png"
+  android: "ic_launcher"
+  min_sdk_android: 21
+  # 自适应图标：底色用品牌红，前景是透明底的白标记（标记只占中间 56%，在安全区内）
+  adaptive_icon_background: "#C9341C"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  ios: true
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    background_color: "#C9341C"
+    theme_color: "#C9341C"
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
