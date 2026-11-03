@@ -1,0 +1,50 @@
+name: 功能建议
+description: 提出新功能、体验改进或产品建议
+title: "[建议] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢建议！请先说明你遇到的问题和使用场景，再描述期望的方案，这样更容易判断是否适合当前版本。
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索过现有 Issue，确认这不是重复建议
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 背景与问题
+      description: 你遇到了什么不便？这个需求能解决什么场景下的问题？
+      placeholder: 例如：我在通勤时经常没有网络，希望可以更方便地管理已下载的歌曲。
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望方案
+      description: 描述你期望的功能或交互。如果有参考产品，也可以一并说明。
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 备选方案
+      description: 你考虑过哪些替代做法？目前是如何绕过这个问题的？
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 补充信息
+      description: 截图、草图或其他相关上下文。
+    validations:
+      required: false

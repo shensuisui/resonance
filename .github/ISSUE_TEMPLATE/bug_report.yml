@@ -1,0 +1,106 @@
+name: 缺陷反馈
+description: 报告一个可复现的问题，帮助我们定位并修复
+title: "[缺陷] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量提供可复现的步骤和完整的运行环境，信息越具体，问题越容易定位。
+        提交前请先搜索已有 Issue，避免重复反馈。
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索过现有 Issue，确认这不是重复问题
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 简要说明遇到的问题，以及它造成的影响。
+      placeholder: 例如：播放本地歌曲时，进度条不会随播放时间前进。
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请按顺序列出操作步骤，并说明问题出现的频率。
+      placeholder: |
+        1. 打开 App，进入「本地音乐」
+        2. 播放任意一首歌曲
+        3. 观察底部播放进度
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果
+      description: 正常情况下，你期望看到什么？
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果
+      description: 实际发生了什么？如有报错信息，请一并粘贴。
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 运行平台
+      description: 可以多选。
+      multiple: true
+      options:
+        - Android
+        - Windows
+        - iOS
+        - macOS
+        - Web
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 应用版本或提交
+      description: 如果知道应用版本请填写；从源码运行时也可以填写提交哈希。
+      placeholder: 例如：v1.2.0 / a1b2c3d
+    validations:
+      required: false
+
+  - type: input
+    id: environment
+    attributes:
+      label: 系统与设备信息
+      description: 系统版本、设备型号、Flutter 版本等，按需填写。
+      placeholder: 例如：Windows 11 23H2，Flutter 3.47.1
+    validations:
+      required: false
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 截图、录屏或日志
+      description: 可直接拖拽图片或视频到这里；日志请粘贴在代码块中。
+      placeholder: 没有可以留空。
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 补充信息
+      description: 其他可能有助于定位问题的信息，例如最近是否更换过音源、是否只在特定歌曲上出现。
+    validations:
+      required: false
