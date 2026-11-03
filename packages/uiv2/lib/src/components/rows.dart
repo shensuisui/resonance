@@ -225,6 +225,12 @@ class UiV2Cover extends ConsumerWidget {
   /// 曲目来源 id：给了它就会自动带上该源的图片请求头（如 referer）
   final String? sourceId;
 
+  /// 是否在右下角压一枚源角标
+  ///
+  /// 用 [UiV2SourceBadge]（半透明底片），保证任何封面上都看得清；
+  /// 之前源图标占着行内第二行的位置，移到封面后第二行只剩「标记 + 歌手」。
+  final bool showSourceBadge;
+
   /// 构造封面
   const UiV2Cover({
     super.key,
@@ -233,6 +239,7 @@ class UiV2Cover extends ConsumerWidget {
     this.radius = 8,
     this.overlay,
     this.sourceId,
+    this.showSourceBadge = false,
   });
 
   @override
@@ -251,6 +258,15 @@ class UiV2Cover extends ConsumerWidget {
       children: [
         content,
         if (overlay != null) overlay!,
+        if (showSourceBadge &&
+            sourceId != null &&
+            sourceId!.isNotEmpty)
+          Positioned(
+            right: 2,
+            bottom: 2,
+            // 角标在 ClipRRect 内，跟封面一起被裁圆角
+            child: UiV2SourceBadge(sourceId: sourceId, size: 12),
+          ),
       ],
     );
 
@@ -435,6 +451,8 @@ class UiV2SongRow extends ConsumerWidget {
                 size: 42,
                 overlay: overlay,
                 sourceId: song.sourceId,
+                // 源图标移到封面角标（原来是行内第二行的一个独立小图标）
+                showSourceBadge: showSource,
               )
             else
               SizedBox(
@@ -458,6 +476,17 @@ class UiV2SongRow extends ConsumerWidget {
                   const SizedBox(height: 1),
                   Row(
                     children: [
+                      // 离线/已下载标记：**图标在歌手前面**，且只有图标、不带文字胶囊
+                      // （用户要求：去掉文字后靠形状+颜色区分，16px 是兼顾辨认与不撑高行）
+                      if (downloaded) ...[
+                        UiV2Icon(UiV2Icons.downloaded,
+                            size: 16, color: t.ok),
+                        const SizedBox(width: 5),
+                      ] else if (offlinePlayable) ...[
+                        UiV2Icon(UiV2Icons.offlineReady,
+                            size: 16, color: t.textDim),
+                        const SizedBox(width: 5),
+                      ],
                       Flexible(
                         child: Text(
                           subtitle,
@@ -466,16 +495,10 @@ class UiV2SongRow extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (downloaded) ...[
+                      // 没有封面时（本地音乐缺封面的行）角标没地方放，退回行内独立源图标，
+                      // 否则这一行的来源信息就丢了
+                      if (showSource && !showArt) ...[
                         const SizedBox(width: 6),
-                        const UiV2Badge(label: '已下载', icon: UiV2Icons.check),
-                      ] else if (offlinePlayable) ...[
-                        const SizedBox(width: 6),
-                        const UiV2Badge(label: '离线可播', icon: UiV2Icons.download),
-                      ],
-                      if (showSource) ...[
-                        const SizedBox(width: 6),
-                        // 源标识用小图标替代文字 tag：更省位置，也更统一
                         Tooltip(
                           message: sourceNameOverride ?? _sourceLabel(ref),
                           child: UiV2SourceIcon(

@@ -139,6 +139,25 @@ const Map<String, List<_Op>> _catalog = {
     _Op('M5 20h14'),
   ],
   'check': [_Op('m5 12.8 4.6 4.6L19 7')],
+  // 「离线可播」与「已下载」：同一枚实心圆盘，内符挖成洞（区别只在箭头/对勾）。
+  // 挖空靠 nonZero 填充下的**反向绕行**：外圈顺时针，内符逆时针 —— 绕向反了就变成
+  // 一整块实心、两个图标看不出区别（解析器不设 fill-rule，也没有 PathFillType）。
+  // 内符外接框中心恰为圆盘中心 (12,12)，由几何构造保证（见 test/row_marks_test.dart）。
+  'offlineReady': [
+    _Op(
+      'M20.6 12a8.6 8.6 0 1 1-17.2 0 8.6 8.6 0 0 1 17.2 0z '
+      'M10.4 12.1L7.4 12.1L12 16.9L16.6 12.1L13.6 12.1L13.6 7.1L10.4 7.1Z',
+      fill: true,
+    ),
+  ],
+  'downloaded': [
+    _Op(
+      'M20.6 12a8.6 8.6 0 1 1-17.2 0 8.6 8.6 0 0 1 17.2 0z '
+      'M6.74 12.03L10.92 16.21L11.66 15.39L17.26 9.19L15.7 7.79L10.1 13.99'
+      'L10.84 13.17L8.22 10.55Z',
+      fill: true,
+    ),
+  ],
   'close': [
     _Op('m6 6 12 12'),
     _Op('m18 6-12 12'),
@@ -540,6 +559,10 @@ abstract final class UiV2Icons {
   static const String repeat = 'repeat';
   static const String repeatOne = 'repeatOne';
   static const String heart = 'heart';
+  /// 离线可播（实心盘 + 挖空下箭头）
+  static const String offlineReady = 'offlineReady';
+  /// 已下载（实心盘 + 挖空对勾）
+  static const String downloaded = 'downloaded';
   static const String heartFill = 'heartFill';
   static const String chevronDown = 'chevronDown';
   static const String chevronRight = 'chevronRight';
@@ -607,3 +630,12 @@ class _UiV2IconPainter extends CustomPainter {
 
 /// 把 [Path] 转成 [ui.Path]（仅供需要路径度量的场景使用）。
 ui.Path debugParseIconPath(String d) => _parseSvgPath(d);
+
+/// 取某个图标的原始 path 串（测试用：按 `M` 分段校验每一段的外接框）。
+///
+/// 返回 null 表示目录里没有这个名字。
+String? debugIconRawD(String name) {
+  final ops = _catalog[name];
+  if (ops == null) return null;
+  return ops.map((op) => op.d).join(' ');
+}
