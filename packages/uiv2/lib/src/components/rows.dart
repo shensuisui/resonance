@@ -257,16 +257,19 @@ class UiV2Cover extends ConsumerWidget {
       fit: StackFit.expand,
       children: [
         content,
-        if (overlay != null) overlay!,
         if (showSourceBadge &&
             sourceId != null &&
             sourceId!.isNotEmpty)
+          // 紧贴右下角：不留内间距，角标跟着封面的圆角一起被裁（都在 ClipRRect 内）
           Positioned(
-            right: 2,
-            bottom: 2,
-            // 角标在 ClipRRect 内，跟封面一起被裁圆角
-            child: UiV2SourceBadge(sourceId: sourceId, size: 12),
+            key: const ValueKey('cover_source_badge'),
+            right: 0,
+            bottom: 0,
+            child: UiV2SourceEdge(sourceId: sourceId, size: 12),
           ),
+        // 蒙层必须排在角标**之后**：否则播放时角标会浮在压暗层上面，
+        // 看着像没进播放态（用户要求蒙层盖住角标）
+        if (overlay != null) overlay!,
       ],
     );
 
@@ -413,6 +416,7 @@ class UiV2SongRow extends ConsumerWidget {
 
     final overlay = (isPlay || isPending || isPaused)
         ? Container(
+            key: const ValueKey('song_row_overlay'),
             color: const Color(0x8C060709),
             alignment: Alignment.center,
             child: isPending

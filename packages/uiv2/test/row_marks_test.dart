@@ -140,7 +140,10 @@ void main() {
     late ProviderContainer container;
 
     Future<void> pumpRow(WidgetTester tester, Song s,
-        {bool offline = false, bool withArt = true}) async {
+        {bool offline = false,
+        bool withArt = true,
+        bool playing = false,
+        String? queueIdentity}) async {
       final db = InMemoryDatabaseProvider();
       await db.initialize();
       container = ProviderContainer(overrides: <Override>[
@@ -151,6 +154,17 @@ void main() {
         if (offline) offlineAvailableProvider(s.globalKey).overrideWithValue(true),
       ]);
       addTearDown(container.dispose);
+      if (playing) {
+        // 播放态样式只在「所属队列」的列表里出现：队列身份要与行上的一致
+        container.read(queueProvider.notifier).setQueue(const PlayQueue(
+          kind: PlayQueueKind.recent,
+          id: 'recent',
+          title: '最近播放',
+          songs: [song],
+        ));
+        container.read(currentTrackIdProvider.notifier).set(song.globalKey);
+        container.read(isPlayingProvider.notifier).set(true);
+      }
       await tester.pumpWidget(UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
@@ -162,6 +176,7 @@ void main() {
               song: s,
               index: 0,
               showArt: withArt,
+              queueIdentity: queueIdentity,
               onTap: () {},
               onToggleLike: () {},
               onMore: () {},
@@ -190,7 +205,7 @@ void main() {
       expect(find.text('已下载'), findsNothing);
       expect(find.text('离线可播'), findsNothing);
       // 源图标进封面角标
-      expect(find.byType(UiV2SourceBadge), findsOneWidget);
+      expect(find.byType(UiV2SourceEdge), findsOneWidget);
     });
 
     testWidgets('离线可播：灰色箭头图标在歌手前，无角标文字', (tester) async {
@@ -204,19 +219,57 @@ void main() {
           reason: '离线可播保持次级灰');
       expect(tester.getCenter(markOf(UiV2Icons.offlineReady)).dx,
           lessThan(tester.getCenter(find.text('HITA')).dx));
-      expect(find.byType(UiV2SourceBadge), findsOneWidget);
+      expect(find.byType(UiV2SourceEdge), findsOneWidget);
     });
 
     testWidgets('都没有：两个标记都不出现（但源角标仍在）', (tester) async {
       await pumpRow(tester, song);
       expect(markOf(UiV2Icons.downloaded), findsNothing);
       expect(markOf(UiV2Icons.offlineReady), findsNothing);
-      expect(find.byType(UiV2SourceBadge), findsOneWidget);
+      expect(find.byType(UiV2SourceEdge), findsOneWidget);
+    });
+
+    testWidgets('源角标紧贴右下角：图标右下角与封面右下角重合（0px）', (tester) async {
+      await pumpRow(tester, song);
+      final pos =
+          tester.widget<Positioned>(find.byKey(const ValueKey('cover_source_badge')));
+      expect(pos.right, 0, reason: '布局上要紧贴右边');
+      expect(pos.bottom, 0, reason: '布局上要紧贴下边');
+
+      // 实测像素：贴角版把描边画在图标自身外沿，所以图标不该被推开
+      final cover = tester.getRect(find.byType(UiV2Cover));
+      final icon = tester.getRect(find.byType(UiV2SourceIconView));
+      expect(cover.right - icon.right, 0,
+          reason: '图标右边要与封面右边重合（不是 1px / 2px）');
+      expect(cover.bottom - icon.bottom, 0,
+          reason: '图标下边要与封面下边重合');
+    });
+
+    testWidgets('播放蒙层必须盖住源角标（层序：角标先画、蒙层后画）', (tester) async {
+      await pumpRow(tester, song,
+          playing: true, queueIdentity: 'recent:recent');
+
+      // 出现了播放蒙层
+      expect(find.byKey(const ValueKey('song_row_overlay')), findsOneWidget);
+      final stack = tester.widget<Stack>(find
+          .descendant(
+            of: find.byType(UiV2Cover),
+            matching: find.byType(Stack),
+          )
+          .first);
+      final badgeIdx = stack.children
+          .indexWhere((w) => w.key == const ValueKey('cover_source_badge'));
+      final overlayIdx = stack.children
+          .indexWhere((w) => w.key == const ValueKey('song_row_overlay'));
+      expect(badgeIdx, greaterThanOrEqualTo(0), reason: '角标应在 Stack 里');
+      expect(overlayIdx, greaterThanOrEqualTo(0), reason: '蒙层应在 Stack 里');
+      expect(overlayIdx, greaterThan(badgeIdx),
+          reason: 'Stack 后画的盖住先画的：蒙层必须排在角标之后');
     });
 
     testWidgets('无封面（本地缺封面的行）：退回行内源图标，且不出现角标', (tester) async {
       await pumpRow(tester, song, withArt: false);
-      expect(find.byType(UiV2SourceBadge), findsNothing,
+      expect(find.byType(UiV2SourceEdge), findsNothing,
           reason: '没有封面就没有地方压角标');
       expect(find.byType(UiV2SourceIcon), findsOneWidget,
           reason: '退回行内源图标，否则这一行的来源信息就丢了');

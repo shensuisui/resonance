@@ -62,6 +62,52 @@ class UiV2SourceBadge extends ConsumerWidget {
   }
 }
 
+/// 封面角标·贴角版：纯图标 + 一圈极淡暗描边（**不留底片、不留间距**）
+///
+/// 与 [UiV2SourceBadge] 的分工：
+///   * [UiV2SourceBadge]：底片 + 1px 边框 + 3px 内边距，用在卡片封面（要 8px 存在感）；
+///   * 本组件：给「紧贴封面右下角」用 —— 图标 12px 直接贴角，靠一圈暗描边在花哨
+///     封面上勾出轮廓。
+///
+/// 描边画在**图标自身外沿的 1px 内**（用 Stack 叠一层，不参与布局），
+/// 所以图标仍是 0px 贴角；若改成给容器加 border/padding，图标会被推到 1~2px 之外。
+class UiV2SourceEdge extends ConsumerWidget {
+  /// 源 id
+  final String? sourceId;
+
+  /// 图标边长（描边画在其内侧，不额外占位）
+  final double size;
+
+  /// 构造贴角角标
+  const UiV2SourceEdge({super.key, required this.sourceId, this.size = 12});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 与 UiV2SourceIconView 的裁角保持一致（<=16 用 4）
+    final radius = BorderRadius.circular(size <= 16 ? 4 : 6);
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        children: [
+          Positioned.fill(child: UiV2SourceIcon(sourceId: sourceId, size: size)),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: radius,
+                // 极淡暗描边：既压住花哨封面，又不喧宾夺主
+                border: Border.all(
+                  color: const Color(0xFF000000).withValues(alpha: 0.35),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// 纯展示版（已经拿到 [MusicSource] 时用，避免重复解析）
 class UiV2SourceIconView extends StatelessWidget {
   /// 源（null 时显示「?」）
