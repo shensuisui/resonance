@@ -4,7 +4,7 @@
 /// 逻辑里不留特例。这里保持一致：本文件只放数据与派生结构，不放业务判断。
 ///
 /// 曲目 id 形如 `<albumId>#<no>`，与原型一致；封面路径约定
-/// `assets/covers/<albumId>.jpg`（fm_app/assets/covers/ 下随资产打包）。
+/// `assets/covers/<albumId>.jpg`（resonance_app/assets/covers/ 下随资产打包）。
 library;
 
 import 'package:flutter/widgets.dart';

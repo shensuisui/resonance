@@ -15,7 +15,7 @@
 ///     downloadManagerProvider.overrideWith((ref) => downloads),
 ///     recentPlaysServiceProvider.overrideWith((ref) => recent),
 ///   ],
-///   child: const FmAppV2(),
+///   child: const ResonanceAppV2(),
 /// ));
 /// ```
 library;

@@ -409,5 +409,5 @@ void main() {
   });
 
   // JS 插件运行时测试已移至集成测试（integration_test/）
-  // dart 单元测试环境无法初始化 WebView，真实测试在 fm_app/integration_test/ 下运行
+  // dart 单元测试环境无法初始化 WebView，真实测试在 resonance_app/integration_test/ 下运行
 }

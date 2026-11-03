@@ -1,6 +1,6 @@
 # uiv2 —— 「回响 Resonance」界面
 
-`packages/uiv2` 是 fm 音乐播放器的第二套 UI 实现，按 OpenDesign 原型
+`packages/uiv2` 是 resonance 音乐播放器的第二套 UI 实现，按 OpenDesign 原型
 （`index.html` + `assets/styles.css` + `assets/app.js`，项目 id `697ea853-0cd1-491b-971b-ae28a51ead33`）
 逐条还原：同一套界面覆盖手机与大屏，深色优先，自带配色令牌、图标集与响应式断点。
 
@@ -21,8 +21,8 @@
 - 37 个 Dart 文件、约 11.3k 行（不含生成代码）；
 - 16 个页面：首页、搜索、音乐库、我喜欢的音乐、本地音乐、我的、专辑、艺人、歌单、
   全部歌单、文件夹、最近播放、下载任务、音乐源、订阅、运行日志；
-- 素材：16 张专辑封面（`fm_app/assets/covers/`）+ 两族可变字体
-  （Manrope / Space Grotesk，`fm_app/assets/fonts/`）。
+- 素材：16 张专辑封面（`resonance_app/assets/covers/`）+ 两族可变字体
+  （Manrope / Space Grotesk，`resonance_app/assets/fonts/`）。
 
 ## 目录
 
@@ -52,7 +52,7 @@ lib/
 
 ## 使用
 
-壳工程（`fm_app`）里注入五个服务 Provider 即可：
+壳工程（`resonance_app`）里注入五个服务 Provider 即可：
 
 ```dart
 runApp(ProviderScope(

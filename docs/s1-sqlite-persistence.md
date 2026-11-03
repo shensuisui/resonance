@@ -2,7 +2,7 @@
 
 | 状态 | 进行中 |
 |:---|:---|
-| 涉及包 | core（接口）, db（新包，SQLite 实现）, fm_app（注入） |
+| 涉及包 | core（接口）, db（新包，SQLite 实现）, resonance_app（注入） |
 
 ---
 
@@ -111,7 +111,7 @@ CREATE TABLE favorites (
 | `lib/src/services/recent_plays_service.dart` | 最近播放业务逻辑（去重/移顶/500上限） |
 | `lib/src/services/download_manager.dart` | DownloadManager 抽象接口 |
 
-### 3.3 `fm_app` 接入
+### 3.3 `resonance_app` 接入
 
 `main.dart` 初始化 `SqfliteDatabaseProvider`，注入 `SourceManager` / `LocalCustomSource` / `FavoriteSource`。
 

@@ -70,7 +70,7 @@
 以上地址作为适配器的**默认远程资源**，用户也可在设置中手动导入本地或自定义地址的插件文件。
 
 #### 3.1.4 自有规则引擎源
-通过 JSON 规则文件描述任意在线音乐平台的数据提取逻辑。支持多种解析器与高级特性，规则文件存放于 `fm_app/assets/rules/` 或用户导入目录，APP 启动时自动加载为音乐源。
+通过 JSON 规则文件描述任意在线音乐平台的数据提取逻辑。支持多种解析器与高级特性，规则文件存放于 `resonance_app/assets/rules/` 或用户导入目录，APP 启动时自动加载为音乐源。
 
 #### 3.1.5 源管理界面（待定 UI）
 - 源列表展示，显示名称、图标、类型（本地/插件/规则），启用/禁用开关。
@@ -150,7 +150,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                   fm_app (壳工程)                     │
+│                   resonance_app (壳工程)                     │
 │              assets/rules/  assets/plugins/          │
 └──────────────┬──────────────────────────┬───────────┘
                │                          │
@@ -179,7 +179,7 @@
 ### 4.1 包依赖关系
 
 ```
-fm_app → ui
+resonance_app → ui
 ui → core + player + crawler
 crawler → core + expr
 player → core
@@ -256,7 +256,7 @@ player → core
 
 ## 6. 规则文件结构
 
-规则文件为 JSON 格式，存放于 `fm_app/assets/rules/`。包含以下节点（均可选，`source` 必填）：
+规则文件为 JSON 格式，存放于 `resonance_app/assets/rules/`。包含以下节点（均可选，`source` 必填）：
 
 ```json
 {
@@ -511,10 +511,10 @@ player → core
 ## 9. 项目目录结构
 
 ```
-fm/
+resonance/
 ├── .fvm/
 │   └── fvm_config.json          # FVM 版本锁定 3.47.1
-├── fm_app/                       # 壳工程
+├── resonance_app/                 # 壳工程
 │   ├── assets/
 │   │   ├── rules/                # 自有规则文件（.json）
 │   │   │   ├── netease.json

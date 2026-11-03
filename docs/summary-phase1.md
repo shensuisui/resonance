@@ -51,9 +51,9 @@
 ## 项目结构
 
 ```
-fm/
+resonance/
 ├── .fvm/fvm_config.json          # FVM 3.47.1
-├── fm_app/                       # 壳工程
+├── resonance_app/                 # 壳工程
 │   └── assets/
 │       ├── rules/                # 规则文件（空）
 │       └── plugins/              # 插件文件（空）
@@ -82,7 +82,7 @@ fm/
 ## 依赖关系
 
 ```
-fm_app → ui → core + player
+resonance_app → ui → core + player
 player → core
 crawler → core + expr    # 二期
 ```

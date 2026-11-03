@@ -2,7 +2,7 @@
 
 | 状态 | 进行中 |
 |:---|:---|
-| 涉及包 | ui（新建）, fm_app（接入） |
+| 涉及包 | ui（新建）, resonance_app（接入） |
 
 ---
 
@@ -85,7 +85,7 @@ class AppTheme {
 
 ### 2.2 初始化
 
-在 fm_app 的 main() 中初始化所有服务，通过 `ProviderScope.overrides` 注入。
+在 resonance_app 的 main() 中初始化所有服务，通过 `ProviderScope.overrides` 注入。
 
 ---
 

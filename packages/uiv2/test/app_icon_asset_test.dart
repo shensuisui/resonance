@@ -1,6 +1,6 @@
 /// App 图标资产的回归测试
 ///
-/// 守的是**已发布的那两个 PNG**（fm_app/assets/icon/*.png），不是重新画一遍：
+/// 守的是**已发布的那两个 PNG**（resonance_app/assets/icon/*.png），不是重新画一遍：
 ///   ① 尺寸必须是 1024×1024；
 ///   ② 底色必须精确是品牌红 #C9341C（不是近似色 —— 文生图那批就是每张都偏）；
 ///   ③ 关键采样点：中心是白色圆点、左右弧位置上必须是白、点与弧之间必须是红。
@@ -43,8 +43,8 @@ int _at(({int w, int h, ByteData px}) img, int x, int y) {
 
 void main() {
   // 相对 packages/uiv2 的运行目录
-  const png = '../../fm_app/assets/icon/app_icon.png';
-  const fg = '../../fm_app/assets/icon/app_icon_foreground.png';
+  const png = '../../resonance_app/assets/icon/app_icon.png';
+  const fg = '../../resonance_app/assets/icon/app_icon_foreground.png';
 
   test('满底图标：1024×1024，底色精确 #C9341C，标记是白色', () async {
     final img = await _decode(png);
@@ -72,7 +72,7 @@ void main() {
   });
 
   test('矢量源存在且声明了两种品牌色', () {
-    final svg = File('../../fm_app/assets/icon/app_icon.svg').readAsStringSync();
+    final svg = File('../../resonance_app/assets/icon/app_icon.svg').readAsStringSync();
     expect(svg, contains('#C9341C'));
     expect(svg, contains('#FFFFFF'));
     expect(svg, contains('viewBox="0 0 1024 1024"'));

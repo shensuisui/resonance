@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: fm_app
+        working-directory: resonance_app
     steps:
       - uses: actions/checkout@v4
 
@@ -54,7 +54,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: resonance-android-apks
-          path: fm_app/build/app/outputs/flutter-apk/*.apk
+          path: resonance_app/build/app/outputs/flutter-apk/*.apk
           retention-days: 14
 
   windows:
@@ -62,7 +62,7 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: fm_app
+        working-directory: resonance_app
     steps:
       - uses: actions/checkout@v4
 
@@ -114,7 +114,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: resonance-windows-x64
-          path: fm_app/build/resonance-windows-x64.zip
+          path: resonance_app/build/resonance-windows-x64.zip
           retention-days: 14
 
   # 仅推送 v* 标签时运行：把两个平台的产物挂到 GitHub Release 上

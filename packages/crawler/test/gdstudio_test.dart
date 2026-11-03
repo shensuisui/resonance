@@ -29,7 +29,7 @@ void main() {
 
   setUpAll(() {
     // 与 App 加载的是同一份规则文件，避免"测试用别的规则"这种假绿
-    final file = File('../../fm_app/assets/rules/gdstudio_netease.json');
+    final file = File('../../resonance_app/assets/rules/gdstudio_netease.json');
     ruleConfig = RuleLoader.loadFromJson(file.readAsStringSync())!;
     source = RuleBasedMusicSource(ruleConfig);
     pageOneFuture = source.search(keyword: '告白气球', page: 1);

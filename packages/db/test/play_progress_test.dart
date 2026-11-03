@@ -143,8 +143,8 @@ void main() {
 group('老库升级（缺新表）', () {
     test('已存在的库打开后自动补建 play_progress，且存量数据不动', () async {
       // 用真实文件库模拟"用户已经装过 App"的老库：先建好、删掉新表、关掉
-      final dir = Directory.systemTemp.createTempSync('fm_db_');
-      final path = p.join(dir.path, 'fm_music.db');
+      final dir = Directory.systemTemp.createTempSync('resonance_db_');
+      final path = p.join(dir.path, 'resonance.db');
       try {
         final old = DatabaseHelper(customDbPath: path);
         final db = await old.getDatabase();

@@ -11,7 +11,7 @@ import '../theme/app_radius.dart';
 ///
 /// 该模式下装饰性无限动画（微光/跳动条/跑马灯）会被静态化：
 /// 无限 repeat 会让 flutter_driver 的 tap/pumpAndSettle 永远无法收敛。
-const bool kDriverMode = bool.fromEnvironment('FM_DRIVER');
+const bool kDriverMode = bool.fromEnvironment('RESONANCE_DRIVER');
 
 class ShimmerBox extends StatefulWidget {
   final double? width;

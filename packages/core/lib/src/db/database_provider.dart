@@ -1,7 +1,7 @@
 import 'package:core/core.dart';
 
 /// 数据库提供者抽象
-/// 由上层（ui 或 fm_app）注入具体实现（如 sqflite）
+/// 由上层（ui 或 resonance_app）注入具体实现（如 sqflite）
 abstract class DatabaseProvider {
   Future<void> initialize();
   SongDao get songDao;

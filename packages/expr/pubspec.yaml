@@ -1,5 +1,5 @@
 name: expr
-description: Expression parsing and evaluation layer for fm music player
+description: Expression parsing and evaluation layer for resonance music player
 version: 1.0.0
 
 environment:

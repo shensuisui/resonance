@@ -17,7 +17,7 @@ void main() {
 
     setUpAll(() {
       // 从规则文件加载配置
-      final file = File('../../fm_app/assets/rules/6uq.json');
+      final file = File('../../resonance_app/assets/rules/6uq.json');
       final json = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
       config = RuleConfig.fromJson(json);
     });
@@ -231,7 +231,7 @@ void main() {
     late RuleConfig config;
 
     setUpAll(() {
-      final file = File('../../fm_app/assets/rules/6uq.json');
+      final file = File('../../resonance_app/assets/rules/6uq.json');
       final json = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
       config = RuleConfig.fromJson(json);
     });

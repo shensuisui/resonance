@@ -1,5 +1,5 @@
 name: player
-description: "fm music player implementation (just_audio)"
+description: "resonance music player implementation (just_audio)"
 publish_to: 'none'
 version: 0.0.1
 homepage:

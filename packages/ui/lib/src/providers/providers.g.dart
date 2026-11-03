@@ -164,16 +164,16 @@ final class RecentPlaysServiceProvider
 String _$recentPlaysServiceHash() =>
     r'b7653df859ac3669fad292d38868c52a1a20edca';
 
-/// 播放器接口（fm_app override 为 PlayerImpl）
+/// 播放器接口（resonance_app override 为 PlayerImpl）
 
 @ProviderFor(player)
 final playerProvider = PlayerProvider._();
 
-/// 播放器接口（fm_app override 为 PlayerImpl）
+/// 播放器接口（resonance_app override 为 PlayerImpl）
 
 final class PlayerProvider extends $FunctionalProvider<Player, Player, Player>
     with $Provider<Player> {
-  /// 播放器接口（fm_app override 为 PlayerImpl）
+  /// 播放器接口（resonance_app override 为 PlayerImpl）
   PlayerProvider._()
     : super(
         from: null,
@@ -209,18 +209,18 @@ final class PlayerProvider extends $FunctionalProvider<Player, Player, Player>
 
 String _$playerHash() => r'2190a674d680e8b09b19b5e6ad3df1b2efbbc099';
 
-/// 下载管理器（fm_app override 为 DownloadManagerImpl）
+/// 下载管理器（resonance_app override 为 DownloadManagerImpl）
 
 @ProviderFor(downloadManager)
 final downloadManagerProvider = DownloadManagerProvider._();
 
-/// 下载管理器（fm_app override 为 DownloadManagerImpl）
+/// 下载管理器（resonance_app override 为 DownloadManagerImpl）
 
 final class DownloadManagerProvider
     extends
         $FunctionalProvider<DownloadManager, DownloadManager, DownloadManager>
     with $Provider<DownloadManager> {
-  /// 下载管理器（fm_app override 为 DownloadManagerImpl）
+  /// 下载管理器（resonance_app override 为 DownloadManagerImpl）
   DownloadManagerProvider._()
     : super(
         from: null,
@@ -1223,7 +1223,7 @@ abstract class _$SleepTimerNotifier extends $Notifier<Duration?> {
 /// 主题种子色状态（settings key = seed_color，'#RRGGBB' 文本）
 ///
 /// build 先返回默认色，异步加载 settings 后更新；颜色变化驱动
-/// MaterialApp theme 重建（FmApp 中 watch）。
+/// MaterialApp theme 重建（ResonanceApp 中 watch）。
 
 @ProviderFor(SeedColorNotifier)
 final seedColorProvider = SeedColorNotifierProvider._();
@@ -1231,13 +1231,13 @@ final seedColorProvider = SeedColorNotifierProvider._();
 /// 主题种子色状态（settings key = seed_color，'#RRGGBB' 文本）
 ///
 /// build 先返回默认色，异步加载 settings 后更新；颜色变化驱动
-/// MaterialApp theme 重建（FmApp 中 watch）。
+/// MaterialApp theme 重建（ResonanceApp 中 watch）。
 final class SeedColorNotifierProvider
     extends $NotifierProvider<SeedColorNotifier, Color> {
   /// 主题种子色状态（settings key = seed_color，'#RRGGBB' 文本）
   ///
   /// build 先返回默认色，异步加载 settings 后更新；颜色变化驱动
-  /// MaterialApp theme 重建（FmApp 中 watch）。
+  /// MaterialApp theme 重建（ResonanceApp 中 watch）。
   SeedColorNotifierProvider._()
     : super(
         from: null,
@@ -1270,7 +1270,7 @@ String _$seedColorNotifierHash() => r'627112581c9ea6fef9f33495ca608878c24695ea';
 /// 主题种子色状态（settings key = seed_color，'#RRGGBB' 文本）
 ///
 /// build 先返回默认色，异步加载 settings 后更新；颜色变化驱动
-/// MaterialApp theme 重建（FmApp 中 watch）。
+/// MaterialApp theme 重建（ResonanceApp 中 watch）。
 
 abstract class _$SeedColorNotifier extends $Notifier<Color> {
   Color build();

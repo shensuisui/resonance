@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  release_check/lib/resize_window.ps1 —— 把运行中的 fm_app 窗口调到指定尺寸
+  release_check/lib/resize_window.ps1 —— 把运行中的 resonance_app 窗口调到指定尺寸
 .DESCRIPTION
   用 Win32 MoveWindow 改**真实窗口尺寸**（不是改 MediaQuery），这样布局断点、
   LayoutBuilder、导航栏切换走的都是真实路径。
@@ -14,11 +14,11 @@ param(
 $ErrorActionPreference = 'Continue'
 
 Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
-if (-not ('FmWindow' -as [type])) {
+if (-not ('ResonanceWindow' -as [type])) {
   Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
-public class FmWindow {
+public class ResonanceWindow {
   [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int ht, bool repaint);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr h, out RECT r);
@@ -27,15 +27,15 @@ public class FmWindow {
 '@
 }
 
-$p = Get-Process fm_app -ErrorAction SilentlyContinue | Select-Object -First 1
+$p = Get-Process resonance_app -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $p) { Write-Output 'NO_APP'; exit 2 }
 $h = $p.MainWindowHandle
 if ($h -eq [IntPtr]::Zero) { Write-Output 'NO_HANDLE'; exit 3 }
 
-[void][FmWindow]::MoveWindow($h, 40, 30, $Width, $Height, $true)
-[void][FmWindow]::SetForegroundWindow($h)
+[void][ResonanceWindow]::MoveWindow($h, 40, 30, $Width, $Height, $true)
+[void][ResonanceWindow]::SetForegroundWindow($h)
 Start-Sleep -Milliseconds 400
 
-$r = New-Object FmWindow+RECT
-[void][FmWindow]::GetClientRect($h, [ref]$r)
+$r = New-Object ResonanceWindow+RECT
+[void][ResonanceWindow]::GetClientRect($h, [ref]$r)
 Write-Output ('RESIZED outer=' + $Width + 'x' + $Height + ' client=' + ($r.Right - $r.Left) + 'x' + ($r.Bottom - $r.Top))

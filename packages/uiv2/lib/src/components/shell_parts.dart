@@ -125,7 +125,7 @@ class UiV2Sidebar extends ConsumerWidget {
                 mainAxisAlignment:
                     expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
                 children: [
-                  // 品牌行：标记与 App 图标（fm_app/assets/icon/app_icon.svg）同一份几何。
+                  // 品牌行：标记与 App 图标（resonance_app/assets/icon/app_icon.svg）同一份几何。
                   // 这里原来是「音符图标 + 圆角方块」临时拼的，与 App 图标不是同一套图形，
                   // 换了图标就对不上（用户就是看到侧栏还是旧音符才发现的）。
                   // 颜色仍跟随主题（accent / accentInk），不写死品牌色。

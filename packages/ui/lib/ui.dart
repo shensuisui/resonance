@@ -1,4 +1,4 @@
-/// ui 包 —— FM 音乐播放器 UI 模块
+/// ui 包 —— 回响播放器 UI 模块
 ///
 /// 提供完整的 Flutter UI：主题系统、Riverpod 状态管理、页面、组件。
 /// 壳工程通过 ProviderScope.overrides 注入服务实例。

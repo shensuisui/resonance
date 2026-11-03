@@ -1,4 +1,4 @@
-# fm UI 改进方案（对标 PixelPlayer）
+# resonance UI 改进方案（对标 PixelPlayer）
 
 | 文档版本 | 1.3 |
 | :--- | :--- |
@@ -34,9 +34,9 @@
 
 ## 0. 结论摘要
 
-fm 的 UI 架构（Riverpod + Material 3 + 常量主题 + 响应式导航）方向正确，但**视觉表现力、播放器交互、加载反馈**三个维度与 PixelPlayer 差距最大。差距本质不是"缺页面"，而是**缺沉浸感与动效细节**：
+resonance 的 UI 架构（Riverpod + Material 3 + 常量主题 + 响应式导航）方向正确，但**视觉表现力、播放器交互、加载反馈**三个维度与 PixelPlayer 差距最大。差距本质不是"缺页面"，而是**缺沉浸感与动效细节**：
 
-| 维度 | PixelPlayer | fm（现状） | 差距 |
+| 维度 | PixelPlayer | resonance（现状） | 差距 |
 | :--- | :--- | :--- | :--- |
 | 主题 | Material You 动态取色 + 专辑封面色驱动全 UI | 固定 deepPurple 种子色 | 大 |
 | 播放器 | 全局底部 Sheet（迷你条→拖动多级展开）+ 波浪进度条 + 标题跑马灯 | push 全屏页 + 标准 Slider | **极大** |
@@ -56,7 +56,7 @@ fm 的 UI 架构（Riverpod + Material 3 + 常量主题 + 响应式导航）方�
 - 形状分级 8/16/24dp；状态栏/导航栏透明、边到边、icon 亮度按底色亮度自动切换。
 - 设置项：全局圆角可调、导航栏样式可调（`NavBarCornerRadiusScreen.kt`）。
 
-**fm**（`packages/ui/lib/src/theme/app_theme.dart`）：
+**resonance**（`packages/ui/lib/src/theme/app_theme.dart`）：
 - `ColorScheme.fromSeed(seedColor: deepPurple)` 固定种子色；亮/暗两套由 settings 表 theme_mode 切换。
 - 间距/圆角常量体系（AppSpacing / AppRadius）已具备，但圆角粒度偏碎（4/8/12/16/24），未按 M3 形状语义分级。
 - 默认字体、无动态取色、无封面驱动。
@@ -65,7 +65,7 @@ fm 的 UI 架构（Riverpod + Material 3 + 常量主题 + 响应式导航）方�
 
 **PixelPlayer**：Home / Search / Library 三个主 root（`MainRootRoutes.kt`）+ 侧边抽屉（`AppSidebarDrawer.kt`）+ 底部导航；共享轴转场（`Transitions.kt` `aospSharedAxis`）；支持"启动落在哪个 tab"配置。
 
-**fm**（`app_shell.dart`）：竖屏底部 NavigationBar 5 tab（搜索/发现/最近/歌单/设置），横屏 NavigationRail；页面转场全默认 MaterialPageRoute。**设置/源管理这类低频管理页占了底部主位置**，而"最近播放"这种行为列表单独占一个 tab，权重失衡。
+**resonance**（`app_shell.dart`）：竖屏底部 NavigationBar 5 tab（搜索/发现/最近/歌单/设置），横屏 NavigationRail；页面转场全默认 MaterialPageRoute。**设置/源管理这类低频管理页占了底部主位置**，而"最近播放"这种行为列表单独占一个 tab，权重失衡。
 
 ### 1.3 播放器（差距最大）
 
@@ -77,7 +77,7 @@ fm 的 UI 架构（Riverpod + Material 3 + 常量主题 + 响应式导航）方�
 - 队列 Sheet：拖拽排序 + 滑动删除 + SnackBar 撤销（`QueueSheetController.kt` / `DismissUndoBar.kt`）。
 - 播放/暂停按钮：图标形态动画切换 + 触觉反馈（`AnimatedPlaybackControls.kt`）。
 
-**fm**（`player_page.dart` / `mini_player.dart`）：
+**resonance**（`player_page.dart` / `mini_player.dart`）：
 - 迷你条点击后 **push 全屏页**，与主界面割裂；无拖动展开、无过渡动画。
 - 标准 `Slider` 进度条，无播放态反馈。
 - 标题 ellipsis 截断。
@@ -88,7 +88,7 @@ fm 的 UI 架构（Riverpod + Material 3 + 常量主题 + 响应式导航）方�
 
 **PixelPlayer**：`SmartImage`（Coil 缓存 + 占位/失败态）、`ShimmerBox` 骨架屏、`PlayingEqIcon`（正弦波形）、`ExpressiveScrollBar`、多选底部栏（`MultiSelectionBottomSheet.kt`）、滑动删除 + 撤销、触觉反馈（`AppHaptics.kt`）。
 
-**fm**：网络图直连 `Image.network`（无缓存、加载中白屏跳动）、有默认封面占位、SongTile 已有播放中 EQ 动画（不错）、无骨架屏、无多选批量、无滑动操作、无触觉反馈。
+**resonance**：网络图直连 `Image.network`（无缓存、加载中白屏跳动）、有默认封面占位、SongTile 已有播放中 EQ 动画（不错）、无骨架屏、无多选批量、无滑动操作、无触觉反馈。
 
 ---
 
@@ -199,7 +199,7 @@ fm 的 UI 架构（Riverpod + Material 3 + 常量主题 + 响应式导航）方�
 **本期不做（已拍板）**：内置展示字体（原 2）、均衡器（原 14 内）。
 
 **架构约束（贴合 AGENTS.md）**：
-- 主题/播放器覆盖层状态放 `packages/ui` 的 providers，业务不落到 `fm_app` 壳工程。
+- 主题/播放器覆盖层状态放 `packages/ui` 的 providers，业务不落到 `resonance_app` 壳工程。
 - 新增组件全部沉淀 `packages/ui/lib/src/widgets/`，遵守"颜色走 Theme、间距走 AppSpacing、圆角走 AppRadius"既有约定。
 - 设置项一律走 settings 表 key-value（新增 key 免改表/免升版本），不硬编码特例。
 - 阶段一先出主题 provider + 单页验证，再扩散。
@@ -229,13 +229,13 @@ fm 的 UI 架构（Riverpod + Material 3 + 常量主题 + 响应式导航）方�
 
 ### 已完成（阶段一）
 
-- **[x] 1 主题色设置**：`SeedColorNotifier`（settings key `seed_color`，hex 存储）+ 8 色预设（`kSeedColorPresets`）+ HSV 自定义取色器（`color_picker_dialog.dart`）+ 设置页「外观」分组色块选择；`FmApp` watch 种子色重建主题。
+- **[x] 1 主题色设置**：`SeedColorNotifier`（settings key `seed_color`，hex 存储）+ 8 色预设（`kSeedColorPresets`）+ HSV 自定义取色器（`color_picker_dialog.dart`）+ 设置页「外观」分组色块选择；`ResonanceApp` watch 种子色重建主题。
 - **[x] 3 圆角设置**：`CornerRadiusNotifier`（settings key `corner_radius`，默认 12、范围 0~32）+ `AppTheme` 注入 card/dialog/bottomSheet；设置页「外观」分组滑杆。
 - **[x] 4 封面渐层背景**：新增 `CoverBackground` 组件（封面主色 → 表面色垂直渐变，300ms 过渡）；`CoverPalette.resolveColor`（NetworkImage + ImageStreamListener + 模块级 LRU 缓存 64）；接入播放页（body 背景）、迷你条（渐变背景 + 顶部分隔线替代阴影）、专辑页（头部区块，首曲封面取色）。歌单详情页（本地/发现）此前已实现（PlaylistHeaderView + CoverPalette）。
 - **[x] 5 转场微交互**：`FadeSlidePageTransitionsBuilder` 全局统一转场（淡入+上移+缩放，全平台注入 `pageTransitionsTheme`）；`PressableScale` 按压缩放组件（按下 0.96 回弹，120ms）接入播放页大播放按钮与发现页歌单卡片；触觉反馈（播放/暂停按钮、进度条拖动结束 `HapticFeedback.selectionClick`）。
 - **[x] 8 跑马灯**：`ScrollableText` 组件（溢出检测 → 延迟 2s → 横向往返滚动 + 两端渐变遮罩），接入播放页标题与迷你条标题。
 - 新增：`packages/ui/lib/src/widgets/color_picker_dialog.dart`、`packages/ui/lib/src/widgets/cover_background.dart`、`packages/ui/lib/src/widgets/pressable_scale.dart`、`packages/ui/lib/src/widgets/scrollable_text.dart`、`packages/ui/test/theme_settings_test.dart`（17 用例）、`packages/ui/test/widgets/cover_background_test.dart`（3 用例）、`packages/ui/test/widgets/pressable_scale_test.dart`（2 用例）、`packages/ui/test/widgets/scrollable_text_test.dart`（2 用例）
-- 验证：ui 包全量 72 测试通过；ui / fm_app analyze 无 error/warning。
+- 验证：ui 包全量 72 测试通过；ui / resonance_app analyze 无 error/warning。
 
 **阶段一全部完成。**
 

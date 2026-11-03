@@ -12,7 +12,7 @@
 
 `core` 包的持久化层，使用 SQLite（`sqflite` 或 `drift`）存储本地数据。包括数据库初始化、表结构定义、DAO 实现。
 
-> 由于 `core` 是纯 Dart 包，SQLite 实现使用 `sqflite_common_ffi`（桌面端）或设计为 `DatabaseProvider` 抽象，由上层注入具体实现。**推荐方案**：在 `core` 中定义 DAO 接口和 SQL 语句（纯 Dart），由 `ui` 或 `fm_app` 提供数据库实例。
+> 由于 `core` 是纯 Dart 包，SQLite 实现使用 `sqflite_common_ffi`（桌面端）或设计为 `DatabaseProvider` 抽象，由上层注入具体实现。**推荐方案**：在 `core` 中定义 DAO 接口和 SQL 语句（纯 Dart），由 `ui` 或 `resonance_app` 提供数据库实例。
 
 ## 2. 表结构
 
@@ -108,7 +108,7 @@ abstract class DatabaseProvider {
 ```
 
 - `core` 包提供 DAO 接口和默认实现
-- `ui` 或 `fm_app` 注入具体的 `DatabaseProvider`（如基于 `sqflite` 的实现）
+- `ui` 或 `resonance_app` 注入具体的 `DatabaseProvider`（如基于 `sqflite` 的实现）
 
 ## 5. 包结构变更
 
