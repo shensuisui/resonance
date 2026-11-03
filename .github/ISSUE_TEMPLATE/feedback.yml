@@ -1,0 +1,37 @@
+name: 其他反馈
+description: 提交使用疑问、文档改进或其他无法归类的反馈
+title: "[反馈] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        不确定该选哪个模板时可以用这里。请尽量说明背景和期望，方便我们理解和跟进。
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: 反馈类型
+      options:
+        - 使用疑问
+        - 文档改进
+        - 体验建议
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: content
+    attributes:
+      label: 反馈内容
+      description: 请描述你的问题、想法或建议，并说明相关场景。
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 补充信息
+      description: 截图、链接或其他有助于理解的资料。
+    validations:
+      required: false
