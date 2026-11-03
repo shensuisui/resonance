@@ -21,12 +21,14 @@ class _FakeSource implements MusicSource {
   @override
   final SourceInfo sourceInfo;
 
-  _FakeSource(String id, String name, {required bool enabled})
+  _FakeSource(String id, String name,
+      {required bool enabled, bool visible = true})
       : sourceInfo = SourceInfo(
           id: id,
           name: name,
           type: SourceType.values.first,
           enabled: enabled,
+          visible: visible,
         );
 
   @override
@@ -97,6 +99,36 @@ void main() {
     expect(fresh.isSourceEnabled('b'), isFalse,
         reason: 'settings 里是 0，重启后必须停用（否则用户的选择没落地）');
     expect(_enabledIds(c2), isEmpty, reason: 'a 本来就停用、b 被恢复成停用');
+  });
+
+  test('展示口径与功能口径分开：内置能力不计入展示，但必须在功能列表里', () {
+    // 复现用户看到的「4 个源 · 已启用 6 个」：分母数是可见源、分子却取了全量。
+    // 这里用最小数据把两种口径的期望值钉死。
+    final m = SourceManager()
+      ..registerSource(_FakeSource('a', 'A源', enabled: true))
+      ..registerSource(_FakeSource('b', 'B源', enabled: false))
+      ..registerSource(
+          _FakeSource('c', '我最喜欢', enabled: true, visible: false));
+    final c = ProviderContainer(
+      overrides: <Override>[
+        appDatabaseProvider.overrideWithValue(db),
+        sourceManagerProvider.overrideWithValue(m),
+      ],
+    );
+    addTearDown(c.dispose);
+    c.read(enabledSourcesProvider); // 触发版本 notifier
+
+    // 展示：只有可见源参与计数 → 2 个源、其中 1 个已启用（不会再出现 2/3 或 4/6）
+    expect(c.read(manageableSourcesProvider).map((s) => s.sourceInfo.id).toSet(),
+        {'a', 'b'});
+    expect(
+        c.read(enabledManageableSourcesProvider).map((s) => s.sourceInfo.id).toSet(),
+        {'a'});
+
+    // 功能：内置能力必须留在列表里，否则「我最喜欢」根本不会被搜索
+    expect(c.read(enabledSourcesProvider).map((s) => s.sourceInfo.id).toSet(),
+        {'a', 'c'},
+        reason: '搜索/推荐用的是功能口径，builtin 不能因为不可见就被排除');
   });
 
   test('状态没变时不重复通知（避免无谓重建）', () {

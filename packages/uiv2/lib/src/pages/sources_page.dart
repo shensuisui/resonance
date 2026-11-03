@@ -34,7 +34,9 @@ class SourcesPage extends ConsumerWidget {
         .where((s) => s.sourceInfo.visible)
         .toList(growable: false);
     final enabled = ref.watch(enabledSourceMapProvider);
-    final enabledCount = enabled.values.where((v) => v).length;
+    // 分子必须与分母同口径：分母是 visible 过滤后的 sources，
+    // 分子若取全量 enabled map 就会把内置能力算进来（4 个源 · 已启用 6 个）
+    final enabledCount = ref.watch(enabledManageableSourcesProvider).length;
 
     return PageShell(
       child: Column(

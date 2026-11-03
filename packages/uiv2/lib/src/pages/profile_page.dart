@@ -29,9 +29,10 @@ class ProfilePage extends ConsumerWidget {
     final topPlaylists = playlists.take(4).toList();
     final localCount = ref.watch(localTracksProvider).length;
     final recentCount = ref.watch(recentProvider).length;
-    final sources = ref.watch(sourceListProvider).value ?? const [];
-    final enabledMap = ref.watch(enabledSourceMapProvider);
-    final enabledCount = enabledMap.values.where((v) => v).length;
+    // 计数用「可管理的源」口径：内置能力（我最喜欢/本地音乐/自建歌曲）不算，
+    // 否则会出现「4 个源 · 已启用 6 个」这种自相矛盾的数字
+    final sources = ref.watch(manageableSourcesProvider);
+    final enabledCount = ref.watch(enabledManageableSourcesProvider).length;
     final logs = ref.watch(sourceLogProvider).entries;
     final tasks = ref.watch(downloadTasksProvider).value ?? const [];
 

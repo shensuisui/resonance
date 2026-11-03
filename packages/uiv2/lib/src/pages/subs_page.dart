@@ -26,7 +26,8 @@ class SubsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = UiV2Theme.of(context);
     final host = ref.watch(subscriptionHostProvider);
-    final sources = ref.watch(sourceListProvider).value ?? const [];
+    // 与其它页面同口径：只算可管理的源（内置能力不参与订阅展开，也不该计入）
+    final sources = ref.watch(manageableSourcesProvider);
 
     return PageShell(
       child: Column(

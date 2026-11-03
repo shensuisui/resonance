@@ -2789,10 +2789,39 @@ final enabledSourceMapProvider = Provider<Map<String, bool>>((ref) {
 }, name: 'enabledSourceMapProvider');
 
 /// 已启用的源（**派生视图**，唯一来源是 SourceManager.getEnabledSources）
+///
+/// 注意这是**功能**口径：搜索、推荐、封面等都该用它，必须包含 visible:false 的内置能力
+/// （我最喜欢 / 本地音乐 / 自建歌曲），否则那些东西就不工作了。
 final enabledSourcesProvider = Provider<List<MusicSource>>((ref) {
   ref.watch(sourceEnabledVersionProvider);
   return ref.watch(sourceManagerProvider).getEnabledSources();
 }, name: 'enabledSourcesProvider');
+
+/// 用户**可管理**的源（visible == true）—— 只用于**展示计数**
+///
+/// 为什么要和 [enabledSourcesProvider] 分开：内置能力（本地音乐 / 自建歌曲 / 我最喜欢）
+/// 声明 visible:false，它们既不出现在「音乐源」列表里、也不能被停用，但**必须参与搜索**。
+/// 以前各处文案各取各的：有的用全部源（7）、有的用可见源（4）当分母，分子却一律取全量，
+/// 于是出现「4 个源 · 已启用 6 个」这种分子分母口径不一致的数字。
+final manageableSourcesProvider = Provider<List<MusicSource>>((ref) {
+  ref.watch(sourceEnabledVersionProvider);
+  return ref
+      .watch(sourceManagerProvider)
+      .getAllSources()
+      .where((s) => s.sourceInfo.visible)
+      .toList(growable: false);
+}, name: 'manageableSourcesProvider');
+
+/// 可管理且已启用的源（展示计数用）
+final enabledManageableSourcesProvider = Provider<List<MusicSource>>((ref) {
+  ref.watch(sourceEnabledVersionProvider);
+  final manager = ref.watch(sourceManagerProvider);
+  return manager
+      .getAllSources()
+      .where((s) =>
+          s.sourceInfo.visible && manager.isSourceEnabled(s.sourceInfo.id))
+      .toList(growable: false);
+}, name: 'enabledManageableSourcesProvider');
 
 /// 推荐歌单（聚合各已启用源的 getPlaylistList，单源失败跳过）
 final recommendedPlaylistsProvider = FutureProvider<List<Playlist>>((ref) async {

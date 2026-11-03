@@ -37,7 +37,8 @@ class HomePage extends ConsumerWidget {
     // 展示元数据（配表曲目）只用来补封面与时长
     final meta = ref.watch(catalogTracksProvider);
     // 顶部副标题的「已启用 N 个音乐源」必须来自真实源表
-    final srcOn = ref.watch(enabledSourcesProvider).length;
+    // 「已启用 N 个音乐源」是给用户看的数：只算可管理的源（内置能力不算音乐源）
+    final srcOn = ref.watch(enabledManageableSourcesProvider).length;
 
     return PageShell(
       child: Column(
