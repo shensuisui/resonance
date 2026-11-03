@@ -12,6 +12,8 @@ import '../design/icons.dart';
 import '../design/motion.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+
+import 'brand_mark.dart';
 import '../providers/providers.dart';
 import '../router.dart';
 import 'rows.dart';
@@ -123,29 +125,12 @@ class UiV2Sidebar extends ConsumerWidget {
                 mainAxisAlignment:
                     expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: t.accent,
-                      borderRadius: UiV2Radii.brMd,
-                    ),
-                    alignment: Alignment.center,
-                    child: UiV2Icon(UiV2Icons.note, size: 24, color: t.accentInk),
-                  ),
+                  // 品牌行：标记与 App 图标（fm_app/assets/icon/app_icon.svg）同一份几何。
+                  // 这里原来是「音符图标 + 圆角方块」临时拼的，与 App 图标不是同一套图形，
+                  // 换了图标就对不上（用户就是看到侧栏还是旧音符才发现的）。
+                  // 颜色仍跟随主题（accent / accentInk），不写死品牌色。
+                  UiV2BrandRow(showName: expanded),
                   if (expanded) ...[
-                    const SizedBox(width: UiV2Spacing.s3),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('回响', style: UiV2Text.brandName.copyWith(color: t.text)),
-                        Text(
-                          'RESONANCE',
-                          style: UiV2Text.brandSub.copyWith(color: t.textMute),
-                        ),
-                      ],
-                    ),
                     if (showBack) ...[
                       // 返回键靠右：与品牌字标拉开距离，
                       // 位置也固定下来（原来紧贴字标，字标长度一变它就左右漂）
