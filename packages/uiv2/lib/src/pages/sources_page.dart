@@ -33,7 +33,7 @@ class SourcesPage extends ConsumerWidget {
     final sources = (ref.watch(sourceListProvider).value ?? const <MusicSource>[])
         .where((s) => s.sourceInfo.visible)
         .toList(growable: false);
-    final enabled = ref.watch(sourceEnabledProvider);
+    final enabled = ref.watch(enabledSourceMapProvider);
     final enabledCount = enabled.values.where((v) => v).length;
 
     return PageShell(
@@ -153,7 +153,7 @@ class _SourceRow extends ConsumerWidget {
         value: enabled,
         semanticLabel: enabled ? '停用 ${info.name}' : '启用 ${info.name}',
         onChanged: (value) async {
-          await ref.read(sourceEnabledProvider.notifier).toggle(info.id, value);
+          await ref.read(sourceEnabledActionsProvider).set(info.id, value);
           if (context.mounted) {
             showUiV2Toast(
               context,
@@ -230,7 +230,7 @@ class _SourceDetailSheetState extends ConsumerState<_SourceDetailSheet> {
   Widget build(BuildContext context) {
     final t = UiV2Theme.of(context);
     final info = widget.source.sourceInfo;
-    final enabled = ref.watch(sourceEnabledProvider)[info.id] ?? false;
+    final enabled = ref.watch(enabledSourceMapProvider)[info.id] ?? false;
     final typeLabel = switch (info.type) {
       SourceType.local => '本地',
       SourceType.rule => '规则',
@@ -273,9 +273,7 @@ class _SourceDetailSheetState extends ConsumerState<_SourceDetailSheet> {
           value: enabled,
           semanticLabel: enabled ? '停用 ${info.name}' : '启用 ${info.name}',
           onChanged: (value) async {
-            await ref
-                .read(sourceEnabledProvider.notifier)
-                .toggle(info.id, value);
+            await ref.read(sourceEnabledActionsProvider).set(info.id, value);
             if (context.mounted) {
               showUiV2Toast(context, '「${info.name}」${value ? '已启用' : '已停用'}');
             }

@@ -371,9 +371,10 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
       // 发版前集成检查用：停用/启用某个源（模拟"源失效"），状态会持久化
       final sid = p['id'] ?? '';
       if (sid.isEmpty) return 'missing id';
+      // 收敛后唯一入口是 SourceEnabledActions（改 manager + 落库 + 通知 UI）
       await container
-          .read(sourceEnabledProvider.notifier)
-          .toggle(sid, p['on'] == '1');
+          .read(sourceEnabledActionsProvider)
+          .set(sid, p['on'] == '1');
       return 'source $sid enabled=${p['on'] == '1'}';
     case 'dbinfo':
       // 发版前集成检查用：把"当前曲目在 UI 侧的快照"与"DB 里存的行"并排回读，

@@ -30,7 +30,7 @@ class ProfilePage extends ConsumerWidget {
     final localCount = ref.watch(localTracksProvider).length;
     final recentCount = ref.watch(recentProvider).length;
     final sources = ref.watch(sourceListProvider).value ?? const [];
-    final enabledMap = ref.watch(sourceEnabledProvider);
+    final enabledMap = ref.watch(enabledSourceMapProvider);
     final enabledCount = enabledMap.values.where((v) => v).length;
     final logs = ref.watch(sourceLogProvider).entries;
     final tasks = ref.watch(downloadTasksProvider).value ?? const [];

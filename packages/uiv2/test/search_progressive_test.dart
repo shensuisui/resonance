@@ -31,7 +31,7 @@ class _FakeSource implements MusicSource {
           id: id,
           name: name,
           type: SourceType.values.first,
-          // 必须显式 true：SourceEnabledNotifier 会读 manager.isSourceEnabled()，
+          // 必须显式 true：enabledSourcesProvider 读的就是 manager.isSourceEnabled()，
           // 而它就是由 registerSource 时的这个字段种下的
           enabled: true,
         );

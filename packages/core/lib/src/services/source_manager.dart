@@ -21,9 +21,19 @@ class SourceManager {
     _enabledStatus.remove(sourceId);
   }
 
+  /// 启用状态变化时的回调（sourceId, enabled）
+  ///
+  /// 为什么要有它：启用状态的**唯一真相**在这个 manager 里（core 不依赖任何 UI 框架），
+  /// 但改它的路径不止一条 —— 设置页、启动时注册内置源、订阅库加载新源……
+  /// 宿主（uiv2）用这个回调把「状态变了」通知给 UI，UI 就不再需要自己存第二份 map
+  /// （曾经两份并存，绕过 UI 直接改 manager 的路径会让界面失真）。
+  void Function(String sourceId, bool enabled)? onEnabledChanged;
+
   /// 启用/禁用源
   void setSourceEnabled(String sourceId, bool enabled) {
+    if (_enabledStatus[sourceId] == enabled) return; // 没变就不通知，避免无谓重建
     _enabledStatus[sourceId] = enabled;
+    onEnabledChanged?.call(sourceId, enabled);
   }
 
   /// 获取源是否启用

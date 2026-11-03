@@ -2714,59 +2714,84 @@ final sourceListProvider = FutureProvider<List<MusicSource>>(
   name: 'sourceListProvider',
 );
 
-/// 源启用状态（持久化到 settings key = source_enabled_<id>）
-class SourceEnabledNotifier extends Notifier<Map<String, bool>> {
+/// 源启用状态的版本号 —— UI 侧**唯一的触发源**
+///
+/// 收敛前的毛病（用户要求收敛）：UI 另存了一份 Map<String,bool>（旧 sourceEnabledProvider），
+/// 与 SourceManager 内部的 _enabledStatus 是**两份真相**。只要有一条路径绕过 UI 直接调
+/// manager.setSourceEnabled（启动时注册内置源、订阅库加载新源都这么做），界面就会失真：
+/// 源实际在参与搜索，列表里却显示「已停用」。
+///
+/// 现在真值只有 manager 一个，UI 只观察这个版本号；manager 状态一变就回调 bump。
+class SourceEnabledVersionNotifier extends Notifier<int> {
   @override
-  Map<String, bool> build() {
-    final sources = ref.watch(sourceListProvider).value ?? const <MusicSource>[];
-    final manager = ref.read(sourceManagerProvider);
-    final map = {
-      for (final s in sources) s.sourceInfo.id: manager.isSourceEnabled(s.sourceInfo.id),
-    };
-    unawaited(_restore(map));
-    return map;
+  int build() {
+    final manager = ref.watch(sourceManagerProvider);
+    // 任何地方改 manager 的启用状态 → 通知 UI 重建（这就是「单一真相」的闭环）
+    manager.onEnabledChanged = (_, __) => bump();
+    ref.onDispose(() => manager.onEnabledChanged = null);
+    // 首次被观察时把持久化的启用状态应用回 manager（懒执行，与旧行为一致）
+    unawaited(SourceEnabledActions(ref).restore());
+    return 0;
   }
 
-  /// 恢复持久化的启用状态
-  Future<void> _restore(Map<String, bool> map) async {
-    final all = await ref.read(settingsDaoProvider).getAll();
-    var changed = false;
+  /// 标记启用状态已变
+  void bump() => state = state + 1;
+}
+
+/// 源启用状态版本 Provider
+final sourceEnabledVersionProvider =
+    NotifierProvider<SourceEnabledVersionNotifier, int>(
+        SourceEnabledVersionNotifier.new);
+
+/// 源启用状态的操作入口：**唯一**会落库的地方
+class SourceEnabledActions {
+  /// 构造
+  SourceEnabledActions(this._ref);
+
+  final Ref _ref;
+
+  /// 启动恢复：把 settings 里的 source_enabled_<id> 应用回 manager
+  Future<void> restore() async {
+    final manager = _ref.read(sourceManagerProvider);
+    final all = await _ref.read(settingsDaoProvider).getAll();
     for (final entry in all.entries) {
       if (!entry.key.startsWith('source_enabled_')) continue;
       final id = entry.key.substring('source_enabled_'.length);
-      if (!map.containsKey(id)) continue;
       final value = entry.value == '1';
-      if (map[id] != value) {
-        map[id] = value;
-        changed = true;
-      }
-      ref.read(sourceManagerProvider).setSourceEnabled(id, value);
+      // 相等时 manager 内部会短路，不会误触发 onEnabledChanged
+      manager.setSourceEnabled(id, value);
     }
-    if (changed) state = {...map};
   }
 
-  /// 切换启用状态
-  Future<void> toggle(String sourceId, bool enabled) async {
-    ref.read(sourceManagerProvider).setSourceEnabled(sourceId, enabled);
-    state = {...state, sourceId: enabled};
-    await ref
+  /// 切换某个源的启用状态：改 manager（真值）+ 落库（持久化）
+  Future<void> set(String sourceId, bool enabled) async {
+    _ref.read(sourceManagerProvider).setSourceEnabled(sourceId, enabled);
+    await _ref
         .read(settingsDaoProvider)
         .set('source_enabled_$sourceId', enabled ? '1' : '0');
   }
 }
 
-/// 源启用状态 Provider
-final sourceEnabledProvider =
-    NotifierProvider<SourceEnabledNotifier, Map<String, bool>>(
-        SourceEnabledNotifier.new);
+/// 源启用状态操作 Provider
+final sourceEnabledActionsProvider =
+    Provider<SourceEnabledActions>(SourceEnabledActions.new);
 
-/// 已启用的源
+/// 每个源的启用状态（**派生视图**，不是第二份状态）
+///
+/// 保留 map 形状是为了让「设置页/我的页」这类需要整张表的界面读起来不变。
+final enabledSourceMapProvider = Provider<Map<String, bool>>((ref) {
+  ref.watch(sourceEnabledVersionProvider);
+  final manager = ref.watch(sourceManagerProvider);
+  return {
+    for (final s in manager.getAllSources())
+      s.sourceInfo.id: manager.isSourceEnabled(s.sourceInfo.id),
+  };
+}, name: 'enabledSourceMapProvider');
+
+/// 已启用的源（**派生视图**，唯一来源是 SourceManager.getEnabledSources）
 final enabledSourcesProvider = Provider<List<MusicSource>>((ref) {
-  final enabled = ref.watch(sourceEnabledProvider);
-  final sources = ref.watch(sourceListProvider).value ?? const <MusicSource>[];
-  return sources
-      .where((s) => enabled[s.sourceInfo.id] ?? false)
-      .toList(growable: false);
+  ref.watch(sourceEnabledVersionProvider);
+  return ref.watch(sourceManagerProvider).getEnabledSources();
 }, name: 'enabledSourcesProvider');
 
 /// 推荐歌单（聚合各已启用源的 getPlaylistList，单源失败跳过）
