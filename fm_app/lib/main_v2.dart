@@ -589,7 +589,11 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
           ' pos=' +
           container.read(positionProvider).inMilliseconds.toString() +
           ' dur=' +
-          container.read(durationProvider).inMilliseconds.toString());
+          container.read(durationProvider).inMilliseconds.toString() +
+          ' shuffle=' +
+          container.read(shuffleProvider).toString() +
+          ' queue=' +
+          container.read(queueProvider).length.toString());
     case 'state':
       // 发版前集成检查用：把当前导航/曲目/主题等状态回读给驱动，
       // 让"点了之后到底变没变"可以被断言，而不是只看截图猜。
