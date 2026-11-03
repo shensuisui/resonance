@@ -24,5 +24,6 @@
 - Flutter 版本取自根目录 `.fvmrc`，与本地 fvm 开发保持一致。
 - Android release 目前使用 debug 签名（见 `fm_app/android/app/build.gradle.kts` 的 TODO），仅供测试；正式发布需另行配置签名。
 - Android：`packages/crawler` 的 `flutter_inappwebview` 使用 `6.2.0-beta.3`——AGP 9 移除了 `getDefaultProguardFile('proguard-android.txt')`，稳定版 6.1.5 的 release 构建会直接失败；上游发布稳定版后可切回正式版。
-- Windows：工作流会先开启开发者模式，否则插件符号链接（`.plugin_symlinks`）创建失败导致 CMake 解包报错。
+- Android：`fm_app/android/build.gradle.kts` 会把插件子工程的 `compileSdk` 抬到 36——`audiotags` 1.4.5 写死 compileSdk 31，其 AndroidX 依赖要求 34+。
+- Windows：工作流会先开启开发者模式，并预解包 audiotags 插件自带的 Windows 原生库——该插件用 `cmake -E tar` 在自己的插件目录里解包，而插件目录经符号链接访问时 cmake 会拒绝解包。
 - iOS / macOS / Linux / Web 暂未纳入打包，需要时再扩展。

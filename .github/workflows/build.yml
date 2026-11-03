@@ -81,6 +81,35 @@ jobs:
 
       - run: flutter pub get
 
+      # audiotags 1.4.5 的 CMake 在构建时从 GitHub Release 下载 windows.tar.gz，
+      # 再用 `cmake -E tar` 在自己的插件目录里解包；而插件目录经 .plugin_symlinks
+      # 符号链接访问时 cmake 拒绝解包（日志：Cannot extract through symlink），
+      # 随后 INSTALL 阶段失败。这里在 pub cache 的真实路径先行下载并解包出
+      # audiotags.dll，插件的 CMake 检测到该文件已存在便会跳过解包。
+      - name: 预解包 audiotags 的 Windows 原生库
+        shell: pwsh
+        run: |
+          $cache = if ($env:PUB_CACHE) { $env:PUB_CACHE } else { Join-Path $env:LOCALAPPDATA 'Pub\Cache' }
+          $hosted = Join-Path $cache 'hosted\pub.dev'
+          Get-ChildItem $hosted -Directory -Filter 'audiotags-*' -ErrorAction SilentlyContinue | ForEach-Object {
+            $version = $_.Name -replace '^audiotags-', ''
+            $win = Join-Path $_.FullName 'windows'
+            if (Test-Path (Join-Path $win 'audiotags.dll')) { return }
+            $tar = Join-Path $win 'windows.tar.gz'
+            if (-not (Test-Path $tar)) {
+              $url = "https://github.com/erikas-taroza/audiotags/releases/download/v$version/windows.tar.gz"
+              Write-Host "downloading $url"
+              Invoke-WebRequest $url -OutFile $tar -UseBasicParsing
+            }
+            Write-Host "extracting $tar"
+            Push-Location $win
+            tar -xzf windows.tar.gz
+            Pop-Location
+            if (-not (Test-Path (Join-Path $win 'audiotags.dll'))) {
+              throw "audiotags.dll 解包失败：$win"
+            }
+          }
+
       - run: flutter build windows --release
 
       - name: 打包 zip
