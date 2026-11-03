@@ -11,9 +11,14 @@ library;
 import 'dart:async';
 
 import 'package:core/core.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/misc.dart' show Override;
+import 'package:uiv2/src/components/surfaces.dart';
+import 'package:uiv2/src/design/theme.dart';
+import 'package:uiv2/src/design/tokens.dart';
+import 'package:uiv2/src/pages/search_page.dart';
 import 'package:uiv2/src/providers/providers.dart';
 
 /// 一个可控的源：只需要 sourceInfo
@@ -26,6 +31,9 @@ class _FakeSource implements MusicSource {
           id: id,
           name: name,
           type: SourceType.values.first,
+          // 必须显式 true：SourceEnabledNotifier 会读 manager.isSourceEnabled()，
+          // 而它就是由 registerSource 时的这个字段种下的
+          enabled: true,
         );
 
   @override
@@ -36,20 +44,21 @@ class _FakeSource implements MusicSource {
 ///
 /// 刻意模仿真实 searchStream 的「谁先完成谁先 emit」，这样才能测出顺序语义。
 class _StagedManager extends SourceManager {
-  _StagedManager(List<(String, String)> defs)
-      : _sources = [for (final d in defs) _FakeSource(d.$1, d.$2)];
+  /// 用 [SourceManager.registerSource] 注册：**不要**去覆盖 getAllSources /
+  /// getEnabledSources / getSource —— 搜索页经 sourceListProvider 用的是
+  /// getAllSources（基类内部 map），只覆盖 getEnabledSources 会让页面以为
+  /// 「所有音乐源都已停用」（踩过一次）。
+  _StagedManager(List<(String, String)> defs) : _count = defs.length {
+    for (final d in defs) {
+      registerSource(_FakeSource(d.$1, d.$2));
+    }
+  }
 
-  final List<_FakeSource> _sources;
+  /// 源个数（闸门数量按它来）
+  final int _count;
 
-  /// keyword → 每个源的放行闸门（与 _sources 同序）
+  /// keyword → 每个源的放行闸门（与注册顺序同序）
   final Map<String, List<Completer<SearchResult>>> gates = {};
-
-  @override
-  List<MusicSource> getEnabledSources() => List.of(_sources);
-
-  @override
-  MusicSource? getSource(String sourceId) =>
-      _sources.where((s) => s.sourceInfo.id == sourceId).firstOrNull;
 
   @override
   Stream<SearchResult> searchStream({
@@ -60,7 +69,7 @@ class _StagedManager extends SourceManager {
     final controller = StreamController<SearchResult>();
     final list = gates.putIfAbsent(
       keyword,
-      () => [for (final _ in _sources) Completer<SearchResult>()],
+      () => [for (var i = 0; i < _count; i++) Completer<SearchResult>()],
     );
     var pending = list.length;
     for (final c in list) {
@@ -135,6 +144,12 @@ void main() {
     expect(s.pools.map((p) => p.id).toList(), ['c', 'b', 'a'],
         reason: '已完成区按返回顺序排，未返回的仍在后面');
 
+    // ③.5 关键回归：结果已经上屏时 total 必须是**实时**的。
+    // 它原来只在搜索全部结束时写一次，于是这段窗口里 total 仍是 0 ——
+    // 界面据此判定「没有找到」并把来源条一起撤掉（用户报的现象）。
+    expect(s.total, s.filteredTotal, reason: 'total 必须实时等于 filteredTotal');
+    expect(s.total, greaterThan(0), reason: '已经有结果了，total 不能还是 0');
+
     // ④ 第一个源返回空结果：它的 tab 自己消失
     manager.gates['周杰伦']![0].complete(_res('a', 0));
     await _tick();
@@ -185,6 +200,54 @@ void main() {
     expect(s.loading, isFalse);
     expect(s.pools.map((p) => p.id).toList(), ['a'],
         reason: 'b/c 对新关键词是空结果，tab 应当消失');
+  });
+
+  testWidgets('搜索途中：已到一部分结果时不能显示「没有找到」，来源条也不能消失',
+      (tester) async {
+    // 复现用户报的时序：第一个源刚回来 → 结果上屏；其余源还在搜。
+    // 期望：结果区显示那一批，来源条仍在（含仍在 loading 的源）。
+    final mgr = _StagedManager([('a', 'A源'), ('b', 'B源')]);
+    final db = InMemoryDatabaseProvider();
+    await db.initialize();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          appDatabaseProvider.overrideWithValue(db),
+          sourceManagerProvider.overrideWithValue(mgr),
+        ],
+        child: MaterialApp(
+          theme: UiV2DesignTheme.dark(),
+          builder: (context, child) =>
+              child == null ? const SizedBox() : UiV2Scope(child: child),
+          home: const Scaffold(body: SearchPage()),
+        ),
+      ),
+    );
+    await tester.pump();
+    final c = ProviderScope.containerOf(tester.element(find.byType(SearchPage)));
+    unawaited(c.read(searchProvider.notifier).search('周杰伦'));
+    await tester.pump();
+
+    // 只放行 A 源（有结果），B 源仍在 loading
+    mgr.gates['周杰伦']![0].complete(_res('a', 2));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+
+    expect(c.read(searchProvider).pools.first.songs.length, 2,
+        reason: 'A 源的结果应当已经上屏');
+    expect(find.textContaining('没有找到'), findsNothing,
+        reason: '已经有结果了，绝不能再显示「没有找到」');
+    // 用 chip 精确定位：源名在结果区标题里也会出现（「来自 1 个源 → A源」），
+    // 直接 find.text 会命中两处
+    expect(find.widgetWithText(UiV2Chip, 'A源'), findsOneWidget,
+        reason: '来源条必须还在');
+    expect(find.widgetWithText(UiV2Chip, 'B源'), findsOneWidget,
+        reason: '还在搜的源也要占着 tab');
+
+    // 放行 B 源让流收尾，避免留下未完成的 future
+    mgr.gates['周杰伦']![1].complete(_res('b', 0));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
   });
 
   test('空关键词：直接复位成 idle，不发请求', () async {

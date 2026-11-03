@@ -74,28 +74,66 @@ class FavoriteSource extends MusicSource {
     return songs;
   }
 
+  /// 搜索收藏
+  ///
+  /// 用**收藏快照**（title/artist/coverUrl）在本地匹配 —— 收藏时就存了这些字段，
+  /// 不需要回源。旧实现是拿 keys 逐条 `getSongDetail` **串行**去问远端：
+  /// 收藏越多越慢（用户实测「我最喜欢」这个本地源比所有远端源都慢、排在最后），
+  /// 而且拿不到快照里的封面。
+  ///
+  /// 只有快照功能之前写入的历史记录（title 为 null）才回源补齐，且这批并行取，
+  /// 不串行等待。
   @override
   Future<SearchResult> search({
     required String keyword,
     int page = 1,
     int pageSize = 20,
   }) async {
-    final keys = await _favoritesDao.getAllFavoriteKeys();
-    final matched = <Song>[];
+    final records = await _favoritesDao.getAllFavoriteRecords();
     final lower = keyword.toLowerCase();
+    final matched = <Song>[];
+    final legacy = <(String, String)>[];
 
-    for (final key in keys) {
-      final parts = key.split(':');
+    for (final record in records) {
+      final parts = record.songKey.split(':');
       if (parts.length < 2) continue;
       final sourceId = parts[0];
       final songId = parts.sublist(1).join(':');
-      try {
-        final song = await _sourceManager.getSongDetail(sourceId, songId);
+
+      final title = record.title;
+      if (title == null) {
+        legacy.add((sourceId, songId));
+        continue;
+      }
+      if (title.toLowerCase().contains(lower) ||
+          (record.artist ?? '').toLowerCase().contains(lower)) {
+        matched.add(Song(
+          id: songId,
+          sourceId: sourceId,
+          title: title,
+          artist: record.artist ?? '',
+          coverUrl: record.coverUrl,
+        ));
+      }
+    }
+
+    if (legacy.isNotEmpty) {
+      final details = await Future.wait(
+        legacy.map((e) async {
+          try {
+            return await _sourceManager.getSongDetail(e.$1, e.$2);
+          } catch (_) {
+            return null;
+          }
+        }),
+      );
+      for (final song in details) {
+        if (song == null) continue;
         if (song.title.toLowerCase().contains(lower) ||
             song.artist.toLowerCase().contains(lower)) {
           matched.add(song);
         }
-      } catch (_) {}
+      }
     }
 
     return SearchResult(

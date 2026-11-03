@@ -397,7 +397,9 @@ class _SearchResults extends ConsumerWidget {
       );
     }
 
-    if (total == 0) {
+    // 必须要求 !loading：搜索途中「还没有任何结果」不等于「没有找到」
+    // （上面那个 loading 分支负责搜索中的空结果区，这里只判尘埃落定后的空）
+    if (!state.loading && total == 0) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

@@ -1046,9 +1046,6 @@ class SearchState {
   /// 关键词
   final String keyword;
 
-  /// 命中总数
-  final int total;
-
   /// 按来源分组
   final List<SearchPool> pools;
 
@@ -1067,7 +1064,6 @@ class SearchState {
   /// 构造搜索状态
   const SearchState({
     this.keyword = '',
-    this.total = 0,
     this.pools = const [],
     this.sourceFilter = 'all',
     this.expanded = false,
@@ -1085,6 +1081,14 @@ class SearchState {
   /// 当前筛选下的命中数
   int get filteredTotal => activePools.fold(0, (sum, p) => sum + p.songs.length);
 
+  /// 命中总数 —— **实时算出来**，不再是单独存的字段。
+  ///
+  /// 历史 bug（用户报「结果明明有了却显示没有找到、tab 还消失」）：total 原来只在
+  /// 搜索**全部结束**时写一次，而 UI 的空态判断读的就是它 —— 于是「第一个源刚回来、
+  /// 结果已上屏」的那段窗口里 total 仍是 0：界面显示「没有找到」、来源条一并消失，
+  /// 等所有源都结束 total 才被写上，结果「一下子全冒出来」。
+  int get total => filteredTotal;
+
   /// 参与筛选的分组（**不含还在 loading 的分组** —— 它们还没有歌曲，
   /// 会让「来自 N 个源」这类计数多算，也会让空结果文案提前出现）
   List<SearchPool> get activePools {
@@ -1100,7 +1104,6 @@ class SearchState {
   /// 复制并覆盖字段
   SearchState copyWith({
     String? keyword,
-    int? total,
     List<SearchPool>? pools,
     String? sourceFilter,
     bool? expanded,
@@ -1109,7 +1112,6 @@ class SearchState {
   }) =>
       SearchState(
         keyword: keyword ?? this.keyword,
-        total: total ?? this.total,
         pools: pools ?? this.pools,
         sourceFilter: sourceFilter ?? this.sourceFilter,
         expanded: expanded ?? this.expanded,
@@ -1188,7 +1190,6 @@ class SearchNotifier extends Notifier<SearchState> {
     if (token != _token) return;
     state = state.copyWith(
       loading: false,
-      total: state.filteredTotal,
       hasMore: state.pools.any((p) => p.hasMore),
     );
   }
