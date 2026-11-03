@@ -85,12 +85,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     );
   }
 
-  /// 输入变化：200ms 防抖后搜索（避免逐字符触发远程聚合）
+  /// 输入变化：**1000ms** 防抖后搜索（用户定的时长，避免逐字符触发远程聚合）
   ///
   /// 这里**不写搜索历史**：否则「a / ab / abc」这类中间前缀都会被记进去。
+  ///
+  /// 注意防抖只管少发请求，**不保证结果与输入一致** —— 那个保证
+  /// 在 [SearchNotifier.search] 的请求令牌上（过期请求的结果一律丢弃）。
   void _onChanged(String value) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 200), () => _run(value));
+    _debounce = Timer(const Duration(milliseconds: 1000), () => _run(value));
   }
 
   /// 回车确认：真正执行搜索并记一条历史
@@ -122,6 +125,54 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       ref
           .read(searchProvider.notifier)
           .search(value, recordHistory: recordHistory),
+    );
+  }
+}
+
+/// 来源筛选条
+///
+/// 顺序即语义：已返回的源按**返回顺序**排在前面（先回来先上屏），
+/// 还没返回的源保持默认顺序、名字前显示 loading —— 排序由 Provider 负责，
+/// 这里只如实渲染，不自己算。
+class _SourceChips extends ConsumerWidget {
+  /// 当前搜索状态
+  final SearchState state;
+
+  /// 构造来源条
+  const _SourceChips({required this.state});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = UiV2Theme.of(context);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          UiV2Chip(
+            label: '全部来源',
+            selected: state.sourceFilter == 'all',
+            onTap: () =>
+                ref.read(searchProvider.notifier).setSourceFilter('all'),
+          ),
+          for (final pool in state.pools) ...[
+            const SizedBox(width: UiV2Spacing.s2),
+            UiV2Chip(
+              label: pool.name,
+              // 还在搜的源：名字前转圈，回来即换成结果
+              leading: pool.loading
+                  ? UiV2Spinner(
+                      trackColor: t.surface3,
+                      color: t.accent,
+                      size: 12,
+                    )
+                  : null,
+              selected: state.sourceFilter == pool.id,
+              onTap: () =>
+                  ref.read(searchProvider.notifier).setSourceFilter(pool.id),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -324,11 +375,15 @@ class _SearchResults extends ConsumerWidget {
       );
     }
 
-    if (state.loading && state.pools.isEmpty) {
+    // 逐源渐进：来源条**立刻**出来（每个源名前的 loading 由所在分组自己控制），
+    // 结果还没到时也不整页空白 —— 用户要求「不要等所有源请求完再显示」。
+    if (state.loading && state.filteredTotal == 0) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           header,
+          const SizedBox(height: UiV2Spacing.s3),
+          _SourceChips(state: state),
           const SizedBox(height: UiV2Spacing.s4),
           UiV2Panel(
             child: Padding(
@@ -377,29 +432,9 @@ class _SearchResults extends ConsumerWidget {
       children: [
         header,
         const SizedBox(height: UiV2Spacing.s3),
-        // 来源筛选条（.chip[aria-pressed]）：id/name 全部来自真实命中分组
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              UiV2Chip(
-                label: '全部来源',
-                selected: state.sourceFilter == 'all',
-                onTap: () =>
-                    ref.read(searchProvider.notifier).setSourceFilter('all'),
-              ),
-              for (final pool in state.pools) ...[
-                const SizedBox(width: UiV2Spacing.s2),
-                UiV2Chip(
-                  label: pool.name,
-                  selected: state.sourceFilter == pool.id,
-                  onTap: () =>
-                      ref.read(searchProvider.notifier).setSourceFilter(pool.id),
-                ),
-              ],
-            ],
-          ),
-        ),
+        // 来源筛选条（.chip[aria-pressed]）：顺序来自 state.pools
+        // —— 已返回的源按返回顺序在前，未返回的保持默认顺序，未返回的源名带 loading
+        _SourceChips(state: state),
         const SizedBox(height: UiV2Spacing.s4),
         if (visible.isEmpty)
           UiV2Panel(
@@ -412,7 +447,7 @@ class _SearchResults extends ConsumerWidget {
         else
           UiV2Section(
             title: sectionTitle,
-            linkText: '$mergedCount 首',
+            linkText: state.anyLoading ? '$mergedCount 首 · 搜索中' : '$mergedCount 首',
             child: UiV2Panel(
               child: Column(
                 children: [

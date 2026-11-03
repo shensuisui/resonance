@@ -289,6 +289,9 @@ class UiV2Chip extends StatelessWidget {
   /// 点击回调
   final VoidCallback? onTap;
 
+  /// 标签前的前置组件（来源搜索里用它放 loading 指示）
+  final Widget? leading;
+
   /// 构造标签
   const UiV2Chip({
     super.key,
@@ -296,6 +299,7 @@ class UiV2Chip extends StatelessWidget {
     this.icon,
     this.selected = false,
     this.onTap,
+    this.leading,
   });
 
   @override
@@ -315,6 +319,10 @@ class UiV2Chip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (leading != null) ...[
+              leading!,
+              const SizedBox(width: 6),
+            ],
             if (icon != null) ...[
               UiV2Icon(icon!, size: 14, color: fg),
               const SizedBox(width: 6),

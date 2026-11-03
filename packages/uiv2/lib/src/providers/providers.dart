@@ -1022,14 +1022,22 @@ class SearchPool {
   /// 来源展示名
   final String name;
 
-  /// 该来源的命中歌曲
+  /// 该来源的命中歌曲（loading 阶段为空）
   final List<Song> songs;
+
+  /// 该来源是否还在搜（tab 上要显示 loading，结果区要忽略它）
+  final bool loading;
+
+  /// 该来源是否还有下一页
+  final bool hasMore;
 
   /// 构造来源分组
   const SearchPool({
     required this.id,
     required this.name,
     required this.songs,
+    this.loading = false,
+    this.hasMore = false,
   });
 }
 
@@ -1077,10 +1085,17 @@ class SearchState {
   /// 当前筛选下的命中数
   int get filteredTotal => activePools.fold(0, (sum, p) => sum + p.songs.length);
 
-  /// 参与筛选的分组
-  List<SearchPool> get activePools => sourceFilter == 'all'
-      ? pools
-      : pools.where((p) => p.id == sourceFilter).toList();
+  /// 参与筛选的分组（**不含还在 loading 的分组** —— 它们还没有歌曲，
+  /// 会让「来自 N 个源」这类计数多算，也会让空结果文案提前出现）
+  List<SearchPool> get activePools {
+    final done = pools.where((p) => !p.loading);
+    return sourceFilter == 'all'
+        ? done.toList()
+        : done.where((p) => p.id == sourceFilter).toList();
+  }
+
+  /// 是否还有来源在搜（tab 上的 loading 指示由它控制）
+  bool get anyLoading => pools.any((p) => p.loading);
 
   /// 复制并覆盖字段
   SearchState copyWith({
@@ -1103,44 +1118,87 @@ class SearchState {
       );
 }
 
-/// 搜索 Notifier —— 走 [SourceManager.searchAll] 的真实聚合搜索
+/// 搜索 Notifier —— 走 [SourceManager.searchStream] 的逐源渐进聚合搜索
 class SearchNotifier extends Notifier<SearchState> {
   @override
   SearchState build() => const SearchState();
 
+  /// 请求令牌：只有最后一次搜索允许写回 state
+  ///
+  /// 为什么必须有：并发搜索时**谁最后返回谁写 state**。用户遇到的
+  /// 「输入框是『周杰伦』、结果是『周』的」就是这个竞态 —— 先发的短词
+  /// 后返回，把新结果覆盖掉了。光加长防抖治不了本（回车、点历史词、
+  /// 快速输入都还能撞上），所以过期请求的结果一律丢弃。
+  int _token = 0;
+
   /// 执行搜索（静默失败：单源异常不会打断整体）
+  ///
+  /// 逐源消费 [SourceManager.searchStream]：先把所有已启用源按默认顺序摆成
+  /// loading 占位，谁先回来谁先上屏（已完成区按返回顺序排在前面），
+  /// 没有结果的源直接移除 —— 不等所有源都返回。
   Future<void> search(String keyword, {bool recordHistory = false}) async {
     final q = keyword.trim();
     if (recordHistory) {
       await ref.read(searchHistoryProvider.notifier).add(q);
     }
+    final token = ++_token;
     if (q.isEmpty) {
       state = const SearchState();
       return;
     }
-    state = SearchState(keyword: q, loading: true);
     final manager = ref.read(sourceManagerProvider);
-    try {
-      final results = await manager.searchAll(keyword: q);
-      final pools = <SearchPool>[];
-      var total = 0;
-      var hasMore = false;
-      for (final r in results) {
-        if (r.songs.isEmpty) continue;
-        final name = manager.getSource(r.sourceId)?.sourceInfo.name ?? r.sourceId;
-        pools.add(SearchPool(id: r.sourceId, name: name, songs: r.songs));
-        total += r.songs.length;
-        hasMore = hasMore || r.hasMore;
+    state = SearchState(
+      keyword: q,
+      loading: true,
+      pools: [
+        for (final s in manager.getEnabledSources())
+          SearchPool(
+            id: s.sourceInfo.id,
+            name: s.sourceInfo.name,
+            songs: const [],
+            loading: true,
+          ),
+      ],
+    );
+
+    await for (final r in manager.searchStream(keyword: q)) {
+      if (token != _token) return; // 过期请求：后面的结果一律不写回
+      final name = manager.getSource(r.sourceId)?.sourceInfo.name ?? r.sourceId;
+      final slots = [...state.pools];
+      final idx = slots.indexWhere((p) => p.id == r.sourceId);
+      if (idx >= 0) slots.removeAt(idx);
+      if (r.songs.isEmpty) {
+        // 没有结果的源：tab 自己消失（不占位）
+      } else {
+        // 已完成的数量就是插入点：先返回的排在前面，后面仍是未返回源的默认顺序
+        final done = slots.where((p) => !p.loading).length;
+        slots.insert(
+          done,
+          SearchPool(
+            id: r.sourceId,
+            name: name,
+            songs: r.songs,
+            hasMore: r.hasMore,
+          ),
+        );
       }
-      state = SearchState(
-        keyword: q,
-        total: total,
-        pools: pools,
-        hasMore: hasMore,
-      );
-    } catch (_) {
-      state = SearchState(keyword: q, loading: false);
+      state = state.copyWith(pools: slots, sourceFilter: _keepFilter(slots));
     }
+
+    if (token != _token) return;
+    state = state.copyWith(
+      loading: false,
+      total: state.filteredTotal,
+      hasMore: state.pools.any((p) => p.hasMore),
+    );
+  }
+
+  /// 筛选中的源若已无结果（被移除），筛选自动回到「全部来源」，
+  /// 否则会出现「选中一个已经不存在的 tab」的空窗
+  String _keepFilter(List<SearchPool> slots) {
+    final f = state.sourceFilter;
+    if (f == 'all') return f;
+    return slots.any((p) => p.id == f) ? f : 'all';
   }
 
   /// 切换来源筛选

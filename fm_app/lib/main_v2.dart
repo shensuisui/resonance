@@ -259,9 +259,13 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
           .set(total * ratio.clamp(0.0, 1.0));
     case 'search':
       // 发版前集成检查用：直接触发一次聚合搜索（与 UI 输入走同一条 notifier 路径）
-      await container
+      //
+      // wait=0 表示不等待搜索结束 —— 逐源渐进是时序行为，命令若 await 就会在
+      // 采样前把整个过程跑完（实测 4 个源 250ms 内就出全了，根本看不到 loading）。
+      final searchFut = container
           .read(searchProvider.notifier)
           .search(p['keyword'] ?? '', recordHistory: false);
+      if (p['wait'] != '0') await searchFut;
     case 'songinfo':
       // 发版前集成检查用：把"界面认为的当前曲目"与"播放器真正在播的曲目"对照打出来
       final cur = container.read(currentSongProvider);
@@ -579,6 +583,20 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
       final target = dur - lead;
       await player.seek(Duration(milliseconds: target < 0 ? 0 : target));
       print('CMDSEEKEND target=' + target.toString() + ' dur=' + dur.toString());
+    case 'searchstate':
+      // 发版前集成检查用：把逐源加载状态打进日志 —— 「逐源渐进」是时序行为，
+      // 截图看不清，用这个命令在几个时刻取样才能断言。
+      final st = container.read(searchProvider);
+      print('CMDSEARCH kw=' +
+          st.keyword +
+          ' loading=' +
+          st.loading.toString() +
+          ' pools=[' +
+          st.pools
+              .map((p) =>
+                  p.name + ':' + (p.loading ? 'loading' : p.songs.length.toString()))
+              .join(', ') +
+          ']');
     case 'playnow':
       // 发版前集成检查用：把当前在播曲目/模式/进度打进日志，
       // 便于断言「播完是否自动换歌」（停在同一首 = 单曲循环）

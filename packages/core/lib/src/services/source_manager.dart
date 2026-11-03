@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:core/core.dart';
 
 /// 源管理器：管理所有音乐源的注册、启用/禁用、聚合搜索调度
@@ -51,39 +53,76 @@ class SourceManager {
     int pageSize = 20,
   }) async {
     final sources = getEnabledSources();
-
     final results = await Future.wait(
-      sources.map((s) async {
-        final sw = Stopwatch()..start();
-        final sid = s.sourceInfo.id;
-        SourceLogBus.instance.emit(
-            sid, SourceLogLevel.info, '搜索', '开始搜索「$keyword」');
-        try {
-          final r = await s.search(
-            keyword: keyword,
-            page: page,
-            pageSize: pageSize,
-          );
-          SourceLogBus.instance.emit(
-            sid,
-            SourceLogLevel.info,
-            '搜索',
-            '完成「$keyword」：${r.songs.length} 首，耗时 ${sw.elapsedMilliseconds}ms',
-          );
-          return r;
-        } catch (e) {
-          SourceLogBus.instance.emit(
-            sid,
-            SourceLogLevel.error,
-            '搜索',
-            '失败：$e',
-          );
-          return SearchResult(songs: [], sourceId: sid);
-        }
-      }),
+      sources.map((s) => _searchOne(s, keyword, page, pageSize)),
       eagerError: false,
     );
     return results;
+  }
+
+  /// 逐源返回的聚合搜索：每个源一完成就立刻 emit，**不等其他源**。
+  ///
+  /// 与 [searchAll] 的分工：[searchAll] 语义是「等齐再给」，适合拿来做整体断言；
+  /// 搜索页要的是先回来先上屏，所以用这个流 —— 按到达顺序消费即可，
+  /// 顺序不作保证（谁快谁先）。
+  Stream<SearchResult> searchStream({
+    required String keyword,
+    int page = 1,
+    int pageSize = 20,
+  }) {
+    final sources = getEnabledSources();
+    final controller = StreamController<SearchResult>();
+    if (sources.isEmpty) {
+      controller.close();
+      return controller.stream;
+    }
+    var pending = sources.length;
+    for (final s in sources) {
+      unawaited(
+        _searchOne(s, keyword, page, pageSize).then((r) {
+          if (controller.isClosed) return;
+          controller.add(r);
+          pending--;
+          if (pending == 0) controller.close();
+        }),
+      );
+    }
+    return controller.stream;
+  }
+
+  /// 搜一个源（带日志与错误吞掉：单源失败只返回空结果，不影响其他源）
+  Future<SearchResult> _searchOne(
+    MusicSource s,
+    String keyword,
+    int page,
+    int pageSize,
+  ) async {
+    final sw = Stopwatch()..start();
+    final sid = s.sourceInfo.id;
+    SourceLogBus.instance.emit(
+        sid, SourceLogLevel.info, '搜索', '开始搜索「$keyword」');
+    try {
+      final r = await s.search(
+        keyword: keyword,
+        page: page,
+        pageSize: pageSize,
+      );
+      SourceLogBus.instance.emit(
+        sid,
+        SourceLogLevel.info,
+        '搜索',
+        '完成「$keyword」：${r.songs.length} 首，耗时 ${sw.elapsedMilliseconds}ms',
+      );
+      return r;
+    } catch (e) {
+      SourceLogBus.instance.emit(
+        sid,
+        SourceLogLevel.error,
+        '搜索',
+        '失败：$e',
+      );
+      return SearchResult(songs: [], sourceId: sid);
+    }
   }
 
   /// 获取指定源的歌曲详情
