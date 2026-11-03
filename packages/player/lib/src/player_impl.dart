@@ -338,17 +338,15 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
   @override
   set playMode(PlayMode mode) {
     _playMode = mode;
-    switch (mode) {
-      case PlayMode.listLoop:
-        _audioPlayer.setLoopMode(LoopMode.all);
-      case PlayMode.singleLoop:
-        _audioPlayer.setLoopMode(LoopMode.one);
-      case PlayMode.shuffle:
-        _audioPlayer.setLoopMode(LoopMode.off);
-        _shuffleHistory.clear();
-      case PlayMode.sequential:
-        _audioPlayer.setLoopMode(LoopMode.off);
-    }
+    if (mode == PlayMode.shuffle) _shuffleHistory.clear();
+    // 底层音源**永远不自己循环**：一首歌播完由 [_onTrackCompleted] 按 _playMode 决定下一首。
+    //
+    // 历史故障（用户报「设了列表循环却一直单曲循环」）：这里曾把 listLoop 映射成
+    // LoopMode.all。但每首歌都是**单独一个 source**（setAudioSource 单曲），
+    // LoopMode.all 就等于在这一首上无限重播，而且 just_audio 之后**不再上报 completed**
+    // —— _onTrackCompleted 永远不触发，列表循环退化成单曲循环；
+    // 上一曲/下一曲是显式调用，所以那两条路径看着正常，把问题掩盖了。
+    _audioPlayer.setLoopMode(LoopMode.off);
   }
 
   @override

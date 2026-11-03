@@ -560,6 +560,36 @@ Future<String?> _driverCommand(String cmd, Map<String, String> p) async {
           }));
       return jsonEncode({'rows': rows.length, 'queue': queue.title, 'posMs': pos});
     }
+    case 'setmode':
+      // 发版前集成检查用：直接设播放模式（list/single/shuffle/sequential）
+      await container.read(playModeProvider.notifier).set(switch (p['mode']) {
+        'single' => PlayMode.singleLoop,
+        'shuffle' => PlayMode.shuffle,
+        'sequential' => PlayMode.sequential,
+        _ => PlayMode.listLoop,
+      });
+      print('CMDSETMODE mode=' + container.read(playModeProvider).name);
+    case 'seekend':
+      // 发版前集成检查用：跳到结尾前 [p.leadMs]（默认 2000）毫秒，
+      // 让「播完自动切下一首」能在几秒内被观察到，而不是真等一首歌。
+      final player = container.read(playerProvider);
+      final dur = player.currentDuration;
+      if (dur <= 0) return 'no-duration';
+      final lead = int.tryParse(p['leadMs'] ?? '2000') ?? 2000;
+      final target = dur - lead;
+      await player.seek(Duration(milliseconds: target < 0 ? 0 : target));
+      print('CMDSEEKEND target=' + target.toString() + ' dur=' + dur.toString());
+    case 'playnow':
+      // 发版前集成检查用：把当前在播曲目/模式/进度打进日志，
+      // 便于断言「播完是否自动换歌」（停在同一首 = 单曲循环）
+      print('CMDNOW song=' +
+          '${container.read(currentTrackIdProvider)}' +
+          ' mode=' +
+          container.read(playModeProvider).name +
+          ' pos=' +
+          container.read(positionProvider).inMilliseconds.toString() +
+          ' dur=' +
+          container.read(durationProvider).inMilliseconds.toString());
     case 'state':
       // 发版前集成检查用：把当前导航/曲目/主题等状态回读给驱动，
       // 让"点了之后到底变没变"可以被断言，而不是只看截图猜。
