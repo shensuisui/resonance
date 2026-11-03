@@ -74,11 +74,6 @@ jobs:
           channel: stable
           cache: true
 
-      # Windows 上插件以符号链接接入（.plugin_symlinks），未开开发者模式时
-      # CMake 无法透过符号链接解包插件资源（CI 日志出现 Cannot extract through symlink）
-      - name: 开启开发者模式（允许创建符号链接）
-        run: reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"
-
       - run: flutter pub get
 
       # audiotags 1.4.5 的 CMake 在构建时从 GitHub Release 下载 windows.tar.gz，
