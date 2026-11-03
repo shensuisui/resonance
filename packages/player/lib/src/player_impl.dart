@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:core/core.dart';
 import 'package:just_audio/just_audio.dart' hide PlayerState;
 
+import 'shuffle_bag.dart';
+
 /// 基于 just_audio 的播放器实现
 class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -22,6 +24,9 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
   Song? _audibleSong;
   PlayMode _playMode = PlayMode.listLoop;
   final List<int> _shuffleHistory = [];
+
+  /// 随机播放的抽签袋（一轮内不重复），见 [ShuffleBag]
+  final ShuffleBag _shuffleBag = ShuffleBag();
 
   /// 播放请求令牌：只有最后一次请求的结果允许提交（后发优先）
   int _playToken = 0;
@@ -116,11 +121,17 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
       _playIndex(0);
       return;
     }
-    int nextIndex;
-    do {
-      nextIndex = DateTime.now().microsecondsSinceEpoch % _queue.length;
-    } while (nextIndex == _currentIndex);
-
+    // 从抽签袋里取：一轮内每首恰好抽到一次，抽完才重装（避免连着重复）
+    var nextIndex = _shuffleBag.take();
+    if (nextIndex == null) {
+      _shuffleBag.reset(_queue.length, exclude: _currentIndex);
+      nextIndex = _shuffleBag.take();
+    }
+    if (nextIndex == null) {
+      // 兜底：队列被外部改小等原因导致袋里无可抽项，就重播当前曲目
+      _playIndex(_currentIndex < 0 ? 0 : _currentIndex);
+      return;
+    }
     _shuffleHistory.add(_currentIndex);
     _playIndex(nextIndex);
   }
@@ -338,7 +349,11 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
   @override
   set playMode(PlayMode mode) {
     _playMode = mode;
-    if (mode == PlayMode.shuffle) _shuffleHistory.clear();
+    if (mode == PlayMode.shuffle) {
+      _shuffleHistory.clear();
+      // 进入随机模式 = 开始新的一轮：整张队列装袋（排除当前曲目）
+      _shuffleBag.reset(_queue.length, exclude: _currentIndex);
+    }
     // 底层音源**永远不自己循环**：一首歌播完由 [_onTrackCompleted] 按 _playMode 决定下一首。
     //
     // 历史故障（用户报「设了列表循环却一直单曲循环」）：这里曾把 listLoop 映射成
@@ -427,6 +442,8 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
     // 现在只重排队列，_audibleSong 保持不变，对外仍如实报在播的那一首。
     _queue = List.from(songs);
     _shuffleHistory.clear();
+    // 换队列 = 随机的一轮也重来（否则袋里留着旧队列的下标）
+    _shuffleBag.reset(_queue.length, exclude: _currentIndex);
     _syncIndexToAudible();
     _emitCurrentSong();
   }

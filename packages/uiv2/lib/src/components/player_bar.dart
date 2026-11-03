@@ -341,16 +341,22 @@ class UiV2Transport extends ConsumerWidget {
     final buttons = <Widget>[
       if (showOptions)
         UiV2IconButton(
+          // 给驱动/测试一个稳定抓手：随机按钮既没有文本、按类型定位又会撞到别的按钮
+          key: const ValueKey('transport_shuffle'),
           icon: UiV2Icons.shuffle,
           semanticLabel: '随机播放',
           size: buttonSize,
           pressed: shuffle,
           disabled: !hasTrack,
           onTap: () async {
-            await ref.read(shuffleProvider.notifier).toggle();
+            final on = !ref.read(shuffleProvider);
+            await ref.read(playModeProvider.notifier).setShuffle(on);
+            if (!context.mounted) return;
             showUiV2Toast(
               context,
-              ref.watch(shuffleProvider) ? '随机播放已开启（循环项暂停生效）' : '已关闭随机 · 列表循环',
+              on
+                  ? '随机播放已开启'
+                  : '已关闭随机 · ${_modeLabel(ref.read(playModeProvider))}',
             );
           },
         ),
@@ -385,7 +391,7 @@ class UiV2Transport extends ConsumerWidget {
           inactive: shuffle,
           onTap: () async {
             if (shuffle) {
-              await ref.read(shuffleProvider.notifier).set(false);
+              // 随机也是播放模式的一种：切回列表循环即退出随机
               await notifier.set(PlayMode.listLoop);
               if (context.mounted) showUiV2Toast(context, '已退出随机 · 列表循环');
               return;

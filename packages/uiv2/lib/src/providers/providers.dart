@@ -1442,6 +1442,12 @@ final volumeProvider = NotifierProvider<VolumeNotifier, VolumeState>(VolumeNotif
 class PlayModeNotifier extends Notifier<PlayMode> {
   static const String key = 'play_mode';
 
+  /// 进入随机播放前的循环模式；退出随机时回到它
+  ///
+  /// 只在内存里记：重启后若持久化的就是 shuffle，并没有「上一个模式」可恢复，
+  /// 此时退回列表循环 —— 刻意不为此再加一个 settings key。
+  PlayMode _loopModeBefore = PlayMode.listLoop;
+
   @override
   PlayMode build() {
     load();
@@ -1476,6 +1482,19 @@ class PlayModeNotifier extends Notifier<PlayMode> {
         );
   }
 
+  /// 开启/关闭随机播放
+  ///
+  /// 随机不是独立开关，而是 [PlayMode] 的一个取值 —— 单一事实来源就是播放模式。
+  /// 开启时先记下当前的循环模式，关闭时回到它。
+  Future<void> setShuffle(bool value) async {
+    if (!value) {
+      await set(state == PlayMode.shuffle ? _loopModeBefore : state);
+      return;
+    }
+    if (state != PlayMode.shuffle) _loopModeBefore = state;
+    await set(PlayMode.shuffle);
+  }
+
   /// 列表循环 → 单曲循环 → 顺序播放 轮转
   Future<void> cycle() => set(switch (state) {
         PlayMode.listLoop => PlayMode.singleLoop,
@@ -1488,34 +1507,16 @@ class PlayModeNotifier extends Notifier<PlayMode> {
 final playModeProvider =
     NotifierProvider<PlayModeNotifier, PlayMode>(PlayModeNotifier.new);
 
-/// 随机播放开关（原型 player.shuffle）
-class ShuffleNotifier extends Notifier<bool> {
-  static const String key = 'play_shuffle';
-
-  @override
-  bool build() {
-    load();
-    return false;
-  }
-
-  /// 从 settings 恢复
-  Future<void> load() async {
-    final raw = await ref.read(settingsDaoProvider).get(key);
-    if (raw != null) state = raw == '1';
-  }
-
-  /// 设置并持久化
-  Future<void> set(bool value) async {
-    state = value;
-    await ref.read(settingsDaoProvider).set(key, value ? '1' : '0');
-  }
-
-  /// 切换
-  Future<void> toggle() => set(!state);
-}
-
-/// 随机播放 Provider
-final shuffleProvider = NotifierProvider<ShuffleNotifier, bool>(ShuffleNotifier.new);
+/// 随机播放开关 —— **派生值**，单一事实来源是 [playModeProvider]。
+///
+/// 历史问题（用户报「随机播放没生效」）：这里原本是独立的 ShuffleNotifier
+/// （settings key = play_shuffle），它的 set/toggle 只写自己的 bool、**从不同步给播放器**；
+/// 而 PlayModeNotifier.cycle() 又主动跳过 shuffle，于是 uiv2 里没有任何路径能把
+/// PlayMode.shuffle 交给播放器 —— 播放条上的随机按钮看着是开的、实际一直在顺序播放。
+/// 现在随机就是播放模式的一个取值，这个开关只是它的视图（只读）。
+final shuffleProvider = Provider<bool>(
+  (ref) => ref.watch(playModeProvider) == PlayMode.shuffle,
+);
 
 /// 睡眠定时器（不持久化，到点暂停播放）
 class SleepTimerNotifier extends Notifier<Duration?> {
@@ -1792,7 +1793,8 @@ class PlaybackController {
   /// 随机播放一个队列：打乱交给播放器的随机模式，**队列身份不变**
   Future<bool> shuffleInQueue(PlayQueue queue) async {
     if (queue.isEmpty) return false;
-    await ref.read(shuffleProvider.notifier).set(true);
+    // 随机交给播放模式（播放器据此决定下一首），队列身份不变
+    await ref.read(playModeProvider.notifier).setShuffle(true);
     return playInQueue(queue);
   }
 

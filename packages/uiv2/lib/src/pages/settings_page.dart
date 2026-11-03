@@ -118,14 +118,18 @@ class SettingsPage extends ConsumerWidget {
                   ),
                   UiV2ListRow(
                     label: '随机播放',
-                    hint: '与循环模式互斥：开启后循环项暂停生效',
+                    hint: '播放模式的一种：开启后按随机顺序播放，关闭回到上次的循环模式',
                     trailing: UiV2Switch(
+                      key: const ValueKey('settings_shuffle_switch'),
                       value: shuffle,
                       semanticLabel: '随机播放',
                       onChanged: (value) async {
-                        await ref.read(shuffleProvider.notifier).set(value);
+                        await ref.read(playModeProvider.notifier).setShuffle(value);
                         if (context.mounted) {
-                          showUiV2Toast(context, value ? '随机播放已开启（循环项暂停生效）' : '已关闭随机 · 列表循环');
+                          showUiV2Toast(
+                            context,
+                            value ? '随机播放已开启' : '已关闭随机',
+                          );
                         }
                       },
                     ),
