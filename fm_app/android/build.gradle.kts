@@ -24,12 +24,20 @@ subprojects {
 // 这里把插件子工程的 compileSdk 统一抬到与 app 一致的 36（Flutter 3.47 默认值）。
 // 用 Groovy 动态调用，避免绑定 AGP 的 DSL 类型（AGP 版本升级不会让脚本编译失败）。
 subprojects {
-    afterEvaluate {
-        if (project.name == "app") return@afterEvaluate
-        if (!project.plugins.hasPlugin("com.android.library")) return@afterEvaluate
-        project.extensions.findByName("android")?.withGroovyBuilder {
-            "compileSdkVersion"(36)
+    if (project.name == "app") return@subprojects
+    val raiseCompileSdk: (Project) -> Unit = { p ->
+        if (p.plugins.hasPlugin("com.android.library")) {
+            p.extensions.findByName("android")?.withGroovyBuilder {
+                "compileSdkVersion"(36)
+            }
         }
+    }
+    // evaluationDependsOn(":app") 会连带提前评估部分插件子工程；
+    // 已评估的直接应用，未评估的挂 afterEvaluate，避免重复注册报错。
+    if (project.state.executed) {
+        raiseCompileSdk(project)
+    } else {
+        project.afterEvaluate { raiseCompileSdk(project) }
     }
 }
 
