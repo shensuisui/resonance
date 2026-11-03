@@ -227,6 +227,21 @@ class LyricRuleConfig {
   final String? listRule;
   final String? contentRule;
 
+  /// URL 参数表达式：键为模板变量名，值为 expr DSL 表达式
+  ///
+  /// 与 [FlowRule.params] 同义，用于「曲目 ID 与歌词接口需要的 ID 不是同一个」
+  /// 的场景（如复合 ID `trackId~picId` 需要先拆出 trackId）。
+  final Map<String, String>? params;
+
+  /// 译文歌词表达式（多为 `$.tlyric`）
+  ///
+  /// 配置后把译文按**时间戳对齐**合并进 [contentRule] 的结果：
+  /// 同一时间戳的一行变成 `原文{join}译文`，译文为空则原样返回原文。
+  final String? translationRule;
+
+  /// 原文与译文合并时的连接符（[translationRule] 未配置时无意义，默认 " / "）
+  final String? translationJoin;
+
   const LyricRuleConfig({
     required this.url,
     this.method = 'GET',
@@ -234,6 +249,9 @@ class LyricRuleConfig {
     this.responseType = 'text',
     this.listRule,
     this.contentRule,
+    this.params,
+    this.translationRule,
+    this.translationJoin,
   });
 
   factory LyricRuleConfig.fromJson(Map<String, dynamic> json) => LyricRuleConfig(
@@ -245,6 +263,10 @@ class LyricRuleConfig {
         responseType: (json['responseType'] as String?) ?? 'text',
         listRule: json['listRule'] as String?,
         contentRule: json['contentRule'] as String?,
+        params: (json['params'] as Map<String, dynamic>?)
+            ?.map((k, v) => MapEntry(k, v as String)),
+        translationRule: json['translationRule'] as String?,
+        translationJoin: json['translationJoin'] as String?,
       );
 }
 
@@ -281,6 +303,11 @@ class PreflightStep {
   /// 字段提取规则（多步流程的末步用；普通前置步骤不传）
   final Map<String, String>? itemRules;
 
+  /// 该步失败（超时/非 2xx）时是否跳过而不是中断整个流程
+  ///
+  /// 用于"锦上添花"的步骤：如封面解析失败不该把播放地址一起毁掉。
+  final bool optional;
+
   const PreflightStep({
     required this.method,
     required this.url,
@@ -291,6 +318,7 @@ class PreflightStep {
     this.extract,
     this.listRule,
     this.itemRules,
+    this.optional = false,
   });
 
   factory PreflightStep.fromJson(Map<String, dynamic> json) => PreflightStep(
@@ -307,6 +335,7 @@ class PreflightStep {
         listRule: json['listRule'] as String?,
         itemRules: (json['itemRules'] as Map<String, dynamic>?)
             ?.map((k, v) => MapEntry(k, v as String)),
+        optional: json['optional'] as bool? ?? false,
       );
 }
 

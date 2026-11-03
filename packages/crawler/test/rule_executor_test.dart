@@ -2,7 +2,7 @@
 ///
 /// 手法与 preflight_test.dart / crawler_test.dart 一致：
 /// 启动本地真实 HttpServer，通过 RuleBasedMusicSource 公共 API 驱动
-/// RuleExecutor 的各条执行路径。不依赖外网——fengye_test / u6q_test
+/// RuleExecutor 的各条执行路径。不依赖外网——gdstudio_test / u6q_test
 /// 走真实 API（受网络与第三方服务状态影响），本文件保证同样路径
 /// 在 CI/离线环境下可重复验证。
 ///
@@ -18,7 +18,7 @@
 /// - HTTP 错误容错：搜索 500 → 空结果、歌单 404 → null（均不抛异常）
 ///
 /// 模拟数据来源：全部内联在本文件的本地 server 路由中，与真实源
-/// （枫叶音乐 fengye.json）的规则结构保持一致。
+/// （gdstudio_netease.json / 6uq.json）的规则结构保持一致。
 library;
 
 import 'dart:convert';
@@ -68,7 +68,7 @@ void main() {
       switch (uri.path) {
         // ===== redirect 播放地址 =====
         case '/redirect':
-          // 302 + Location：真实 CDN 跳转（枫叶音乐 meting 接口的行为）
+          // 302 + Location：真实 CDN 跳转（部分源的取址接口直接 302 到 CDN）
           request.response
             ..statusCode = HttpStatus.found
             ..headers.set(
@@ -228,7 +228,7 @@ void main() {
   });
 
   group('playlist 歌单详情', () {
-    /// 与 fengye.json 相同结构的歌单规则（params 拆分复合 ID）
+    /// 与真实源相同结构的歌单规则（params 拆分复合 ID）
     Map<String, dynamic> playlistRule(String path) => {
           'playlist': {
             'url': '$path?server={server}&id={playlistId}',
@@ -320,7 +320,7 @@ void main() {
   });
 
   group('playlistList 推荐歌单列表', () {
-    /// 与 fengye.json 相同结构的推荐歌单规则（模板复合 ID）
+    /// 与真实源相同结构的推荐歌单规则（模板复合 ID）
     RuleBasedMusicSource listSource() => testSource({
           'playlistList': {
             'url': '/recommend?page={page}',

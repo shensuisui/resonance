@@ -1,6 +1,7 @@
 import 'package:core/core.dart';
 import 'package:expr/expr.dart';
 import '../http/http_client.dart';
+import 'lyric_merge.dart';
 import 'rule_config.dart';
 import 'value_parse.dart';
 import 'response_handler.dart';
@@ -133,20 +134,28 @@ class RuleExecutor {
       );
 
       final HttpResponse response;
-      if (step.method.toUpperCase() == 'POST') {
-        response = await _httpClient.post(
-          url,
-          headers: headers,
-          body: resolvedBody,
-          contentType: step.contentType,
-          responseType: step.responseType,
-        );
-      } else {
-        response = await _httpClient.get(
-          url,
-          headers: headers,
-          responseType: step.responseType,
-        );
+      try {
+        if (step.method.toUpperCase() == 'POST') {
+          response = await _httpClient.post(
+            url,
+            headers: headers,
+            body: resolvedBody,
+            contentType: step.contentType,
+            responseType: step.responseType,
+          );
+        } else {
+          response = await _httpClient.get(
+            url,
+            headers: headers,
+            responseType: step.responseType,
+          );
+        }
+      } catch (e) {
+        // 可选步骤（如封面）失败只记日志、流程继续；必需步骤照旧抛出
+        if (!step.optional) rethrow;
+        SourceLogBus.instance.emit(_rule.source.id, SourceLogLevel.warn, '步骤跳过',
+            '可选步骤 $url 请求失败: $e');
+        continue;
       }
 
       // 从响应提取变量（用 expr DSL）
@@ -213,6 +222,25 @@ class RuleExecutor {
     );
   }
 
+  /// 把 params 表达式对输入变量求值，产出「占位符 → 值」
+  ///
+  /// params 用于「一个 ID 要拆成多个接口参数」的场景：搜索侧把节目需要的
+  /// 多个 ID 拼成复合 ID，详情/歌词侧用表达式拆回（如 `trackId~picId`
+  /// 拆成 {id} 与 {picId}）。结果覆盖同名占位符。
+  Map<String, String> _applyParams(
+    Map<String, String> vars,
+    Map<String, String>? params,
+  ) {
+    if (params == null || params.isEmpty) return vars;
+    initExprEngine();
+    final resolved = Map<String, String>.from(vars);
+    for (final entry in params.entries) {
+      final result = evaluate(entry.value, vars);
+      resolved[entry.key] = result?.toString() ?? '';
+    }
+    return resolved;
+  }
+
   /// 解析 URL 模板，支持 params 表达式参数
   /// params 中的表达式对输入变量求值，结果替换 URL 模板中的 {变量名}
   /// 用于从复合 ID 拆分出 server/id 等场景
@@ -220,19 +248,8 @@ class RuleExecutor {
     String template,
     Map<String, String> vars,
     Map<String, String>? params,
-  ) {
-    if (params == null || params.isEmpty) {
-      return HttpClient.resolveUrl(template, vars);
-    }
-    // 初始化表达式引擎
-    initExprEngine();
-    final resolvedVars = Map<String, String>.from(vars);
-    for (final entry in params.entries) {
-      final result = evaluate(entry.value, vars);
-      resolvedVars[entry.key] = result?.toString() ?? '';
-    }
-    return HttpClient.resolveUrl(template, resolvedVars);
-  }
+  ) =>
+      HttpClient.resolveUrl(template, _applyParams(vars, params));
 
   /// 执行搜索
   Future<SearchResult> executeSearch(String keyword, {int page = 1}) async {
@@ -292,7 +309,7 @@ class RuleExecutor {
 
   /// 获取歌曲详情
   ///
-  /// 支持 responseType: 'redirect' — 用于获取重定向 URL（如枫叶音乐的播放地址）
+  /// 支持 responseType: 'redirect' — 接口直接 302 到 CDN 时，用 Location 当播放地址
   /// 当 responseType 为 redirect 时，调用 URL 不跟随重定向，提取 Location header
   /// 歌曲详情（多步流程 + 人机验证）
   ///
@@ -314,10 +331,10 @@ class RuleExecutor {
 
     await _ensurePreflight();
 
-    final vars = <String, String>{
+    final vars = _applyParams(<String, String>{
       'id': id,
       'baseUrl': _rule.source.baseUrl ?? '',
-    };
+    }, detailRule.params);
     final fields = <String, dynamic>{};
     final captchaRule = detailRule.captcha;
     final solution = (captchaCode != null && captchaRule != null)
@@ -344,21 +361,23 @@ class RuleExecutor {
 
     // 多步模式：按 steps 顺序执行（如先抓详情页拿加密 id、再 POST 换播放地址），
     // 变量池与末步字段一起作为详情字段返回。
+    // 复合 ID 先按 params 拆成各接口需要的参数（如 trackId~picId）
     final steps = detailRule.steps;
     if (steps != null && steps.isNotEmpty) {
-      final vars = <String, String>{
+      final vars = _applyParams(<String, String>{
         'id': id,
         'baseUrl': _rule.source.baseUrl ?? '',
-      };
+      }, detailRule.params);
       final fields = <String, dynamic>{};
       await _runSteps(steps, vars, fields: fields);
       return {...vars, ...fields};
     }
 
-    final url = HttpClient.resolveUrl(detailRule.url, {
+    final vars = _applyParams(<String, String>{
       'id': id,
       'baseUrl': _rule.source.baseUrl ?? '',
-    });
+    }, detailRule.params);
+    final url = HttpClient.resolveUrl(detailRule.url, vars);
     // 记录实际请求的接口 URL（排查播放 URL 为空/失败时定位问题）
     SourceLogBus.instance.emit(
       _rule.source.id, SourceLogLevel.info, '歌曲详情',
@@ -387,10 +406,7 @@ class RuleExecutor {
       final HttpResponse response;
       if (detailRule.method.toUpperCase() == 'POST') {
         final body = detailRule.body != null
-            ? HttpClient.resolveUrl(detailRule.body!, {
-                'id': id,
-                'baseUrl': _rule.source.baseUrl ?? '',
-              })
+            ? HttpClient.resolveUrl(detailRule.body!, vars)
             : null;
         response = await _httpClient.post(
           url,
@@ -430,11 +446,13 @@ class RuleExecutor {
     // 0. 确保前置流程已执行
     await _ensurePreflight();
 
-    final url = HttpClient.resolveUrl(lyricRule.url, {
+    // 复合 ID 先按 params 拆参数（歌词接口要的是 trackId，不是复合 ID）
+    final vars = _applyParams(<String, String>{
       'id': id,
       'lyricUrl': lyricUrl ?? '',
       'baseUrl': _rule.source.baseUrl ?? '',
-    });
+    }, lyricRule.params);
+    final url = HttpClient.resolveUrl(lyricRule.url, vars);
 
     if (url.isEmpty) return null;
 
@@ -451,11 +469,43 @@ class RuleExecutor {
         final result = evaluate(lyricRule.contentRule!, response.data);
         // CSS 提取返回列表，直接 toString 会得到 "[歌词]"；这里取首元素
         final value = result is List ? result.firstOrNull : result;
-        return value?.toString();
+        final content = value?.toString();
+        if (content == null || content.isEmpty) return content;
+        return _mergeTranslation(content, lyricRule, response.data);
       }
     } catch (_) {}
 
     return null;
+  }
+
+  /// 按规则把译文合并进原文歌词（[LyricRuleConfig.translationRule] 可选）
+  ///
+  /// 译文表达式缺失/取不到/为空串时原样返回原文 —— 即"没有译文"与
+  /// "规则里没写译文"两条路径行为完全一致。
+  String _mergeTranslation(
+    String content,
+    LyricRuleConfig rule,
+    dynamic data,
+  ) {
+    final translationRule = rule.translationRule;
+    if (translationRule == null || translationRule.isEmpty) return content;
+    initExprEngine();
+    final raw = evaluate(translationRule, data);
+    final translation = raw is List ? raw.firstOrNull : raw;
+    final result = mergeLyricTranslation(
+      content,
+      translation?.toString(),
+      join: rule.translationJoin ?? ' / ',
+    );
+    SourceLogBus.instance.emit(
+      _rule.source.id,
+      SourceLogLevel.info,
+      '歌词',
+      result.mergedLines > 0
+          ? '译文已按时间戳合并 ${result.mergedLines}/${result.originalLines} 行'
+          : '译文为空或无法对齐，仅返回原文',
+    );
+    return result.text;
   }
 
   /// 获取歌单详情（含曲目列表）

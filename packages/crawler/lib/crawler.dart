@@ -4,6 +4,7 @@ export 'src/engine/rule_config.dart';
 export 'src/engine/rule_loader.dart';
 export 'src/engine/rule_executor.dart';
 export 'src/engine/response_handler.dart';
+export 'src/engine/lyric_merge.dart';
 export 'src/engine/value_parse.dart';
 export 'src/file_service.dart';
 export 'src/rule_based_source.dart';

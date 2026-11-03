@@ -283,6 +283,9 @@ player → core
 **`itemRules` 支持的字段：**
 `id`, `title`, `artist`, `album`, `cover`, `duration`, `playUrl`, `lyricUrl`, `quality`, 以及自定义字段（存入 `Song.extra`）。
 
+字段值支持 `${表达式}` 模板拼接，用于把多个 ID 合成**复合 ID**，例如
+`"id": "${$.id}~${$.pic_id}"`；详情 / 歌词节点再用 `params` 把它拆开。
+
 **`pagination` 字段：**
 - `type`：`page` / `offset` / `cursor`
 - `pageParam`（page 类型）、`offsetParam`+`limitParam`+`limitValue`（offset 类型）、`cursorParam`+`cursorRule`（cursor 类型）
@@ -290,7 +293,23 @@ player → core
 - `totalRegex`（可选）：净化总数的正则
 
 ### 6.2 `songDetail` 节点字段
+
 同 `search`，但通常 `listRule` 指向单个对象，`itemRules` 提取 `playUrl`、`lyricUrl`、`cover` 等。`url` 支持 `{id}` 占位符。
+
+**`params`（可选）**：键为占位符名，值为 expr DSL 表达式，对输入变量（含 `id`）求值后再替换 URL。
+用于"一个 ID 要拆成多个接口参数"的源，例如复合 ID `trackId~picId`：
+
+```json
+"params": {
+  "id": "$.id && @Regex:^[^~]+",
+  "picId": "$.id && @Regex:[^~]+$"
+}
+```
+
+**`steps`（可选）**：多步流程，按顺序请求；每步可用 `extract` 提取变量注入后续步骤的
+`url` / `body` / `headers`，带 `listRule` / `itemRules` 的步骤把字段并进结果。
+单个步骤可标 `"optional": true`：该步失败（超时 / 非 2xx）只记日志并跳过，不中断流程 ——
+用于"锦上添花"的步骤（如封面），避免封面取不到把播放地址一起毁掉；必需步骤失败照旧抛错。
 
 ### 6.3 `lyric` 节点字段
 
@@ -315,6 +334,14 @@ player → core
 
 - `responseType` 为 `text` 时，响应体直接作为歌词文本，`contentRule` 可省略。
 - `listRule` 未指定时，`contentRule` 直接作用于整个响应根。
+
+**`params` / `translationRule` / `translationJoin`（可选）**
+
+- `params`：同 `songDetail`，用于拆分复合 ID（歌词接口通常只认曲目 ID）。
+- `translationRule`：译文歌词表达式（如 `$.tlyric`）。配置后引擎把译文按**时间戳对齐**
+  合并进 `contentRule` 的结果：同一时间戳输出 `原文{translationJoin}译文`；
+  译文为空则原样返回原文。译文里时间戳对不上的行忽略（以原文时间轴为准）。
+- `translationJoin`：原文与译文的连接符，默认 `" / "`。
 
 ### 6.4 `playlist` 节点字段
 同 `search`，用于导入源歌单。`url` 支持 `{id}`（源歌单 ID）。

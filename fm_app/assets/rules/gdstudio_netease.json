@@ -1,0 +1,65 @@
+{
+  "source": {
+    "id": "gdstudio_netease",
+    "name": "GD音乐台·网易云",
+    "baseUrl": "https://music-api.gdstudio.xyz",
+    "icon": "https://music.gdstudio.xyz/favicon.ico",
+    "showInLibrary": false,
+    "visible": true
+  },
+  "search": {
+    "url": "/api.php?types=search&source=netease&name={keyword}&count=20&pages={page}",
+    "method": "GET",
+    "responseType": "json",
+    "listRule": "$",
+    "itemRules": {
+      "id": "${$.id}~${$.pic_id}",
+      "title": "name",
+      "artist": "artist",
+      "album": "album"
+    },
+    "pagination": {
+      "type": "size",
+      "limitValue": 20
+    }
+  },
+  "songDetail": {
+    "params": {
+      "id": "$.id && @Regex:^[^~]+",
+      "picId": "$.id && @Regex:[^~]+$"
+    },
+    "steps": [
+      {
+        "url": "/api.php?types=pic&source=netease&size=500&id={picId}",
+        "method": "GET",
+        "responseType": "json",
+        "optional": true,
+        "listRule": "$",
+        "itemRules": {
+          "coverUrl": "$.url"
+        }
+      },
+      {
+        "url": "/api.php?types=url&source=netease&id={id}&br=999",
+        "method": "GET",
+        "responseType": "json",
+        "listRule": "$",
+        "itemRules": {
+          "playUrl": "$.url",
+          "quality": "$.br"
+        }
+      }
+    ]
+  },
+  "lyric": {
+    "url": "/api.php?types=lyric&source=netease&id={id}",
+    "method": "GET",
+    "responseType": "json",
+    "params": {
+      "id": "$.id && @Regex:^[^~]+"
+    },
+    "contentRule": "$.lyric",
+    "translationRule": "$.tlyric",
+    "translationJoin": " / "
+  }
+}
