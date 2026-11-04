@@ -39,8 +39,6 @@ dependencies:
     path: ../packages/crawler
   player:
     path: ../packages/player
-  ui:
-    path: ../packages/ui
   uiv2:
     path: ../packages/uiv2
   path: ^1.9.0

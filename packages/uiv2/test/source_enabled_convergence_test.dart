@@ -67,7 +67,7 @@ void main() {
   test('绕过 UI 直接改 manager：视图立刻反映（这就是「一份真相」）', () {
     expect(_enabledIds(container), {'b'});
 
-    // 模拟 main_v2 / 订阅库：不走任何 UI 入口，直接改 manager
+    // 模拟 main.dart / 订阅库：不走任何 UI 入口，直接改 manager
     manager.setSourceEnabled('a', true);
 
     expect(_enabledIds(container), {'a', 'b'},

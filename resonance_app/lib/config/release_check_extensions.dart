@@ -15,7 +15,7 @@ library;
 import 'dart:convert';
 import 'dart:developer' as developer;
 
-/// 命令路由：由壳工程注入（复用 main_v2 里的 _driverCommand）
+/// 命令路由：由壳工程注入（复用 main.dart 里的 _driverCommand）
 typedef ReleaseCheckCommandRunner = Future<String?> Function(
     String cmd, Map<String, String> params);
 

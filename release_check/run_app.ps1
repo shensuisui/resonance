@@ -29,7 +29,7 @@
 param(
   [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
   [string]$AppDir = 'resonance_app',
-  [string]$Target = 'lib/main_v2.dart',
+  [string]$Target = 'lib/main.dart',
   [string]$DartDefine = 'RESONANCE_DRIVER=true',
   [int]$TimeoutSec = 120,
   [switch]$Attach,
@@ -104,8 +104,8 @@ if (-not $Attach) {
   if (-not (Test-Path $snapshot)) { Write-Output "ERR flutter_tools.snapshot 不存在: $snapshot"; exit 2 }
 
   $appPath = Join-Path $ProjectRoot $AppDir
-  # -t 必须显式给 main_v2.dart：缺省会跑 lib/main.dart（v1 界面），
-  # 检查跑错入口会得到一份"看起来正常"的假报告。
+  # -t 显式指定入口（默认 lib/main.dart 已是 uiv2 界面）。
+  
   $argList = @($snapshot, 'run', '-d', 'windows', '-t', $Target, '--debug', "--dart-define=$DartDefine")
 
   $p = Start-Process -FilePath $dartExe -ArgumentList $argList -WorkingDirectory $appPath -RedirectStandardOutput $logOut -RedirectStandardError $logErr -WindowStyle Hidden -PassThru

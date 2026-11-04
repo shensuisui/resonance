@@ -15,8 +15,8 @@
 | --- | --- | --- |
 | resonance_app/pubspec.yaml | flan_flutter ^0.6.1 → dependencies；flan_mcp ^0.6.1 → dev_dependencies；补 logging ^1.3.0 | 是 |
 | resonance_app/lib/config/agent_debug_config.dart | 新增：元素发现三张表（可交互类型 / 停遍历 / 取文本）+ maxScreenshotSize: null | 是 |
-| resonance_app/lib/main_v2.dart | main() 首段改成 kDebugMode ? FlanBinding.ensureInitialized(cfg) : WidgetsFlutterBinding.ensureInitialized()；enableFlutterDriverExtension 移到 binding 之后；Logger.root.level = Level.ALL | 是 |
-| resonance_app/lib/main_v2.dart（日志桥） | SourceLogBus.consolePrinter 是项目日志唯一扇出点，在这里转发到 package:logging（带级别映射） | 是 |
+| resonance_app/lib/main.dart | main() 首段改成 kDebugMode ? FlanBinding.ensureInitialized(cfg) : WidgetsFlutterBinding.ensureInitialized()；enableFlutterDriverExtension 移到 binding 之后；Logger.root.level = Level.ALL | 是 |
+| resonance_app/lib/main.dart（日志桥） | SourceLogBus.consolePrinter 是项目日志唯一扇出点，在这里转发到 package:logging（带级别映射） | 是 |
 | .dsh/mcp.yml | 托管块内新增 panel-mcp-flan；因本机 fvm 不可用，command 用 dart 绝对路径 | 按团队约定（该文件本仓库已入库） |
 
 **没动业务代码**：没有为 Flan 改任何页面/组件逻辑，只加了 1 个配置文件与入口接线。
