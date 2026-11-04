@@ -34,17 +34,23 @@ class UiV2TopBar extends ConsumerWidget {
     final t = UiV2Theme.of(context);
     // color-mix(in srgb, var(--bg) 84%, transparent)：底色 84% 不透明 + 背景模糊
     final bg = t.bg.withValues(alpha: 0.84);
+    // 安全区：安卓端窗口画到状态栏底下（targetSdk 35 起强制 edge-to-edge），
+    // 顶栏要把状态栏高度垫进 padding，否则标题与状态栏重合（Issue #5 第 2 条）。
+    // 模糊底一并延伸到状态栏后面；非全屏平台 padding.top = 0，行为不变。
+    final topInset = MediaQuery.paddingOf(context).top;
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
         child: Container(
-          constraints: const BoxConstraints(
-            minHeight: UiV2Metrics.topBarHeight,
-            maxHeight: UiV2Metrics.topBarHeight,
+          constraints: BoxConstraints(
+            minHeight: UiV2Metrics.topBarHeight + topInset,
+            maxHeight: UiV2Metrics.topBarHeight + topInset,
           ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: UiV2Spacing.s3,
-            vertical: UiV2Spacing.s2,
+          padding: EdgeInsets.fromLTRB(
+            UiV2Spacing.s3,
+            UiV2Spacing.s2 + topInset,
+            UiV2Spacing.s3,
+            UiV2Spacing.s2,
           ),
           decoration: BoxDecoration(
             color: bg,
@@ -113,9 +119,13 @@ class UiV2Sidebar extends ConsumerWidget {
       ),
       child: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: UiV2Spacing.s3,
-            vertical: UiV2Spacing.s5,
+          // 安全区：宽屏没有顶栏，侧栏自己把状态栏高度垫进顶部 padding
+          // （安卓平板/横屏窗口画到状态栏底下，Issue #5 第 2 条）。
+          padding: EdgeInsets.fromLTRB(
+            UiV2Spacing.s3,
+            UiV2Spacing.s5 + MediaQuery.paddingOf(context).top,
+            UiV2Spacing.s3,
+            UiV2Spacing.s5,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
