@@ -64,10 +64,22 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
         case ProcessingState.loading:
           _updateState(PlayerState.loading);
         case ProcessingState.buffering:
-          // 缓冲中保持当前状态
-        case ProcessingState.ready:
-          if (_currentState == PlayerState.loading) {
+          // 缓冲中保持"在播/暂停"的语义：底层 playing 是真相
+          if (state.playing) {
             _updateState(PlayerState.playing);
+          } else if (_currentState == PlayerState.playing ||
+              _currentState == PlayerState.loading) {
+            _updateState(PlayerState.paused);
+          }
+        case ProcessingState.ready:
+          // 起播信号以底层 playing 为准。
+          // 旧实现把"ready 且当时是 loading"直接当成 playing，既会在
+          // prepareAt（装载但不出声）后误报播放，也无法感知底层暂停。
+          if (state.playing) {
+            _updateState(PlayerState.playing);
+          } else if (_currentState == PlayerState.playing ||
+              _currentState == PlayerState.loading) {
+            _updateState(PlayerState.paused);
           }
         case ProcessingState.completed:
           _onTrackCompleted();
@@ -245,11 +257,10 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
           '已预置 idx=$index id=${song.id}（等待用户按播放）');
         return;
       }
-      await _audioPlayer.play();
+      _issuePlay(song.sourceId);
       SourceLogBus.instance.emit(
         song.sourceId, SourceLogLevel.info, '播放器',
-        'play() 完成（${sw.elapsedMilliseconds}ms），状态=${_currentState.name}');
-      _updateState(PlayerState.playing);
+        'play() 已发出（${sw.elapsedMilliseconds}ms），状态=${_currentState.name}');
       // 冷启动首播：just_audio_windows 偶尔会忽略第一次 play()，
       // 现象是封面/标题都换了但进度条一直 0:00 —— 这里校验并自愈。
       await _ensureProgressing(song.sourceId, token);
@@ -268,6 +279,30 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
       // 无论成功失败都要解除"加载中"，否则完成事件闸门会一直关着
       _loading = false;
     }
+  }
+
+  /// 发出播放命令，并立即按"命令已生效"更新状态。
+  ///
+  /// just_audio 的 [AudioPlayer.play] 返回的 Future **不是起播信号**：它要等到
+  /// 播放完成、暂停或停止才完成（见 just_audio 的 dartdoc）。Android 原生实现还会
+  /// 暂存 playResult，第一次点播放后声音已经起来，但这个 Future 仍停在 await，
+  /// 于是 PlayerImpl.currentState 一直停在 paused，UI 按钮也显示成播放图标，
+  /// 必须再点一次（此时底层已是 playing，play() 立即返回）才恢复。
+  ///
+  /// 因此这里只把 [AudioPlayer.play] 当作"命令已发出 + 完成后兜底"，不把它当起播
+  /// 依据；播放状态的真相由 [AudioPlayer.playerStateStream] 的 playing /
+  /// processingState 校准（见 [_setupListeners]）。
+  void _issuePlay(String sourceId) {
+    final future = _audioPlayer.play();
+    _updateState(PlayerState.playing);
+    unawaited(future.catchError((Object e, StackTrace st) {
+      SourceLogBus.instance.emit(
+          sourceId, SourceLogLevel.error, '播放器', 'play() 异常: $e\n$st');
+      // 只有仍误报在播、且底层确实没在播时才回退，避免覆盖后续请求的状态
+      if (_currentState == PlayerState.playing && !_audioPlayer.playing) {
+        _updateState(PlayerState.error);
+      }
+    }));
   }
 
   /// 确认音频真的在走（进度推进），必要时重发 play() / 重设音频源
@@ -387,8 +422,10 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
 
   @override
   Future<void> resume() async {
-    await _audioPlayer.play();
-    _updateState(PlayerState.playing);
+    // 不等待 play() 的 Future：它只在暂停/停止/播完后才完成，等待会让
+    // "已恢复播放"迟迟不落到 currentState，Android 上表现为按钮图标不同步。
+    // 状态在命令发出时立即更新，之后由 playerStateStream 校准。
+    _issuePlay(_audibleSong?.sourceId ?? 'player');
   }
 
   @override

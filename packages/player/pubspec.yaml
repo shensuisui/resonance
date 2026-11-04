@@ -21,6 +21,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # 测试用真实 AudioPlayer + 可控平台实现，复刻 play() 不立即完成的语义
+  just_audio_platform_interface: ^4.6.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
