@@ -205,6 +205,11 @@ abstract final class UiV2ButtonTextStyle {
 /// 打开弹层（原型 openSheet 的 Flutter 版）
 ///
 /// [title] 标题；[child] 内容；[onClosed] 关闭后回调（原型 opts.onClose）。
+///
+/// 动效口径（Issue #5 第 5 条）：**蒙层渐隐渐显，弹层主体窄屏从下滑入/滑出、
+/// 宽屏淡入淡出**；窄屏还支持下拉手势关闭 —— 面板跟手移动，松手按位移与速度
+/// 决定关闭还是弹回。两路动效都在 [UiV2SheetFrame] 内部处理（它拿得到路由
+/// 动画），transitionBuilder 保持原样返回，否则蒙层会被带着整页滑动。
 Future<void> showUiV2Sheet(
   BuildContext context, {
   required String title,
@@ -216,45 +221,37 @@ Future<void> showUiV2Sheet(
     context: context,
     barrierDismissible: true,
     barrierLabel: title,
+    // 蒙层由 UiV2SheetFrame 自己画并参与渐隐渐显；系统层保持透明，避免叠两层
     barrierColor: Colors.transparent,
     transitionDuration: UiV2Motion.d3,
     pageBuilder: (context, animation, secondaryAnimation) {
-      return UiV2SheetFrame(title: title, wide: wide, child: child);
-    },
-    transitionBuilder: (context, animation, secondaryAnimation, pageChild) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: UiV2Motion.enter,
-        reverseCurve: UiV2Motion.exit,
-      );
-      if (wide) {
-        return FadeTransition(
-          opacity: curved,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.98, end: 1).animate(curved),
-            child: pageChild,
-          ),
-        );
-      }
-      return SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 1),
-          end: Offset.zero,
-        ).animate(curved),
-        child: pageChild,
+      return UiV2SheetFrame(
+        title: title,
+        wide: wide,
+        animation: animation,
+        child: child,
       );
     },
+    transitionBuilder: (context, animation, secondaryAnimation, pageChild) =>
+        pageChild,
   );
   onClosed?.call();
 }
 
 /// 弹层外框（.sheet-scrim + .sheet）
-class UiV2SheetFrame extends ConsumerWidget {
+///
+/// 两路动效都由本组件驱动：
+///   * 蒙层：[FadeTransition] 跟路由动画渐入渐出，拖拽时再乘一个变暗系数；
+///   * 窄屏面板：滑入滑出跟路由动画，拖拽时直接跟手指（见 [_NarrowSheetPanel]）。
+class UiV2SheetFrame extends StatefulWidget {
   /// 标题
   final String title;
 
   /// 是否居中对齐（桌面）
   final bool wide;
+
+  /// 路由入场动画（showGeneralDialog 提供，0→1 进场、1→0 退场）
+  final Animation<double> animation;
 
   /// 内容
   final Widget child;
@@ -264,23 +261,54 @@ class UiV2SheetFrame extends ConsumerWidget {
     super.key,
     required this.title,
     required this.wide,
+    required this.animation,
     required this.child,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  State<UiV2SheetFrame> createState() => _UiV2SheetFrameState();
+}
+
+class _UiV2SheetFrameState extends State<UiV2SheetFrame>
+    with TickerProviderStateMixin {
+  /// 拖拽进度（0=原位，1=完全拖出屏幕）；只在窄屏用
+  late final AnimationController _drag =
+      AnimationController(vsync: this, duration: UiV2Motion.d2);
+
+  /// 面板尺寸测量锚点。必须挂在 State 上而不是 build 里新建：
+  /// 每次重建换新 Key 会把整个弹层子树拆掉重建（键盘弹出时输入内容就丢了）
+  final GlobalKey _panelKey = GlobalKey(debugLabel: 'uiV2SheetPanel');
+
+  @override
+  void dispose() {
+    _drag.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final t = UiV2Theme.of(context);
     final inset = MediaQuery.paddingOf(context);
-    final maxHeight = MediaQuery.sizeOf(context).height * (wide ? 0.8 : 0.82);
+    // 键盘弹出时（edge-to-edge 下窗口不 resize，viewInsets 才有值）把可视高度
+    // 扣掉键盘高度：弹层最大高度与落点都限制在键盘以上（Issue #5 第 4 条）。
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    final size = MediaQuery.sizeOf(context);
+    final maxHeight =
+        (size.height - viewInsets.bottom) * (widget.wide ? 0.8 : 0.82);
+    final curved = CurvedAnimation(
+      parent: widget.animation,
+      curve: UiV2Motion.enter,
+      reverseCurve: UiV2Motion.exit,
+    );
 
     final sheet = ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxHeight),
       child: Container(
-        width: wide ? 560 : double.infinity,
+        width: widget.wide ? 560 : double.infinity,
         decoration: BoxDecoration(
           color: t.surface,
           border: Border.all(color: t.line),
-          borderRadius: wide
+          borderRadius: widget.wide
               ? UiV2Radii.brXl
               : const BorderRadius.only(
                   topLeft: UiV2Radii.xl,
@@ -289,11 +317,11 @@ class UiV2SheetFrame extends ConsumerWidget {
           boxShadow: t.shadow3,
         ),
         clipBehavior: Clip.antiAlias,
-        padding: EdgeInsets.only(bottom: wide ? 0 : inset.bottom),
+        padding: EdgeInsets.only(bottom: widget.wide ? 0 : inset.bottom),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (!wide)
+            if (!widget.wide)
               Padding(
                 padding: const EdgeInsets.only(top: UiV2Spacing.s3),
                 child: Container(
@@ -314,7 +342,7 @@ class UiV2SheetFrame extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      title,
+                      widget.title,
                       style: UiV2Text.sheetTitle.copyWith(color: t.text),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -332,7 +360,7 @@ class UiV2SheetFrame extends ConsumerWidget {
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(UiV2Spacing.s4),
-                child: child,
+                child: widget.child,
               ),
             ),
           ],
@@ -344,18 +372,122 @@ class UiV2SheetFrame extends ConsumerWidget {
       color: Colors.transparent,
       child: Stack(
         children: [
+          // 蒙层：跟路由动画渐隐渐显；窄屏拖拽时按拖出比例再变淡
           Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).maybePop(),
-              child: Container(color: t.scrim),
+            child: FadeTransition(
+              opacity: curved,
+              child: ValueListenableBuilder<double>(
+                valueListenable: _drag,
+                builder: (context, drag, child) => Opacity(
+                  opacity: (1 - drag).clamp(0.0, 1.0),
+                  child: child,
+                ),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).maybePop(),
+                  child: Container(color: t.scrim),
+                ),
+              ),
             ),
           ),
-          if (wide)
-            Center(child: sheet)
+          if (widget.wide)
+            Center(
+              child: FadeTransition(
+                opacity: curved,
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.98, end: 1).animate(curved),
+                  child: sheet,
+                ),
+              ),
+            )
           else
-            Align(alignment: Alignment.bottomCenter, child: sheet),
+            _NarrowSheetPanel(
+              animation: curved,
+              drag: _drag,
+              panelKey: _panelKey,
+              // 键盘弹出：整体在「键盘以上」的区域内落底与滑入
+              bottomInset: viewInsets.bottom,
+              child: sheet,
+            ),
         ],
+      ),
+    );
+  }
+}
+
+/// 窄屏底部弹层面板：滑入滑出（路由动画）+ 下拉关闭（跟手）
+///
+/// 面板位移取两者中更靠下的一个：`max(滑入剩余量, 拖拽量)`。
+/// 这样松手触发关闭时，退场动画从当前拖拽位置**继续**往下走完，不会跳变；
+/// 不够阈值松手则把拖拽量动画回 0（弹回原位）。
+class _NarrowSheetPanel extends StatelessWidget {
+  /// 路由动画（已加曲线：0→1 进场）
+  final Animation<double> animation;
+
+  /// 拖拽进度（0=原位，1=完全拖出）；需要 stop / value / animateTo
+  final AnimationController drag;
+
+  /// 面板尺寸测量锚点（由外层 State 持有，重建不换新）
+  final GlobalKey panelKey;
+
+  /// 键盘高度（viewInsets.bottom），面板落底时避开
+  final double bottomInset;
+
+  /// 面板内容
+  final Widget child;
+
+  const _NarrowSheetPanel({
+    required this.animation,
+    required this.drag,
+    required this.panelKey,
+    required this.bottomInset,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        // 键盘让位：面板在键盘以上的区域落底与滑入，不再被键盘盖住输入框
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: AnimatedBuilder(
+          animation: Listenable.merge([animation, drag]),
+          builder: (context, child) {
+            final slide = (1 - animation.value).clamp(0.0, 1.0);
+            final offset = slide > drag.value ? slide : drag.value;
+            return FractionalTranslation(
+              translation: Offset(0, offset),
+              child: child,
+            );
+          },
+          child: GestureDetector(
+            // deferToChild（默认）：内容里的列表/按钮手势优先，
+            // 头部、把手与留白区域按下才拖拽关面板
+            onVerticalDragStart: (_) => drag.stop(), // 手指接住时停掉回弹动画
+            onVerticalDragUpdate: (details) {
+              final box =
+                  panelKey.currentContext?.findRenderObject() as RenderBox?;
+              final height = box?.size.height ?? 0;
+              if (height <= 0) return;
+              drag.value =
+                  (drag.value + details.primaryDelta! / height).clamp(0.0, 1.0);
+            },
+            onVerticalDragEnd: (details) {
+              final velocity = details.primaryVelocity ?? 0;
+              if (drag.value > 0.3 || velocity > 700) {
+                // 关闭：路由退场动画与当前拖拽位置平滑衔接（max 取更靠下者）
+                Navigator.of(context).maybePop();
+              } else {
+                // 不够阈值：弹回原位
+                drag.animateTo(0, curve: UiV2Motion.enter);
+              }
+            },
+            onVerticalDragCancel: () =>
+                drag.animateTo(0, curve: UiV2Motion.enter),
+            child: KeyedSubtree(key: panelKey, child: child),
+          ),
+        ),
       ),
     );
   }

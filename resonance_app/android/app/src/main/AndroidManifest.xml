@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 联网权限：debug/profile 构建由清单合并自动注入 INTERNET，release 构建不会 ——
+         缺了它 release APK 的播放/搜索/封面请求全部失败（Issue #5 第 1 条）。
+         与之配套的 ACCESS_NETWORK_STATE 供底层网络状态探测使用。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <application
         android:label="回响"
         android:name="${applicationName}"
