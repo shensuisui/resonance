@@ -180,6 +180,32 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('页面切走后，上一轮「再按一次退出」的计时作废', (tester) async {
+    await pumpApp(tester);
+
+    // 首页按一次返回：只提示，记下时间
+    await tester.binding.handlePopRoute();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('再按一次返回键退出'), findsOneWidget);
+
+    // 切到搜索页再回首页（导航变化必须重置计时）
+    container.read(navProvider.notifier).go('search');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    container.read(navProvider.notifier).go('home');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // 此时再按返回：应重新提示而不是被当成「两秒内第二次」直接退出
+    await tester.binding.handlePopRoute();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(systemExitRequested, isFalse,
+        reason: '页面切走后不能沿用上一轮计时直接退出');
+
+    // 消化提示条定时器
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('二级页按返回：出栈回上一页，不触发退出', (tester) async {
     await pumpApp(tester);
 

@@ -58,6 +58,11 @@ class _UiV2AppShellState extends ConsumerState<UiV2AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    // 页面切走之后，上一轮「再按一次退出」的计时作废：
+    // 否则「首页提示 → 切到别的页 → 2 秒内返回」会被当成连按两次直接退出
+    ref.listen(navProvider, (previous, next) {
+      if (previous?.current != next.current) _lastBackAt = null;
+    });
     // 保活：播放器三路事件流（进度 / 时长 / 播放态）与曲库
     ref.watch(playerStreamBindingProvider);
     // 启动恢复：上次的队列 + 曲目 + 进度（暂停着，不出声）
