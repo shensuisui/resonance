@@ -438,8 +438,18 @@ class UiV2PlayerBar extends ConsumerWidget {
   /// 是否处于平板口径（768–1180）
   final bool tablet;
 
+  /// 是否由播放栏消费底部安全区。
+  ///
+  /// 下方有 TabBar 时应关闭，由最底部的 TabBar 统一处理安全区。
+  final bool applyBottomSafeArea;
+
   /// 构造播放条
-  const UiV2PlayerBar({super.key, required this.wide, required this.tablet});
+  const UiV2PlayerBar({
+    super.key,
+    required this.wide,
+    required this.tablet,
+    this.applyBottomSafeArea = true,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -457,7 +467,9 @@ class UiV2PlayerBar extends ConsumerWidget {
       );
     });
     final t = UiV2Theme.of(context);
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final bottomInset = applyBottomSafeArea
+        ? MediaQuery.paddingOf(context).bottom
+        : 0.0;
     final position = ref.watch(positionProvider);
     final duration = ref.watch(durationProvider);
     final ratio = duration.inMilliseconds <= 0

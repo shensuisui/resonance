@@ -125,7 +125,13 @@ class _UiV2AppShellState extends ConsumerState<UiV2AppShell> {
             ],
           ),
         ),
-        UiV2PlayerBar(wide: wide, tablet: tablet),
+        UiV2PlayerBar(
+          wide: wide,
+          tablet: tablet,
+          // 一级页最底部是 TabBar，由它统一消费底部安全区，避免重复叠加。
+          applyBottomSafeArea:
+              wide || !kRootMobile.contains(nav.current.name),
+        ),
         if (!wide && kRootMobile.contains(nav.current.name))
           const UiV2TabBar(),
       ],
