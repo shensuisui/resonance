@@ -1,0 +1,2 @@
+# 该目录是第三方插件文件的约定位置（见 AGENTS.md 与 pubspec.yaml 的 assets 声明）。
+# 空目录无法进 git，用本文件占位；否则 Flutter 构建会因找不到 assets/plugins/ 而失败。

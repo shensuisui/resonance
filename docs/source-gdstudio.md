@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | :--- | :--- |
-| 规则文件 | `fm_app/assets/rules/gdstudio_netease.json` |
+| 规则文件 | `resonance_app/assets/rules/gdstudio_netease.json` |
 | 源 ID / 名称 | `gdstudio_netease` / GD音乐台·网易云 |
 | 接口文档 | https://music-api.gdstudio.xyz/api.php |
 | 实测日期 | 2026-11-03 |

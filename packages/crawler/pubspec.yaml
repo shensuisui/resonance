@@ -1,5 +1,5 @@
 name: crawler
-description: fm music player remote source implementation
+description: resonance music player remote source implementation
 publish_to: 'none'
 version: 1.0.0
 
@@ -15,7 +15,10 @@ dependencies:
     path: ../expr
   dio: ^5.4.0
   path: ^1.9.0
-  flutter_inappwebview: ^6.1.5
+  # 6.1.5 的 Android 实现在 AGP 9 下评估即失败（AGP 9 移除了
+  # getDefaultProguardFile('proguard-android.txt')）；6.2.0-beta.3 起改用
+  # proguard-android-optimize.txt 并支持 Java 17。上游发布稳定版后可切回正式版。
+  flutter_inappwebview: ^6.2.0-beta.3
 
 dev_dependencies:
   flutter_test:

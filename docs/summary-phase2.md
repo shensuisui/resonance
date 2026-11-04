@@ -16,7 +16,7 @@
 | 3. 规则执行引擎 | `docs/step2-3-rule-executor.md` | crawler | ✅ |
 | 4. RuleBasedMusicSource | `docs/step2-4-rule-based-source.md` | crawler | ✅ |
 | 5. 插件下载 + 适配器 | `docs/step2-5-plugin-adapters.md` | crawler | ✅ |
-| 6. 初始规则文件 + 搜索流程打通 | `docs/step2-6-search-flow.md` | fm_app+crawler | ✅ |
+| 6. 初始规则文件 + 搜索流程打通 | `docs/step2-6-search-flow.md` | resonance_app+crawler | ✅ |
 
 ## 新增包
 
@@ -50,8 +50,8 @@
 ## 项目结构更新
 
 ```
-fm/
-├── fm_app/
+resonance/
+├── resonance_app/
 │   └── assets/
 │       ├── rules/example.json    # 新增：示例规则文件
 │       └── plugins/              # 插件下载目录

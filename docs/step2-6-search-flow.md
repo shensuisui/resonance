@@ -2,7 +2,7 @@
 
 | 步骤 | 6 |
 | :--- | :--- |
-| 包 | `fm_app` + `crawler` |
+| 包 | `resonance_app` + `crawler` |
 | 依赖 | Step 1–5 |
 | 状态 | 待实现 |
 
@@ -14,7 +14,7 @@
 
 ## 2. 初始规则文件
 
-`fm_app/assets/rules/example.json` 包含一个示例音乐源规则配置，支持：
+`resonance_app/assets/rules/example.json` 包含一个示例音乐源规则配置，支持：
 - 搜索（分页）
 - 歌曲详情
 - 歌词获取
@@ -22,7 +22,7 @@
 
 ## 3. 搜索流程集成
 
-在 `fm_app` 启动时：
+在 `resonance_app` 启动时：
 
 ```dart
 void main() async {
@@ -54,7 +54,7 @@ void main() async {
 ## 4. 依赖关系更新
 
 ```
-fm_app → ui → core + player + crawler
+resonance_app → ui → core + player + crawler
 ```
 
-`fm_app/pubspec.yaml` 已添加 `crawler` 依赖。
+`resonance_app/pubspec.yaml` 已添加 `crawler` 依赖。

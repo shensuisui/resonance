@@ -1,0 +1,126 @@
+name: resonance_app
+description: "resonance music player app shell"
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+# The following defines the version and build number for your application.
+# A version number is three numbers separated by dots, like 1.2.43
+# followed by an optional build number separated by a +.
+# Both the version and the builder number may be overridden in flutter
+# build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# Read more about iOS versioning at
+# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+# In Windows, build-name is used as the major, minor, and patch parts
+# of the product and file versions while build-number is used as the build suffix.
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.1
+
+# Dependencies specify other packages that your package needs in order to work.
+# To automatically upgrade your package dependencies to the latest versions
+# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# dependencies can be manually updated by changing the version numbers below to
+# the latest version available on pub.dev. To see which dependencies have newer
+# versions available, run `flutter pub outdated`.
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^3.4.2
+
+  cupertino_icons: ^1.0.8
+  core:
+    path: ../packages/core
+  crawler:
+    path: ../packages/crawler
+  player:
+    path: ../packages/player
+  uiv2:
+    path: ../packages/uiv2
+  path: ^1.9.0
+  path_provider: ^2.1.5
+  # Flan：agent 驱动运行中 App 的调试层（元素枚举 / 手势 / 截图 / 日志 / 热重载）。
+  # 必须在 dependencies：lib/ 会 import 它；release 由 kDebugMode 常量分支树摇。
+  flan_flutter: ^0.6.1
+  # 日志桥：项目日志转发到 root logger，Flan 的 get_logs 只认它
+  logging: ^1.3.0
+  db:
+    path: ../packages/db
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  # The "flutter_lints" package below contains a set of recommended lints to
+  # encourage good coding practices. The lint set provided by the package
+  # activated in the `analysis_options.yaml` file located at the root of the
+  # package. See that file for information about deactivating specific lint
+  # rules and activating additional ones.
+  flutter_lints: ^6.0.0
+  # Flan 的 MCP server：只是宿主拉起的独立进程，不进 App 依赖图
+  flan_mcp: ^0.6.1
+  # App 图标生成：`dart run flutter_launcher_icons`（配置见文件末尾）
+  flutter_launcher_icons: ^0.14.4
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+flutter:
+
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
+  uses-material-design: true
+
+  assets:
+    - assets/rules/
+    - assets/plugins/
+    - assets/covers/
+
+  fonts:
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope-VariableFont_wght.ttf
+    - family: Space Grotesk
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk-VariableFont_wght.ttf
+
+# ---------------------------------------------------------------------------
+# App 图标生成（flutter_launcher_icons）
+#
+# 源图：assets/icon/app_icon.png —— 1024×1024，精确两色 #C9341C + #FFFFFF。
+#   app_icon.png            满底版（iOS / Windows / Web / macOS / 旧版 Android）
+#   app_icon_foreground.png 透明底白标记（Android 自适应图标前景层）
+#   app_icon.svg            同一份几何的矢量版，将来改尺寸/多平台可直接用
+#
+# 改图标后执行：`dart run flutter_launcher_icons`（在 resonance_app 目录下）
+# 注意：assets/icon 只给这个工具读，**不要**登记到 assets: 里，免得打进包里。
+# Linux 不在该工具支持范围内，桌面端图标另行处理。
+# ---------------------------------------------------------------------------
+flutter_launcher_icons:
+  image_path: "assets/icon/app_icon.png"
+  android: "ic_launcher"
+  min_sdk_android: 21
+  # 自适应图标：底色用品牌红，前景是透明底的白标记（标记只占中间 56%，在安全区内）
+  adaptive_icon_background: "#C9341C"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  ios: true
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    background_color: "#C9341C"
+    theme_color: "#C9341C"
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: "assets/icon/app_icon.png"

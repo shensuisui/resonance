@@ -26,7 +26,7 @@ void main() {
 
   group('LocalScanSource', () {
     test('扫描空目录返回 0', () async {
-      final tempDir = await Directory.systemTemp.createTemp('fm_empty_');
+      final tempDir = await Directory.systemTemp.createTemp('resonance_empty_');
       await source.init();
       final count = await source.scanDirectory(tempDir.path);
       expect(count, 0);
@@ -34,7 +34,7 @@ void main() {
     });
 
     test('扫描非音频文件返回 0', () async {
-      final tempDir = await Directory.systemTemp.createTemp('fm_noaudio_');
+      final tempDir = await Directory.systemTemp.createTemp('resonance_noaudio_');
       final file = File('${tempDir.path}/readme.txt');
       await file.writeAsString('not audio');
       await source.init();
@@ -44,7 +44,7 @@ void main() {
     });
 
     test('扫描单个 mp3 文件', () async {
-      final tempDir = await Directory.systemTemp.createTemp('fm_one_');
+      final tempDir = await Directory.systemTemp.createTemp('resonance_one_');
       final file = File('${tempDir.path}/周杰伦 - 稻香.mp3');
       await file.writeAsBytes([0x00]); // 空内容即可，只测元数据解析
 
@@ -64,7 +64,7 @@ void main() {
 
     test('文件名无分隔符时用父目录名做歌手', () async {
       final tempDir =
-          await Directory.systemTemp.createTemp('fm_nodash_');
+          await Directory.systemTemp.createTemp('resonance_nodash_');
       // 创建子目录
       final subDir = Directory('${tempDir.path}/周杰伦');
       await subDir.create();
@@ -83,7 +83,7 @@ void main() {
     });
 
     test('递归扫描子目录', () async {
-      final tempDir = await Directory.systemTemp.createTemp('fm_recur_');
+      final tempDir = await Directory.systemTemp.createTemp('resonance_recur_');
       // 子目录 1
       final sub1 = Directory('${tempDir.path}/album1');
       await sub1.create();
@@ -101,7 +101,7 @@ void main() {
     });
 
     test('增量更新：已扫描文件跳过', () async {
-      final tempDir = await Directory.systemTemp.createTemp('fm_incr_');
+      final tempDir = await Directory.systemTemp.createTemp('resonance_incr_');
       await File('${tempDir.path}/song1.mp3').writeAsBytes([0x00]);
       await File('${tempDir.path}/song2.mp3').writeAsBytes([0x00]);
 
@@ -123,7 +123,7 @@ void main() {
     });
 
     test('search 按标题关键词过滤', () async {
-      final tempDir = await Directory.systemTemp.createTemp('fm_search_');
+      final tempDir = await Directory.systemTemp.createTemp('resonance_search_');
       await File('${tempDir.path}/周杰伦 - 稻香.mp3').writeAsBytes([0x00]);
       await File('${tempDir.path}/周杰伦 - 晴天.mp3').writeAsBytes([0x00]);
       await File('${tempDir.path}/陈奕迅 - 孤勇者.mp3').writeAsBytes([0x00]);
@@ -148,7 +148,7 @@ void main() {
     });
 
     test('getSongUrl 返回 localPath', () async {
-      final tempDir = await Directory.systemTemp.createTemp('fm_url_');
+      final tempDir = await Directory.systemTemp.createTemp('resonance_url_');
       final file = File('${tempDir.path}/artist - title.mp3');
       await file.writeAsBytes([0x00]);
 
@@ -163,7 +163,7 @@ void main() {
     });
 
     test('getSongDetail 返回歌曲信息', () async {
-      final tempDir = await Directory.systemTemp.createTemp('fm_detail_');
+      final tempDir = await Directory.systemTemp.createTemp('resonance_detail_');
       await File('${tempDir.path}/周杰伦 - 稻香.mp3').writeAsBytes([0x00]);
 
       await source.init();
@@ -183,7 +183,7 @@ void main() {
     });
 
     test('clear 清除所有扫描结果', () async {
-      final tempDir = await Directory.systemTemp.createTemp('fm_clear_');
+      final tempDir = await Directory.systemTemp.createTemp('resonance_clear_');
       await File('${tempDir.path}/a - b.mp3').writeAsBytes([0x00]);
 
       await source.init();
@@ -197,7 +197,7 @@ void main() {
     });
 
     test('loadFromDatabase 恢复已扫描歌曲', () async {
-      final tempDir = await Directory.systemTemp.createTemp('fm_load_');
+      final tempDir = await Directory.systemTemp.createTemp('resonance_load_');
       await File('${tempDir.path}/周杰伦 - 稻香.mp3').writeAsBytes([0x00]);
 
       // 第一次扫描并存入数据库
@@ -224,7 +224,7 @@ void main() {
     });
 
     test('支持多种音频格式', () async {
-      final tempDir = await Directory.systemTemp.createTemp('fm_formats_');
+      final tempDir = await Directory.systemTemp.createTemp('resonance_formats_');
       await File('${tempDir.path}/a.mp3').writeAsBytes([0x00]);
       await File('${tempDir.path}/b.flac').writeAsBytes([0x00]);
       await File('${tempDir.path}/c.aac').writeAsBytes([0x00]);
@@ -244,7 +244,7 @@ void main() {
     });
 
     test('getLyrics 读取同名 .lrc 文件', () async {
-      final tempDir = await Directory.systemTemp.createTemp('fm_lrc_');
+      final tempDir = await Directory.systemTemp.createTemp('resonance_lrc_');
       // 创建音频 + 同名 lrc
       final audioPath = '${tempDir.path}/周杰伦 - 晴天.mp3';
       await File(audioPath).writeAsBytes([0x00]);
@@ -272,7 +272,7 @@ void main() {
     });
 
     test('getLyrics 无 .lrc 文件返回 null', () async {
-      final tempDir = await Directory.systemTemp.createTemp('fm_nolrc_');
+      final tempDir = await Directory.systemTemp.createTemp('resonance_nolrc_');
       await File('${tempDir.path}/周杰伦 - 晴天.mp3').writeAsBytes([0x00]);
 
       await source.init();

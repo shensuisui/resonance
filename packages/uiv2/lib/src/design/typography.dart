@@ -1,6 +1,6 @@
 /// 回响 Resonance 字体系统 —— 对应原型 --font-display / --font-body 与各级字号。
 ///
-/// 字体文件随 App 打包（fm_app/assets/fonts/，见 fm_app/pubspec.yaml 的 fonts:）：
+/// 字体文件随 App 打包（resonance_app/assets/fonts/，见 resonance_app/pubspec.yaml 的 fonts:）：
 ///   Manrope[wght].ttf / SpaceGrotesk[wght].ttf（可变字体，按 wght 轴取权重）
 ///
 /// 原型字号表（styles.css 令牌）：
@@ -9,7 +9,7 @@ library;
 
 import 'package:flutter/widgets.dart';
 
-/// 正文字体族名（与 fm_app/pubspec.yaml 的声明一致）
+/// 正文字体族名（与 resonance_app/pubspec.yaml 的声明一致）
 const String kFontBody = 'Manrope';
 
 /// 标题/品牌字体族名（Space Grotesk）

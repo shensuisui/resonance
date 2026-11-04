@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 
-/// 标记几何 —— 与 App 图标（fm_app/assets/icon/app_icon.svg）**同一份**数据。
+/// 标记几何 —— 与 App 图标（resonance_app/assets/icon/app_icon.svg）**同一份**数据。
 ///
 /// 全部是相对边长归一化的比例。改图形时两边要一起改；
 /// packages/uiv2/test/app_icon_asset_test.dart 能校验 PNG 资产的颜色，

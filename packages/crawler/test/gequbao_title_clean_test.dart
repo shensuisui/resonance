@@ -31,7 +31,7 @@ void main() {
   setUpAll(() {
     initExprEngine();
     rule = jsonDecode(
-            File('../../fm_app/assets/rules/gequbao.json').readAsStringSync())
+            File('../../resonance_app/assets/rules/gequbao.json').readAsStringSync())
         as Map<String, dynamic>;
   });
 

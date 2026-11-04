@@ -1,6 +1,6 @@
 /// Riverpod Providers —— 全局服务与状态管理（v3 代码生成风格）
 ///
-/// 服务类 Provider 在 fm_app 的 main() 中通过 ProviderScope.overrides 注入。
+/// 服务类 Provider 在 resonance_app 的 main() 中通过 ProviderScope.overrides 注入。
 /// 状态类 Provider 由 UI 层直接使用。
 ///
 /// 注意：代码生成默认 autoDispose，本文件所有 Provider 均为应用级生命周期，
@@ -23,7 +23,7 @@ export 'subscription_library.dart';
 
 part 'providers.g.dart';
 
-// ==================== 服务 Provider（fm_app override） ====================
+// ==================== 服务 Provider（resonance_app override） ====================
 
 /// 数据库提供者
 ///
@@ -42,12 +42,12 @@ SourceManager sourceManager(Ref ref) =>
 RecentPlaysService recentPlaysService(Ref ref) =>
     throw UnimplementedError('recentPlaysServiceProvider must be overridden');
 
-/// 播放器接口（fm_app override 为 PlayerImpl）
+/// 播放器接口（resonance_app override 为 PlayerImpl）
 @Riverpod(keepAlive: true)
 Player player(Ref ref) =>
     throw UnimplementedError('playerProvider must be overridden');
 
-/// 下载管理器（fm_app override 为 DownloadManagerImpl）
+/// 下载管理器（resonance_app override 为 DownloadManagerImpl）
 @Riverpod(keepAlive: true)
 DownloadManager downloadManager(Ref ref) =>
     throw UnimplementedError('downloadManagerProvider must be overridden');
@@ -380,7 +380,7 @@ class SleepTimerNotifier extends _$SleepTimerNotifier {
 /// 主题种子色状态（settings key = seed_color，'#RRGGBB' 文本）
 ///
 /// build 先返回默认色，异步加载 settings 后更新；颜色变化驱动
-/// MaterialApp theme 重建（FmApp 中 watch）。
+/// MaterialApp theme 重建（ResonanceApp 中 watch）。
 @Riverpod(keepAlive: true)
 class SeedColorNotifier extends _$SeedColorNotifier {
   @override

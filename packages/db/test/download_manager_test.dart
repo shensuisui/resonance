@@ -98,7 +98,7 @@ void main() {
     await provider.initialize();
 
     server = await _startTestServer();
-    tempCacheDir = await Directory.systemTemp.createTemp('fm_dl_');
+    tempCacheDir = await Directory.systemTemp.createTemp('resonance_dl_');
 
     downloadManager = DownloadManagerImpl(
       songDao: provider.songDao,

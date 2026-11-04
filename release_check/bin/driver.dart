@@ -42,7 +42,7 @@ Future<void> main(List<String> argv) async {
   }
 
   final rootDir = p.normalize(p.join(p.dirname(Platform.script.toFilePath()), '..', '..'));
-  final appDir = p.normalize(args['app-dir'] as String? ?? p.join(rootDir, 'fm_app'));
+  final appDir = p.normalize(args['app-dir'] as String? ?? p.join(rootDir, 'resonance_app'));
   final dartExe = args['dart'] as String? ?? Platform.resolvedExecutable;
 
   // 汇总模式

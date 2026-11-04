@@ -36,8 +36,8 @@
 | MCP（flan_mcp 子进程） | connect / get_interactive_elements / tap / enter_text / scroll_to / take_screenshots / get_logs / get_errors / hot_reload |
 | VM service（直连 ws） | ext.flutter.releasecheck.state（状态回读）、ext.flutter.releasecheck.cmd（navigate / dismiss / theme 等） |
 
-两个扩展由 App 侧在 kDebugMode 分支注册（fm_app/lib/config/release_check_extensions.dart），release 树摇剔除。
-flutter_driver 与 FM_DRIVER 通道已整条移除。
+两个扩展由 App 侧在 kDebugMode 分支注册（resonance_app/lib/config/release_check_extensions.dart），release 树摇剔除。
+flutter_driver 与 RESONANCE_DRIVER 通道已整条移除。
 
 ## 四、判定口径
 

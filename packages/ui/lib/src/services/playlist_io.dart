@@ -14,7 +14,7 @@ import 'package:core/core.dart';
 enum PlaylistFormat {
   m3u('M3U 播放列表', 'm3u'),
   pls('PLS 播放列表', 'pls'),
-  json('FM 歌单 (JSON)', 'json');
+  json('回响歌单 (JSON)', 'json');
 
   const PlaylistFormat(this.label, this.extension);
 

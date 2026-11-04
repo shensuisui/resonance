@@ -14,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('init() 扫盘完成后广播一次变更（让界面刷新离线可播标记）', () async {
-    final dir = Directory.systemTemp.createTempSync('fm_cache_');
+    final dir = Directory.systemTemp.createTempSync('resonance_cache_');
     try {
       // 造一个真实缓存文件：<root>/<sourceId>/<base64url(key)>.mp3
       final f = File(dir.path + '/demo/some.mp3');

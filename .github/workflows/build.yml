@@ -1,0 +1,143 @@
+# 打包工作流：构建 Android APK 与 Windows 桌面产物并上传为工件，
+# 方便在 PR / master 上直接下载、测试构建产物（参考 FlClash / mihon 的做法）。
+#
+# 产物获取方式：
+#   - 每次 push 到 master、每个 PR、手动触发（Actions → Build → Run workflow）
+#     都会在运行结束后产生 Android APK（按 ABI 拆分）和 Windows zip 工件。
+#   - 推送 v* 标签（如 v1.0.0）时额外创建 GitHub Release 并附上全部产物。
+#
+# Flutter 版本取自仓库根目录 .fvmrc（与本地 fvm 保持一致，见 AGENTS.md）。
+name: Build
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+# 同一分支/PR 的新提交自动取消旧的运行，节省队列时间
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: resonance_app
+    steps:
+      - uses: actions/checkout@v4
+
+      # 从 .fvmrc 读取锁定的 Flutter 版本（输出到 env.FLUTTER_VERSION）
+      - uses: kuhnroyal/flutter-fvm-config-action@v2
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # release 用 debug 签名（见 android/app/build.gradle.kts），仅用于测试分发
+      - run: flutter build apk --release --split-per-abi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: resonance-android-apks
+          path: resonance_app/build/app/outputs/flutter-apk/*.apk
+          retention-days: 14
+
+  windows:
+    name: Windows 桌面
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: resonance_app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: kuhnroyal/flutter-fvm-config-action@v2
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # audiotags 1.4.5 的 CMake 在构建时从 GitHub Release 下载 windows.tar.gz，
+      # 再用 `cmake -E tar` 在自己的插件目录里解包；而插件目录经 .plugin_symlinks
+      # 符号链接访问时 cmake 拒绝解包（日志：Cannot extract through symlink），
+      # 随后 INSTALL 阶段失败。这里在 pub cache 的真实路径先行下载并解包出
+      # audiotags.dll，插件的 CMake 检测到该文件已存在便会跳过解包。
+      - name: 预解包 audiotags 的 Windows 原生库
+        shell: pwsh
+        run: |
+          $cache = if ($env:PUB_CACHE) { $env:PUB_CACHE } else { Join-Path $env:LOCALAPPDATA 'Pub\Cache' }
+          $hosted = Join-Path $cache 'hosted\pub.dev'
+          Get-ChildItem $hosted -Directory -Filter 'audiotags-*' -ErrorAction SilentlyContinue | ForEach-Object {
+            $version = $_.Name -replace '^audiotags-', ''
+            $win = Join-Path $_.FullName 'windows'
+            if (Test-Path (Join-Path $win 'audiotags.dll')) { return }
+            $tar = Join-Path $win 'windows.tar.gz'
+            if (-not (Test-Path $tar)) {
+              $url = "https://github.com/erikas-taroza/audiotags/releases/download/v$version/windows.tar.gz"
+              Write-Host "downloading $url"
+              Invoke-WebRequest $url -OutFile $tar -UseBasicParsing
+            }
+            Write-Host "extracting $tar"
+            Push-Location $win
+            tar -xzf windows.tar.gz
+            Pop-Location
+            if (-not (Test-Path (Join-Path $win 'audiotags.dll'))) {
+              throw "audiotags.dll 解包失败：$win"
+            }
+          }
+
+      - run: flutter build windows --release
+
+      - name: 打包 zip
+        shell: pwsh
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath build/resonance-windows-x64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: resonance-windows-x64
+          path: resonance_app/build/resonance-windows-x64.zip
+          retention-days: 14
+
+  # 仅推送 v* 标签时运行：把两个平台的产物挂到 GitHub Release 上
+  release:
+    name: 发布 Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [android, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: 汇总产物
+        run: |
+          mkdir -p release
+          cp dist/resonance-android-apks/*.apk release/
+          cp dist/resonance-windows-x64/*.zip release/
+          ls -la release/
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true

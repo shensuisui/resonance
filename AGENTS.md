@@ -1,14 +1,14 @@
-# AGENTS.md — fm
+# AGENTS.md — resonance
 
 音乐播放 App，Flutter 项目，多模块架构。
 
 ## 项目结构
 
 ```
-fm/                          # 仓库根目录
+resonance/                  # 仓库根目录
 ├── .fvm/
 │   └── fvm_config.json      # FVM 版本锁定 3.47.1
-├── fm_app/                  # 壳工程（Flutter App），无业务逻辑
+├── resonance_app/           # 壳工程（Flutter App），无业务逻辑
 │   └── assets/
 │       ├── rules/            # 自有规则文件（.json）
 │       └── plugins/          # 第三方插件文件
@@ -29,7 +29,7 @@ fm/                          # 仓库根目录
 ## 模块依赖关系
 
 ```
-fm_app → ui
+resonance_app → ui
 ui → core + player + crawler
 crawler → core + expr
 player → core
@@ -50,11 +50,11 @@ fvm dart test                          # 运行测试
 
 ## 约定
 
-- 壳工程 `fm_app` 只做模块组装，不写业务逻辑。
+- 壳工程 `resonance_app` 只做模块组装，不写业务逻辑。
 - 业务能力放在 `packages/core`（纯 Dart，无 Flutter 依赖）。
 - UI 相关放在 `packages/ui`（Flutter package，依赖 core）。
 - 未来新增 UI 版本以 `packages/ui_*` 命名。
-- 规则文件（JSON）放在 `fm_app/assets/rules/`，插件文件放在 `fm_app/assets/plugins/`。
+- 规则文件（JSON）放在 `resonance_app/assets/rules/`，插件文件放在 `resonance_app/assets/plugins/`。
 
 ## 开发原则
 

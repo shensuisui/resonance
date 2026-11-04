@@ -13,10 +13,10 @@
 
 | 文件 | 改了什么 | 是否入库 |
 | --- | --- | --- |
-| fm_app/pubspec.yaml | flan_flutter ^0.6.1 → dependencies；flan_mcp ^0.6.1 → dev_dependencies；补 logging ^1.3.0 | 是 |
-| fm_app/lib/config/agent_debug_config.dart | 新增：元素发现三张表（可交互类型 / 停遍历 / 取文本）+ maxScreenshotSize: null | 是 |
-| fm_app/lib/main_v2.dart | main() 首段改成 kDebugMode ? FlanBinding.ensureInitialized(cfg) : WidgetsFlutterBinding.ensureInitialized()；enableFlutterDriverExtension 移到 binding 之后；Logger.root.level = Level.ALL | 是 |
-| fm_app/lib/main_v2.dart（日志桥） | SourceLogBus.consolePrinter 是项目日志唯一扇出点，在这里转发到 package:logging（带级别映射） | 是 |
+| resonance_app/pubspec.yaml | flan_flutter ^0.6.1 → dependencies；flan_mcp ^0.6.1 → dev_dependencies；补 logging ^1.3.0 | 是 |
+| resonance_app/lib/config/agent_debug_config.dart | 新增：元素发现三张表（可交互类型 / 停遍历 / 取文本）+ maxScreenshotSize: null | 是 |
+| resonance_app/lib/main.dart | main() 首段改成 kDebugMode ? FlanBinding.ensureInitialized(cfg) : WidgetsFlutterBinding.ensureInitialized()；enableFlutterDriverExtension 移到 binding 之后；Logger.root.level = Level.ALL | 是 |
+| resonance_app/lib/main.dart（日志桥） | SourceLogBus.consolePrinter 是项目日志唯一扇出点，在这里转发到 package:logging（带级别映射） | 是 |
 | .dsh/mcp.yml | 托管块内新增 panel-mcp-flan；因本机 fvm 不可用，command 用 dart 绝对路径 | 按团队约定（该文件本仓库已入库） |
 
 **没动业务代码**：没有为 Flan 改任何页面/组件逻辑，只加了 1 个配置文件与入口接线。
@@ -27,17 +27,17 @@ skill 模板用 fvm dart run flan_mcp。本机 fvm 报 Git is not installed 不�
 
     command: G:/works/shelli/fm/.fvm/flutter_sdk/bin/dart.bat
     args: [run, flan_mcp]
-    cwd: ./fm_app/
+    cwd: ./resonance_app/
 
 **cwd 是真正的关键点**：dart run <包名> 只用**当前目录**的 .dart_tool/package_config.json 解析包名。
-本仓库是 monorepo（Flutter 工程在 fm_app/），第一版写 cwd: .（仓库根）时根下没有 package_config，
+本仓库是 monorepo（Flutter 工程在 resonance_app/），第一版写 cwd: .（仓库根）时根下没有 package_config，
 server 起来就退出——宿主诊断里有 attempt、没有 active，零工具，错误只在 server 的 stderr 里。
-改成 cwd: ./fm_app/ 后立刻 attempt → active。该要点已写进 skill（flutter-agent-drive-app 7.1 与 pitfalls #2）。
+改成 cwd: ./resonance_app/ 后立刻 attempt → active。该要点已写进 skill（flutter-agent-drive-app 7.1 与 pitfalls #2）。
 
 ## 四、release 安全性
 
 - binding 分支是 if (kDebugMode) 常量分支，release 由树摇剔除调试层。
-- enableFlutterDriverExtension 仍由 --dart-define=FM_DRIVER 单独控制，生产不传即无。
+- enableFlutterDriverExtension 仍由 --dart-define=RESONANCE_DRIVER 单独控制，生产不传即无。
 - **未做**：release 产物符号扫描，列入遗留。
 
 ## 五、遗留登记

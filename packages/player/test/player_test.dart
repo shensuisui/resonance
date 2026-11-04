@@ -35,7 +35,7 @@ void main() {
   });
 
   // PlayerImpl 实例测试需要 integration_test 环境
-  // 参见 fm_app/integration_test/ 下的播放器集成测试
+  // 参见 resonance_app/integration_test/ 下的播放器集成测试
   group('PlayerImpl', () {
     test('integration_test 环境运行', () {
       // 占位：PlayerImpl 的实例化、队列管理、播放模式切换、

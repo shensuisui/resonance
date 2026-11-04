@@ -1,6 +1,6 @@
 # uiv2 交付说明 —— 「回响 Resonance」界面 v2
 
-> 交付物：`packages/uiv2`（Flutter UI 包）+ 壳工程入口 `fm_app/lib/main_v2.dart`。
+> 交付物：`packages/uiv2`（Flutter UI 包）+ 壳工程入口 `resonance_app/lib/main.dart`。
 > 目标平台：Windows 桌面；同一套代码覆盖 手机 / 平板 / 桌面 三种断点。
 
 ## 1. 数据接线：mock 已全部移除
@@ -22,7 +22,7 @@
 | 运行日志 | 假日志 | `SourceLogBus`（真实源执行记录，200 条环形缓冲） |
 
 **接线修正（v1 遗留缺陷）**：
-- `main_v2.dart` 补了 `SourceManager.initAll()` —— v1 从未调用，导致 LocalScanSource 的 `search()` 恒空；
+- `main.dart` 补了 `SourceManager.initAll()` —— v1 从未调用，导致 LocalScanSource 的 `search()` 恒空；
 - 补了 `assets/plugins/` 随包插件加载（v1 遗漏）；
 - 演示曲库源与本地/规则/插件源同构，可在「音乐源」页启停。
 
@@ -37,8 +37,8 @@
 
 ## 3. 验证结果
 
-- `flutter analyze`：packages/uiv2 **0 error / 0 warning / 0 info**；fm_app 同样干净。
-- `flutter build windows --debug -t lib/main_v2.dart`：成功。
+- `flutter analyze`：packages/uiv2 **0 error / 0 warning / 0 info**；resonance_app 同样干净。
+- `flutter build windows --debug -t lib/main.dart`：成功。
 - 运行实测（driver 模式）：应用启动、首页显示**真实最近播放**（本机数据：山水之间/幻听/若把你）、
   音乐库显示真实歌单、搜索页显示真实搜索历史与演示曲库推荐词、我喜欢的音乐页显示真实收藏（1 首）。
 - 图标解析器修复：SVG 路径严格化数字解析（修 FormatException）+ 补 `s` 命令分支（修死循环）+ 迭代上界兜底；
@@ -86,8 +86,8 @@
 ## 6. 运行命令
 
 ```bash
-cd G:\works\shelli\fm\fm_app
-G:\works\shelli\fm\.fvm\flutter_sdk\bin\flutter.bat run -d windows -t lib\main_v2.dart
+cd G:\works\shelli\fm\resonance_app
+G:\works\shelli\fm\.fvm\flutter_sdk\bin\flutter.bat run -d windows -t lib\main.dart
 # 日常验证
 G:\works\shelli\fm\.fvm\flutter_sdk\bin\flutter.bat analyze
 cd ..\packages\uiv2 && G:\works\shelli\fm\.fvm\flutter_sdk\bin\flutter.bat test
@@ -98,6 +98,6 @@ cd ..\packages\uiv2 && G:\works\shelli\fm\.fvm\flutter_sdk\bin\flutter.bat test
 1. **驱动 tap 导航有一拍延迟**：driver tap 后立即截图，内容区偶显示上一个页面（侧栏高亮即时正确）。
    人工点击无此现象。疑似 driver 事件与帧回调的时序问题，待排查（不影响人工使用）。
 2. ~~播放条 2px 溢出~~ 已修：进度条行改 Flexible 吸收压缩，复检无溢出警示（08-home-fixed.png）。
-3. **构建前先结束 fm_app 进程**：否则 WebView2Loader.dll 被占用导致 MSB3021（Windows 老坑）。
+3. **构建前先结束 resonance_app 进程**：否则 WebView2Loader.dll 被占用导致 MSB3021（Windows 老坑）。
 4. **sub_page 订阅**：uiv2 通过 SubscriptionHost 注入对接订阅库，壳工程尚未装配该宿主，页面会显示明确说明而非假数据。
 5. **建议后续**：补 `SourceManager` 对 getPlaylistSongs/getPlaylistList 的透传；插件源歌词 lines 为空的 crawler 侧修复；下载任务持久化。

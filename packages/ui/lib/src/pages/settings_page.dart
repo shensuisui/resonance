@@ -533,7 +533,7 @@ class _SettingsGroupDetailPageState
             tiles: [
               SettingsTile(
                 leading: const Icon(Icons.music_note_rounded),
-                title: const Text('FM 音乐'),
+                title: const Text('回响'),
                 description: const Text('全源音乐聚合播放器 v1.0.0'),
               ),
             ],

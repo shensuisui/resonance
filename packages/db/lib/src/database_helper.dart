@@ -170,7 +170,7 @@ class DatabaseHelper {
   /// 默认数据库路径
   Future<String> _getDefaultPath() async {
     final dir = await getApplicationDocumentsDirectory();
-    return p.join(dir.path, 'fm_music.db');
+    return p.join(dir.path, 'resonance.db');
   }
 
   /// 首次创建数据库时执行建表

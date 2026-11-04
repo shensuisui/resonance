@@ -3,7 +3,7 @@
 | 完成日期 | 2026-08-25 |
 |:---|:---|
 | 范围 | S1 + S2 + S3-1 |
-| 涉及包 | core, db (新), ui, fm_app |
+| 涉及包 | core, db (新), ui, resonance_app |
 
 ---
 
@@ -16,7 +16,7 @@
 | S1-3 | RecentPlaysService (自动加入/去重/移顶/500上限) | ✅ |
 | S1-4 | DownloadManager (下载/缓存/队列管理/状态流) | ✅ |
 | S1-5 | 测试 (21/21 通过，内存 SQLite FFI) | ✅ |
-| S1-6 | fm_app 接入 SqfliteDatabaseProvider | ✅ |
+| S1-6 | resonance_app 接入 SqfliteDatabaseProvider | ✅ |
 
 **关键设计：**
 - 跨平台：sqflite (移动) + sqflite_common_ffi (桌面)

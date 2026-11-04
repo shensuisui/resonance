@@ -3,7 +3,7 @@
   release_check/run_app.ps1 —— 发版前集成检查专用启动器（Windows）
 
 .DESCRIPTION
-  detached 启动 fm_app（--dart-define=FM_DRIVER=true），并把 VM service 的
+  detached 启动 resonance_app（--dart-define=RESONANCE_DRIVER=true），并把 VM service 的
   WebSocket 地址写进 .dsh/tmp/flutter_run.uri。
 
   为什么必须 detached：用工具的后台 job 托管 flutter run，一旦调用超时，
@@ -18,7 +18,7 @@
   只轮询已有日志里的 URI，不重新启动 App。
 
 .PARAMETER Cleanup
-  只做清理：列出/结束本工程的 fm_app 与 flutter run 进程。
+  只做清理：列出/结束本工程的 resonance_app 与 flutter run 进程。
 
 .EXAMPLE
   .\run_app.ps1
@@ -28,9 +28,9 @@
 [CmdletBinding()]
 param(
   [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
-  [string]$AppDir = 'fm_app',
-  [string]$Target = 'lib/main_v2.dart',
-  [string]$DartDefine = 'FM_DRIVER=true',
+  [string]$AppDir = 'resonance_app',
+  [string]$Target = 'lib/main.dart',
+  [string]$DartDefine = 'RESONANCE_DRIVER=true',
   [int]$TimeoutSec = 120,
   [switch]$Attach,
   [switch]$Cleanup,
@@ -47,8 +47,8 @@ $stateFile = Join-Path $tmpDir 'flutter_run.state.json'
 if (-not (Test-Path $tmpDir)) { New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null }
 
 function Get-ProjectAppProcesses {
-  # 只认「进程名 fm_app 且可执行文件在工程内」，不清别的工程、不杀 dart
-  Get-Process -Name 'fm_app' -ErrorAction SilentlyContinue | Where-Object {
+  # 只认「进程名 resonance_app 且可执行文件在工程内」，不清别的工程、不杀 dart
+  Get-Process -Name 'resonance_app' -ErrorAction SilentlyContinue | Where-Object {
     $_.Path -and ($_.Path.StartsWith($ProjectRoot, [StringComparison]::OrdinalIgnoreCase))
   }
 }
@@ -68,7 +68,7 @@ function Show-Residuals {
   $runs = @(Get-ProjectFlutterRunProcesses)
   $appIds = ($apps | ForEach-Object { $_.Id }) -join ','
   $runIds = ($runs | ForEach-Object { $_.ProcessId }) -join ','
-  Write-Output ("fm_app 进程: " + $apps.Count + $(if ($apps) { ' -> ' + $appIds } else { '' }))
+  Write-Output ("resonance_app 进程: " + $apps.Count + $(if ($apps) { ' -> ' + $appIds } else { '' }))
   Write-Output ("flutter run 进程: " + $runs.Count + $(if ($runs) { ' -> ' + $runIds } else { '' }))
   return ($apps.Count + $runs.Count)
 }
@@ -89,7 +89,7 @@ if ($Cleanup) {
 if (-not $Attach) {
   $stale = @(Get-ProjectAppProcesses)
   if ($stale.Count -gt 0) {
-    Write-Output ('先杀掉上一轮 fm_app（会锁住 build 产物）: ' + (($stale | ForEach-Object { $_.Id }) -join ','))
+    Write-Output ('先杀掉上一轮 resonance_app（会锁住 build 产物）: ' + (($stale | ForEach-Object { $_.Id }) -join ','))
     foreach ($a in $stale) { Stop-Process -Id $a.Id -Force -ErrorAction SilentlyContinue }
     Start-Sleep -Milliseconds 800
   }
@@ -104,8 +104,8 @@ if (-not $Attach) {
   if (-not (Test-Path $snapshot)) { Write-Output "ERR flutter_tools.snapshot 不存在: $snapshot"; exit 2 }
 
   $appPath = Join-Path $ProjectRoot $AppDir
-  # -t 必须显式给 main_v2.dart：缺省会跑 lib/main.dart（v1 界面），
-  # 检查跑错入口会得到一份"看起来正常"的假报告。
+  # -t 显式指定入口（默认 lib/main.dart 已是 uiv2 界面）。
+  
   $argList = @($snapshot, 'run', '-d', 'windows', '-t', $Target, '--debug', "--dart-define=$DartDefine")
 
   $p = Start-Process -FilePath $dartExe -ArgumentList $argList -WorkingDirectory $appPath -RedirectStandardOutput $logOut -RedirectStandardError $logErr -WindowStyle Hidden -PassThru

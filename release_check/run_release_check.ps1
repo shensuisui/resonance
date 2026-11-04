@@ -25,7 +25,7 @@ param(
 $ErrorActionPreference = 'Continue'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $dart = Join-Path $root '.fvm\flutter_sdk\bin\cache\dart-sdk\bin\dart.exe'
-$appDir = Join-Path $root 'fm_app'
+$appDir = Join-Path $root 'resonance_app'
 $checkDir = $PSScriptRoot
 
 # ---------- 预检 ----------
