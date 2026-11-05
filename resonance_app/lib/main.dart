@@ -40,6 +40,38 @@ late RecentPlaysService gRecentPlaysService;
 late Player gPlayer;
 late DownloadManager gDownloadManager;
 
+/// Windows 旧版本的应用支持目录名（ProductName 为「回响」时的路径）。
+const String kLegacyWindowsProductDir = '回响';
+
+/// 把旧的中文 ProductName 目录一次性复制到新的 ASCII 目录。
+///
+/// path_provider 的 Windows 应用支持目录是 `%APPDATA%\CompanyName\ProductName`。
+/// 旧 ProductName 是「回响」，导致播放缓存路径含中文，just_audio_windows 无法加载。
+/// 改成 ASCII 后目录会变，首次启动必须把旧目录内容搬过去，避免用户缓存/设置“消失”。
+/// 只复制不删除旧目录；完成后写迁移标记，后续启动不再重复。
+Future<void> _migrateLegacyWindowsSupportDir() async {
+  if (!Platform.isWindows) return;
+  try {
+    final current = await getApplicationSupportDirectory();
+    final marker = File(p.join(current.path, '.legacy_support_migrated'));
+    if (await marker.exists()) return;
+
+    final legacy = Directory(p.join(current.parent.path, kLegacyWindowsProductDir));
+    if (await legacy.exists()) {
+      await for (final entity in legacy.list(recursive: true)) {
+        if (entity is! File) continue;
+        final relative = p.relative(entity.path, from: legacy.path);
+        final target = File(p.join(current.path, relative));
+        await target.parent.create(recursive: true);
+        if (!await target.exists()) await entity.copy(target.path);
+      }
+    }
+    await marker.writeAsString('migrated from $kLegacyWindowsProductDir', flush: true);
+  } catch (e) {
+    debugPrint('迁移旧应用支持目录失败（不阻塞启动）: $e');
+  }
+}
+
 /// 发版前集成检查用：暂存最近一次人机验证挑战（key 与曲目 id）
 String? debugCaptchaKey;
 String? debugCaptchaId;
@@ -59,6 +91,9 @@ Future<void> main() async {
   } else {
     WidgetsFlutterBinding.ensureInitialized();
   }
+
+  // 先把旧「回响」支持目录迁到 ASCII 的 ProductName 目录，再初始化缓存。
+  await _migrateLegacyWindowsSupportDir();
 
   // 网络图片缓存策略（磁盘缓存；集中配置，不在调用点硬编码天数）
   configureUiV2ImageCache();

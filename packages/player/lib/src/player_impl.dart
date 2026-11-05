@@ -7,7 +7,7 @@ import 'shuffle_bag.dart';
 
 /// 基于 just_audio 的播放器实现
 class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  AudioPlayer _audioPlayer = AudioPlayer();
 
   /// 队列里的曲目常常只有 id（来自最近播放/歌单快照，没有 playUrl）。
   /// 真正播放前用它现取一次地址；取到后写回队列，避免重复请求。
@@ -52,7 +52,17 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
   StreamSubscription? _durationSub;
   final _currentSongController = StreamController<Song?>.broadcast();
 
-  PlayerImpl({this.urlResolver}) {
+  /// 本地文件装载超时：Windows 上非 ASCII 路径/插件异常可能让 Future 永不返回。
+  final Duration fileLoadTimeout;
+
+  /// 网络源装载超时：防止任何一次异常源把播放串行队列永久占死。
+  final Duration networkLoadTimeout;
+
+  PlayerImpl({
+    this.urlResolver,
+    this.fileLoadTimeout = const Duration(seconds: 4),
+    this.networkLoadTimeout = const Duration(seconds: 30),
+  }) {
     _setupListeners();
   }
 
@@ -99,6 +109,29 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
     // 注意：完成事件只在 _playerStateSub 的 completed 分支里处理，
     // 这里原来又订阅了一次 processingStateStream.completed，
     // 导致一次播放结束触发两次 next()（"点 A 播 B"的直接原因之一）。
+  }
+
+  /// 底层插件把加载失败事件发到了非 platform thread，Flutter 会丢弃，导致
+  /// setAudioSource 的 Future 永不返回。超时后必须重建 AudioPlayer：
+  /// 旧实例会一直停在 loading，第二次 setAudioSource 也不会真正发起。
+  Future<void> _recoverFromStuckLoad() async {
+    await _playerStateSub?.cancel();
+    await _positionSub?.cancel();
+    await _durationSub?.cancel();
+    _playerStateSub = null;
+    _positionSub = null;
+    _durationSub = null;
+    try {
+      await _audioPlayer.dispose().timeout(const Duration(seconds: 2));
+    } catch (_) {
+      // 插件已卡死时 dispose 也可能不返回；不阻塞后续恢复。
+    }
+    _audioPlayer = AudioPlayer();
+    _setupListeners();
+    _audibleSong = null;
+    _currentIndex = -1;
+    _currentPosition = 0;
+    _currentDuration = 0;
   }
 
   void _onTrackCompleted() {
@@ -223,9 +256,13 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
       return;
     }
     try {
+      final audioUri = Uri.parse(url);
       await _audioPlayer.setAudioSource(
-          AudioSource.uri(Uri.parse(url)),
-          preload: true);
+        AudioSource.uri(audioUri),
+        preload: true,
+      ).timeout(
+        audioUri.scheme == 'file' ? fileLoadTimeout : networkLoadTimeout,
+      );
       // 加载期间如果又来了新的播放请求，就不要再提交这一条（否则 UI 会停在过期的曲目）
       if (token != _playToken) return;
       // 关键：音频源真的被播放器接受之后才广播，并记下"在播的就是它"。
@@ -268,6 +305,15 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
       SourceLogBus.instance.emit(
         song.sourceId, SourceLogLevel.error, '播放器',
         '播放失败 idx=$index id=${song.id} url=$url: $e\n$st');
+      if (e is TimeoutException) {
+        SourceLogBus.instance.emit(
+          song.sourceId,
+          SourceLogLevel.warn,
+          '播放器',
+          '装载超时，重建底层播放器以释放串行队列',
+        );
+        await _recoverFromStuckLoad();
+      }
       // 回滚：音频没切成功，索引退回，UI 跟着退回真正在播的那一首。
       // 只有仍是"当前请求"时才回滚，避免覆盖后来者的状态。
       if (token == _playToken) {

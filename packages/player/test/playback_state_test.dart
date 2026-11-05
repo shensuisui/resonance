@@ -17,6 +17,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio_platform_interface/just_audio_platform_interface.dart';
 import 'package:player/player.dart';
 
+/// 让下一次平台 load 永不返回（模拟插件把错误发到非平台线程后 Future 悬挂）
+bool _hangLoad = false;
+
 /// 模拟 Android 播放服务的平台实现。
 ///
 /// 关键点：[play] 返回的 Future 持有到 [pause] 才完成，复刻 just_audio
@@ -54,6 +57,7 @@ class _FakeAudioPlayerPlatform extends AudioPlayerPlatform {
 
   @override
   Future<LoadResponse> load(LoadRequest request) async {
+    if (_hangLoad) return Completer<LoadResponse>().future;
     _processingState = ProcessingStateMessage.ready;
     _emit();
     return LoadResponse(duration: _duration);
@@ -205,6 +209,31 @@ void main() {
 
     await player.pause().timeout(const Duration(seconds: 1));
     expect(player.currentState, PlayerState.paused);
+  });
+
+  test('装载超时会重建底层播放器，后续点歌不再被串行队列锁死', () async {
+    final fast = PlayerImpl(
+      fileLoadTimeout: const Duration(milliseconds: 80),
+      networkLoadTimeout: const Duration(milliseconds: 80),
+    );
+    addTearDown(fast.dispose);
+
+    _hangLoad = true;
+    final bad = song.copyWith(playUrl: 'file:///C:/中文目录/坏文件.mp3');
+    fast.setQueue([bad]);
+
+    await fast.play(bad).timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => fail('插件永不返回时播放器没有超时恢复'),
+        );
+    expect(fast.currentState, PlayerState.error);
+
+    _hangLoad = false;
+    await fast.play(song).timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => fail('超时后串行队列仍被旧 AudioPlayer 锁死'),
+        );
+    expect(fast.currentState, PlayerState.playing);
   });
 
   test('快速重复 resume 不会让状态过期或按钮与声音不一致', () async {

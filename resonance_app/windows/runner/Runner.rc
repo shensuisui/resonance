@@ -95,7 +95,7 @@ BEGIN
             VALUE "InternalName", "resonance_app" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.resonance. All rights reserved." "\0"
             VALUE "OriginalFilename", "resonance_app.exe" "\0"
-            VALUE "ProductName", "回响" "\0"
+            VALUE "ProductName", "Resonance" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
