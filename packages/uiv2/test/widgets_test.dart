@@ -20,6 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:uiv2/src/components/rows.dart';
 import 'package:uiv2/src/components/surfaces.dart';
 import 'package:uiv2/src/design/theme.dart';
+import 'package:uiv2/src/pages/search_page.dart';
 import 'package:uiv2/src/providers/providers.dart';
 // Riverpod 3.4 的 Override 类型只从 riverpod/misc.dart 导出
 import 'package:riverpod/misc.dart' show Override;
@@ -260,5 +261,114 @@ void main() {
       await tester.tap(find.bySemanticsLabel('更多操作：Anti-Hero'));
       expect(moreTapped, isTrue);
     });
+
+  testWidgets('搜索候选行请求播放地址时显示 loading 且禁止重复点击', (tester) async {
+    final container = _makeContainer();
+    addTearDown(container.dispose);
+    var tapped = false;
+    const song = Song(
+      id: 'midnights#3',
+      sourceId: 'demo_catalog',
+      title: 'Anti-Hero',
+      artist: 'Taylor Swift',
+      album: 'Midnights',
+      duration: 200,
+    );
+
+    // 请求地址中的曲目：即使不在当前播放队列，也要在本行显示 loading。
+    container.read(pendingProvider.notifier).set(song.globalKey);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: UiV2DesignTheme.dark(),
+          builder: (context, child) =>
+              child == null ? const SizedBox() : UiV2Scope(child: child),
+          home: Scaffold(
+            body: UiV2SongRow(
+              song: song,
+              index: 0,
+              showArt: true,
+              onTap: () => tapped = true,
+              onToggleLike: () {},
+              onMore: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.byKey(const ValueKey('song_row_overlay')), findsOneWidget);
+    expect(find.byType(UiV2Spinner), findsWidgets);
+    await tester.tap(find.text('Anti-Hero'), warnIfMissed: false);
+    expect(tapped, isFalse, reason: '请求中的行不能再触发一次播放');
+
+    // 请求结束：loading 消失，行恢复可点。
+    container.read(pendingProvider.notifier).set(null);
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byKey(const ValueKey('song_row_overlay')), findsNothing);
+    await tester.tap(find.text('Anti-Hero'));
+    expect(tapped, isTrue);
   });
+  });
+
+  group('搜索历史稳定记录', () {
+    testWidgets('输入 1 秒触发搜索，再稳定 2 秒才写入历史', (tester) async {
+      final container = _makeContainer();
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: UiV2DesignTheme.dark(),
+            builder: (context, child) =>
+                child == null ? const SizedBox() : UiV2Scope(child: child),
+            home: const Scaffold(body: SearchPage()),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextField), 'HistoryProbe');
+      // 1 秒搜索防抖刚触发，2 秒历史静置计时还没到：不得提前写。
+      await tester.pump(const Duration(milliseconds: 1100));
+      expect(container.read(searchHistoryProvider), isNot(contains('HistoryProbe')));
+
+      // 再等 2 秒，输入稳定，写入历史。
+      await tester.pump(const Duration(seconds: 2));
+      expect(container.read(searchHistoryProvider), contains('HistoryProbe'));
+    });
+
+    testWidgets('继续输入会取消旧的稳定计时，不记录中间前缀', (tester) async {
+      final container = _makeContainer();
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: UiV2DesignTheme.dark(),
+            builder: (context, child) =>
+                child == null ? const SizedBox() : UiV2Scope(child: child),
+            home: const Scaffold(body: SearchPage()),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextField), 'Anti');
+      await tester.pump(const Duration(milliseconds: 1100));
+      await tester.enterText(find.byType(TextField), 'Anti-Hero');
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 2));
+
+      final history = container.read(searchHistoryProvider);
+      expect(history, contains('Anti-Hero'));
+      expect(history, isNot(contains('Anti')));
+    });
+  });
+
 }

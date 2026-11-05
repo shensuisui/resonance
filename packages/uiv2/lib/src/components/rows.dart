@@ -396,7 +396,9 @@ class UiV2SongRow extends ConsumerWidget {
     final inActiveQueue =
         queueIdentity != null && queueIdentity == ref.watch(queueProvider).identity;
     final showPlaying = isCurrent && inActiveQueue;
-    final isPending = showPlaying && pendingKey == globalKey;
+    // 请求播放地址与"是否已属于当前播放队列"无关：搜索候选、推荐单曲等
+    // 非队列入口同样要在本行显示 loading，否则用户不知道点的是哪一项。
+    final isPending = pendingKey == globalKey;
     // 播放中：遮罩 + 三柱动画；暂停中也保留遮罩与三柱，只是动画停住
     final isPlay = showPlaying && isPlaying && !isPending;
     final isPaused = showPlaying && !isPlaying && !isPending;
@@ -430,9 +432,11 @@ class UiV2SongRow extends ConsumerWidget {
 
     return UiV2Pressable(
       // 播放态的行：点它 = 暂停/继续（用户要求）；其它行照常"切过去并播这首"
-      onTap: (showPlaying && !isPending)
-          ? () => ref.read(playbackControllerProvider).toggle()
-          : onTap,
+      onTap: isPending
+          ? null
+          : (showPlaying
+              ? () => ref.read(playbackControllerProvider).toggle()
+              : onTap),
       pressedScale: 1,
       radius: UiV2Radii.brMd,
       hoverColor: t.surface2,
@@ -444,7 +448,9 @@ class UiV2SongRow extends ConsumerWidget {
           vertical: UiV2Spacing.s2,
         ),
         decoration: BoxDecoration(
-          color: showPlaying ? t.accentSoft : const Color(0x00000000),
+          color: isPending
+              ? t.surface2
+              : (showPlaying ? t.accentSoft : const Color(0x00000000)),
           borderRadius: UiV2Radii.brMd,
         ),
         child: Row(
@@ -462,12 +468,18 @@ class UiV2SongRow extends ConsumerWidget {
               SizedBox(
                 width: 28,
                 child: Center(
-                  child: (isPlay || isPaused)
-                      ? UiV2Eq(color: t.accent, animated: isPlay)
-                      : Text(
-                          '${index + 1}',
-                          style: UiV2Text.duration.copyWith(color: t.textMute),
-                        ),
+                  child: isPending
+                      ? UiV2Spinner(
+                          trackColor: t.surface3,
+                          color: t.accent,
+                          size: 16,
+                        )
+                      : (isPlay || isPaused)
+                          ? UiV2Eq(color: t.accent, animated: isPlay)
+                          : Text(
+                              '${index + 1}',
+                              style: UiV2Text.duration.copyWith(color: t.textMute),
+                            ),
                 ),
               ),
             const SizedBox(width: UiV2Spacing.s3),

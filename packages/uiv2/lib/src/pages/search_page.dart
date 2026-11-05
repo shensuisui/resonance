@@ -25,6 +25,22 @@ import '../router.dart';
 import '../widgets/page_shell.dart';
 import '../widgets/track_actions.dart';
 
+/// 输入停止多久后把这次自动搜索写入历史。
+///
+/// 太短（例如沿用 1 秒搜索防抖）会把「a / ab / abc」等中间前缀写进去；
+/// 2 秒表示用户确实在这组输入上停下来了，才视为一次主动搜索。
+const Duration kSearchHistorySettle = Duration(seconds: 2);
+
+/// 稳定输入是否仍对应当前搜索，可以落历史。
+bool shouldRecordSettledSearch({
+  required String input,
+  required String searchedKeyword,
+  required String candidate,
+}) {
+  final q = candidate.trim();
+  return q.isNotEmpty && input.trim() == q && searchedKeyword == q;
+}
+
 /// 搜索页
 class SearchPage extends ConsumerStatefulWidget {
   /// 构造搜索页
@@ -38,6 +54,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   final TextEditingController _input = TextEditingController();
   final FocusNode _focus = FocusNode();
   Timer? _debounce;
+  Timer? _historyDebounce;
 
   @override
   void initState() {
@@ -50,6 +67,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _historyDebounce?.cancel();
     _input.dispose();
     _focus.dispose();
     super.dispose();
@@ -94,17 +112,40 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   void _onChanged(String value) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 1000), () => _run(value));
+    _scheduleHistoryRecord(value);
+  }
+
+  /// 输入稳定 2 秒后记录一次历史（替代“只有回车才记录”）。
+  ///
+  /// 不直接跟着 1 秒搜索防抖写入：那样会把输入前缀也记下来。定时器到点时
+  /// 再校验输入框和当前搜索词仍是同一个词，用户继续输入/清空后不会写旧词。
+  void _scheduleHistoryRecord(String value) {
+    _historyDebounce?.cancel();
+    if (value.trim().isEmpty) return;
+    _historyDebounce = Timer(kSearchHistorySettle, () {
+      if (!mounted) return;
+      if (!shouldRecordSettledSearch(
+        input: _input.text,
+        searchedKeyword: ref.read(searchProvider).keyword,
+        candidate: value,
+      )) {
+        return;
+      }
+      unawaited(ref.read(searchHistoryProvider.notifier).add(value));
+    });
   }
 
   /// 回车确认：真正执行搜索并记一条历史
   void _onSubmit(String value) {
     _debounce?.cancel();
+    _historyDebounce?.cancel();
     _run(value, recordHistory: true);
   }
 
   /// 点历史 / 推荐词 / 分类：回填输入框后立刻搜索，并记历史
   void _onPick(String word) {
     _debounce?.cancel();
+    _historyDebounce?.cancel();
     _input.value = TextEditingValue(
       text: word,
       selection: TextSelection.collapsed(offset: word.length),
@@ -114,6 +155,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   /// 清空输入与结果
   void _onClear() {
+    _debounce?.cancel();
+    _historyDebounce?.cancel();
     _input.clear();
     ref.read(searchProvider.notifier).clear();
     _focus.requestFocus();
