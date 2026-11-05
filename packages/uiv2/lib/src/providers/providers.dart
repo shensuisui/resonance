@@ -1676,8 +1676,16 @@ final playerStreamBindingProvider = Provider<void>((ref) {
     player.durationStream.listen((ms) {
       ref.read(durationProvider.notifier).set(Duration(milliseconds: ms));
       // 播放器实测时长回写：列表里 0:00 的曲目播一次就有真实时长了。
-      // 注意 durationStream 往往早于 currentTrackId 落地，这里要退回播放器自己的当前曲目。
-      final song = ref.read(currentSongProvider) ?? ref.read(playerProvider).currentSong;
+      // durationStream 往往早于 currentTrackId 落地，不能只信 currentSongProvider：
+      // 那样会把“正在装载的新曲”时长写到上一首。播放器在 _doPlayIndex 一开始就
+      // 把 currentIndex 指向新曲，所以优先认队列里正在装载的那一首。
+      final player = ref.read(playerProvider);
+      Song? song;
+      final index = player.currentIndex;
+      if (index >= 0 && index < player.queue.length) {
+        song = player.queue[index];
+      }
+      song ??= ref.read(currentSongProvider) ?? player.currentSong;
       if (song != null) {
         unawaited(ref.read(songMetadataServiceProvider).saveDuration(song, ms));
       }
@@ -1770,6 +1778,9 @@ class PlaybackController {
         return false;
       }
       await _startPlayback(song, url);
+      // pending 由 PlayerImpl._ensureProgressing 保证：真机慢资源时它会等到
+      // 首次真实进度（最长 networkLoadTimeout）才让 play() 返回；失败则抛错由
+      // 上面 catch 清 pending，item loading 不会提前消失也不会永远挂着。
       pending.set(null);
       return true;
     } catch (e) {
