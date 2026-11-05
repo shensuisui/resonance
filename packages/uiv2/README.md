@@ -21,8 +21,8 @@
 - 37 个 Dart 文件、约 11.3k 行（不含生成代码）；
 - 16 个页面：首页、搜索、音乐库、我喜欢的音乐、本地音乐、我的、专辑、艺人、歌单、
   全部歌单、文件夹、最近播放、下载任务、音乐源、订阅、运行日志；
-- 素材：16 张专辑封面（`resonance_app/assets/covers/`）+ 两族可变字体
-  （Manrope / Space Grotesk，`resonance_app/assets/fonts/`）。
+- 素材：两族可变字体（Manrope / Space Grotesk，`resonance_app/assets/fonts/`）；
+  演示封面/音频/歌词在根目录 `demo_source/`，不随 App 打包。
 
 ## 目录
 
@@ -33,7 +33,7 @@ lib/
 │   ├── app.dart               # UiV2App（MaterialApp + 令牌作用域）
 │   ├── router.dart            # 路由表 / 一级页口径 / 返回键规则
 │   ├── design/                # tokens / typography / icons / theme / motion
-│   ├── data/                  # catalog（16 张专辑配表）/ lyrics（演示歌词）
+│   ├── data/                  # catalog（可注入展示元数据）/ lyrics（源歌词装配）
 │   ├── providers/providers.dart  # 服务注入 + 播放 + 收藏 + 搜索 + 设置
 │   ├── components/            # 外壳零件、播放条、沉浸页、曲目行、卡片、弹层
 │   ├── widgets/               # 页面骨架、曲目动作
@@ -69,10 +69,10 @@ runApp(ProviderScope(
 
 ## 曲库与真实播放
 
-- 曲库（专辑 / 曲目 / 歌单 / 分类）是**配表驱动的演示数据**，与原型一致；
+- 曲库展示元数据默认空，Debug 时由壳工程从 `demo_source` 的 `/catalog.json` 注入；
+- 演示曲库是普通规则源 `demo_catalog`，搜索、详情、歌词、歌单、播放地址全部走 HTTP；
 - 播放统一走 `PlaybackController`：解析播放地址 → 调 `Player` → 同步 UI 状态 → 记录最近播放；
-- 演示曲目在真实源里没有对应的播放地址，点击后不会启动播放，但界面状态（选中行、播放条信息、
-  队列与最近播放）按原型语义正确更新；接入真实源（本地扫描 / 规则源 / 插件）后按同一入口播放真实音频。
+- Release 不注册演示源，也不打包任何演示数据、封面或音频。
 
 ## 测试与静态检查
 

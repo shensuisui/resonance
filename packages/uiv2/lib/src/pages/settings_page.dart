@@ -452,7 +452,7 @@ class _AboutBody extends StatelessWidget {
     const paragraphs = [
       '界面按 OpenDesign 原型「回响 Resonance」实现：深色优先的令牌系统、侧栏/底栏自适应、沉浸播放页与歌词舞台。',
       '数据全部来自项目既有能力：收藏、歌单、最近播放、设置走 SQLite（DAO），搜索走 SourceManager 聚合已启用源，歌曲与歌词由各源提供。',
-      '原型的内置曲库被包装成真实音乐源「演示曲库」，可在「音乐源」页启用或停用；它只提供元数据，没有音频文件。',
+      '演示曲库是一个本地 HTTP 调试源，只在 Debug 构建中可用；Release 不注册、也不打包其数据与资源。',
       '本地音乐来自扫描结果，扫描目录在「设置 → 本地音乐」里指定。',
     ];
     return Column(

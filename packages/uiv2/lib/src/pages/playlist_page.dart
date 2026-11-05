@@ -542,7 +542,7 @@ class UiV2PlaylistPickerBody extends ConsumerWidget {
     final seen = <String>{};
     final candidates = <Song>[];
     for (final song in [
-      ...ref.watch(catalogSourceProvider).allSongs,
+      ...ref.watch(catalogSongsProvider).values,
       ...ref.watch(localTracksProvider),
     ]) {
       if (seen.add(song.globalKey)) candidates.add(song);

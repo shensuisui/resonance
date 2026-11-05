@@ -1,0 +1,97 @@
+{
+  "source": {
+    "id": "demo_catalog",
+    "name": "演示曲库",
+    "baseUrl": "{{ORIGIN}}",
+    "icon": "{{ORIGIN}}/covers/midnights.jpg",
+    "showInLibrary": true,
+    "visible": true
+  },
+  "search": {
+    "url": "/search?keyword={keyword}&page={page}&pageSize=20&d=0",
+    "method": "GET",
+    "responseType": "json",
+    "listRule": "$.songs",
+    "itemRules": {
+      "id": "$.id",
+      "title": "$.title",
+      "artist": "$.artist",
+      "album": "$.album",
+      "coverUrl": "$.coverUrl",
+      "duration": "$.duration",
+      "playUrl": "$.playUrl",
+      "genre": "$.genre",
+      "albumId": "$.albumId",
+      "no": "$.no",
+      "local": "$.local",
+      "downloaded": "$.downloaded",
+      "sourceId": "$.sourceId"
+    },
+    "pagination": {
+      "type": "size",
+      "limitValue": 20
+    }
+  },
+  "songDetail": {
+    "url": "/songs/{id}?d=0",
+    "method": "GET",
+    "responseType": "json",
+    "listRule": "$",
+    "itemRules": {
+      "id": "$.id",
+      "title": "$.title",
+      "artist": "$.artist",
+      "album": "$.album",
+      "coverUrl": "$.coverUrl",
+      "duration": "$.duration",
+      "playUrl": "$.playUrl",
+      "genre": "$.genre",
+      "albumId": "$.albumId",
+      "no": "$.no",
+      "local": "$.local",
+      "downloaded": "$.downloaded",
+      "sourceId": "$.sourceId"
+    }
+  },
+  "lyric": {
+    "url": "/lyrics/{id}?d=0",
+    "method": "GET",
+    "responseType": "text"
+  },
+  "playlistList": {
+    "url": "/playlists?d=0",
+    "method": "GET",
+    "responseType": "json",
+    "listRule": "$.playlists",
+    "itemRules": {
+      "id": "$.id",
+      "title": "$.name",
+      "coverUrl": "$.coverUrl"
+    }
+  },
+  "playlist": {
+    "url": "/playlists/{id}?d=0",
+    "method": "GET",
+    "responseType": "json",
+    "listRule": "$.songs",
+    "playlistInfo": {
+      "title": "$.name",
+      "coverUrl": "$.coverUrl"
+    },
+    "itemRules": {
+      "id": "$.id",
+      "title": "$.title",
+      "artist": "$.artist",
+      "album": "$.album",
+      "coverUrl": "$.coverUrl",
+      "duration": "$.duration",
+      "playUrl": "$.playUrl",
+      "genre": "$.genre",
+      "albumId": "$.albumId",
+      "no": "$.no",
+      "local": "$.local",
+      "downloaded": "$.downloaded",
+      "sourceId": "$.sourceId"
+    }
+  }
+}

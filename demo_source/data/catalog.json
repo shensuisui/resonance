@@ -1,0 +1,498 @@
+{
+  "albums": [
+    {
+      "id": "abbey-road",
+      "title": "Abbey Road",
+      "artist": "The Beatles",
+      "year": 1969,
+      "genre": "摇滚",
+      "tracks": [
+        "Come Together",
+        "Something",
+        "Maxwell's Silver Hammer",
+        "Oh! Darling",
+        "Octopus's Garden",
+        "I Want You (She’s So Heavy)",
+        "Here Comes the Sun",
+        "Because",
+        "You Never Give Me Your Money",
+        "Sun King",
+        "Mean Mr. Mustard",
+        "Polythene Pam",
+        "She Came in Through the Bathroom Window",
+        "Golden Slumbers",
+        "Carry That Weight",
+        "The End",
+        "Her Majesty"
+      ]
+    },
+    {
+      "id": "random-access-memories",
+      "title": "Random Access Memories",
+      "artist": "Daft Punk",
+      "year": 2013,
+      "genre": "电子",
+      "tracks": [
+        "Give Life Back to Music",
+        "The Game of Love",
+        "Giorgio by Moroder",
+        "Within",
+        "Instant Crush",
+        "Lose Yourself to Dance",
+        "Touch",
+        "Get Lucky",
+        "Beyond",
+        "Motherhood",
+        "Fragments of Time",
+        "Doin' It Right",
+        "Contact"
+      ]
+    },
+    {
+      "id": "blonde",
+      "title": "Blonde",
+      "artist": "Frank Ocean",
+      "year": 2016,
+      "genre": "R&B",
+      "tracks": [
+        "Nikes",
+        "Ivy",
+        "Pink + White",
+        "Be Yourself",
+        "Solo",
+        "Skyline To",
+        "Self Control",
+        "Good Guy",
+        "Nights",
+        "Solo (Reprise)",
+        "Pretty Sweet",
+        "Facebook Story",
+        "Close to You",
+        "White Ferrari",
+        "Seigfried",
+        "Godspeed",
+        "Futura Free"
+      ]
+    },
+    {
+      "id": "kind-of-blue",
+      "title": "Kind of Blue",
+      "artist": "Miles Davis",
+      "year": 1959,
+      "genre": "爵士",
+      "tracks": [
+        "So What",
+        "Freddie Freeloader",
+        "Blue in Green",
+        "All Blues",
+        "Flamenco Sketches"
+      ]
+    },
+    {
+      "id": "ok-computer",
+      "title": "OK Computer",
+      "artist": "Radiohead",
+      "year": 1997,
+      "genre": "摇滚",
+      "tracks": [
+        "Airbag",
+        "Paranoid Android",
+        "Subterranean Homesick Alien",
+        "Exit Music (For a Film)",
+        "Let Down",
+        "Karma Police",
+        "Fitter Happier",
+        "Electioneering",
+        "Climbing Up the Walls",
+        "No Surprises",
+        "Lucky",
+        "The Tourist"
+      ]
+    },
+    {
+      "id": "midnights",
+      "title": "Midnights",
+      "artist": "Taylor Swift",
+      "year": 2022,
+      "genre": "流行",
+      "tracks": [
+        "Lavender Haze",
+        "Maroon",
+        "Anti-Hero",
+        "Snow on the Beach",
+        "You're on Your Own, Kid",
+        "Midnight Rain",
+        "Question...?",
+        "Vigilante Shit",
+        "Bejeweled",
+        "Labyrinth",
+        "Karma",
+        "Sweet Nothing",
+        "Mastermind"
+      ]
+    },
+    {
+      "id": "when-we-all-fall-asleep",
+      "title": "When We All Fall Asleep, Where Do We Go?",
+      "artist": "Billie Eilish",
+      "year": 2019,
+      "genre": "流行",
+      "tracks": [
+        "!!!!!!!",
+        "Bad Guy",
+        "Xanny",
+        "You Should See Me in a Crown",
+        "All the Good Girls Go to Hell",
+        "Wish You Were Gay",
+        "When the Party's Over",
+        "8",
+        "My Strange Addiction",
+        "Bury a Friend",
+        "Ilomilo",
+        "Listen Before I Go",
+        "I Love You",
+        "Goodbye"
+      ]
+    },
+    {
+      "id": "dark-side-of-the-moon",
+      "title": "The Dark Side of the Moon",
+      "artist": "Pink Floyd",
+      "year": 1973,
+      "genre": "摇滚",
+      "tracks": [
+        "Speak to Me",
+        "Breathe (In the Air)",
+        "On the Run",
+        "Time",
+        "The Great Gig in the Sky",
+        "Money",
+        "Us and Them",
+        "Any Colour You Like",
+        "Brain Damage",
+        "Eclipse"
+      ]
+    },
+    {
+      "id": "damn",
+      "title": "DAMN.",
+      "artist": "Kendrick Lamar",
+      "year": 2017,
+      "genre": "嘻哈",
+      "tracks": [
+        "BLOOD.",
+        "DNA.",
+        "YAH.",
+        "ELEMENT.",
+        "FEEL.",
+        "LOYALTY.",
+        "PRIDE.",
+        "HUMBLE.",
+        "LUST.",
+        "LOVE.",
+        "XXX.",
+        "FEAR.",
+        "GOD.",
+        "DUCKWORTH."
+      ]
+    },
+    {
+      "id": "rumours",
+      "title": "Rumours",
+      "artist": "Fleetwood Mac",
+      "year": 1977,
+      "genre": "摇滚",
+      "tracks": [
+        "Second Hand News",
+        "Dreams",
+        "Never Going Back Again",
+        "Don't Stop",
+        "Go Your Own Way",
+        "Songbird",
+        "The Chain",
+        "You Make Loving Fun",
+        "I Don't Want to Know",
+        "Oh Daddy",
+        "Gold Dust Woman"
+      ]
+    },
+    {
+      "id": "nevermind",
+      "title": "Nevermind",
+      "artist": "Nirvana",
+      "year": 1991,
+      "genre": "摇滚",
+      "tracks": [
+        "Smells Like Teen Spirit",
+        "In Bloom",
+        "Come as You Are",
+        "Breed",
+        "Lithium",
+        "Polly",
+        "Territorial Pissings",
+        "Drain You",
+        "Lounge Act",
+        "Stay Away",
+        "On a Plain",
+        "Something in the Way"
+      ]
+    },
+    {
+      "id": "thriller",
+      "title": "Thriller",
+      "artist": "Michael Jackson",
+      "year": 1982,
+      "genre": "流行",
+      "tracks": [
+        "Wanna Be Startin' Somethin'",
+        "Baby Be Mine",
+        "The Girl Is Mine",
+        "Thriller",
+        "Beat It",
+        "Billie Jean",
+        "Human Nature",
+        "P.Y.T. (Pretty Young Thing)",
+        "The Lady in My Life"
+      ]
+    },
+    {
+      "id": "back-to-black",
+      "title": "Back to Black",
+      "artist": "Amy Winehouse",
+      "year": 2006,
+      "genre": "灵魂乐",
+      "tracks": [
+        "Rehab",
+        "You Know I'm No Good",
+        "Me & Mr Jones",
+        "Just Friends",
+        "Back to Black",
+        "Love Is a Losing Game",
+        "Tears Dry on Their Own",
+        "Wake Up Alone",
+        "Some Unholy War",
+        "He Can Only Hold Her"
+      ]
+    },
+    {
+      "id": "future-nostalgia",
+      "title": "Future Nostalgia",
+      "artist": "Dua Lipa",
+      "year": 2020,
+      "genre": "流行",
+      "tracks": [
+        "Future Nostalgia",
+        "Don't Start Now",
+        "Cool",
+        "Physical",
+        "Levitating",
+        "Pretty Please",
+        "Hallucinate",
+        "Love Again",
+        "Break My Heart",
+        "Good in Bed",
+        "Boys Will Be Boys"
+      ]
+    },
+    {
+      "id": "a-night-at-the-opera",
+      "title": "A Night at the Opera",
+      "artist": "Queen",
+      "year": 1975,
+      "genre": "摇滚",
+      "tracks": [
+        "Death on Two Legs",
+        "Lazing on a Sunday Afternoon",
+        "I'm in Love with My Car",
+        "You're My Best Friend",
+        "'39",
+        "Sweet Lady",
+        "Seaside Rendezvous",
+        "The Prophet's Song",
+        "Love of My Life",
+        "Good Company",
+        "Bohemian Rhapsody",
+        "God Save the Queen"
+      ]
+    },
+    {
+      "id": "blue",
+      "title": "Blue",
+      "artist": "Joni Mitchell",
+      "year": 1971,
+      "genre": "民谣",
+      "tracks": [
+        "All I Want",
+        "My Old Man",
+        "Little Green",
+        "Carey",
+        "Blue",
+        "California",
+        "This Flight Tonight",
+        "River",
+        "A Case of You",
+        "The Last Time I Saw Richard"
+      ]
+    }
+  ],
+  "importedAlbumIds": [
+    "kind-of-blue",
+    "blue",
+    "a-night-at-the-opera"
+  ],
+  "importedExtraTrackIds": [
+    "nevermind#11",
+    "rumours#7"
+  ],
+  "downloadedAlbumIds": [
+    "midnights",
+    "future-nostalgia",
+    "abbey-road"
+  ],
+  "sourceByAlbum": {
+    "midnights": "fy",
+    "future-nostalgia": "fy",
+    "when-we-all-fall-asleep": "fy",
+    "random-access-memories": "fy",
+    "abbey-road": "fy",
+    "damn": "fy",
+    "ok-computer": "aiting",
+    "blonde": "aiting",
+    "kind-of-blue": "aiting",
+    "nevermind": "aiting",
+    "blue": "aiting",
+    "back-to-black": "yu7",
+    "rumours": "yu7",
+    "dark-side-of-the-moon": "yu7",
+    "thriller": "yu7",
+    "a-night-at-the-opera": "yu7"
+  },
+  "sourceByTrack": {
+    "midnights#3": "fy",
+    "blonde#7": "aiting",
+    "rumours#3": "yu7"
+  },
+  "playlists": [
+    {
+      "id": "pl-night-drive",
+      "name": "深夜公路",
+      "desc": "低速巡航与霓虹灯影",
+      "color": "0xFFFF5A3C",
+      "colorDark": "0xFF2A1B4D",
+      "refs": [
+        "random-access-memories#8",
+        "blonde#9",
+        "ok-computer#6",
+        "dark-side-of-the-moon#4",
+        "back-to-black#5",
+        "future-nostalgia#2",
+        "nevermind#11",
+        "midnights#6"
+      ],
+      "user": false
+    },
+    {
+      "id": "pl-focus",
+      "name": "专注工作",
+      "desc": "不抢注意力的长线条",
+      "color": "0xFF1F6C7A",
+      "colorDark": "0xFF123A44",
+      "refs": [
+        "kind-of-blue#1",
+        "kind-of-blue#3",
+        "dark-side-of-the-moon#7",
+        "ok-computer#4",
+        "blonde#14",
+        "blue#9",
+        "random-access-memories#3",
+        "rumours#7"
+      ],
+      "user": false
+    },
+    {
+      "id": "pl-morning",
+      "name": "清晨唤醒",
+      "desc": "把窗帘拉开的那一下",
+      "color": "0xFFE0A33C",
+      "colorDark": "0xFFB4452B",
+      "refs": [
+        "abbey-road#7",
+        "future-nostalgia#5",
+        "thriller#6",
+        "midnights#3",
+        "a-night-at-the-opera#11",
+        "rumours#2",
+        "future-nostalgia#9"
+      ],
+      "user": false
+    },
+    {
+      "id": "pl-rock-90s",
+      "name": "九十年代摇滚",
+      "desc": "失真、贝斯线与嘶吼",
+      "color": "0xFF5A2E2E",
+      "colorDark": "0xFF1B1B22",
+      "refs": [
+        "ok-computer#2",
+        "nevermind#1",
+        "nevermind#5",
+        "ok-computer#10",
+        "nevermind#3",
+        "ok-computer#6",
+        "nevermind#12"
+      ],
+      "user": false
+    },
+    {
+      "id": "pl-jazz",
+      "name": "爵士夜",
+      "desc": "一杯不加冰的威士忌",
+      "color": "0xFF1F6C7A",
+      "colorDark": "0xFF14171C",
+      "refs": [
+        "kind-of-blue#1",
+        "kind-of-blue#2",
+        "kind-of-blue#3",
+        "kind-of-blue#4",
+        "kind-of-blue#5",
+        "back-to-black#4",
+        "blue#9",
+        "blue#10"
+      ],
+      "user": false
+    },
+    {
+      "id": "pl-today",
+      "name": "今日推荐",
+      "desc": "按你的收听习惯生成",
+      "color": "0xFF3B4C9E",
+      "colorDark": "0xFF7A3A63",
+      "refs": [
+        "abbey-road#2",
+        "blonde#3",
+        "damn#8",
+        "when-we-all-fall-asleep#2",
+        "future-nostalgia#4",
+        "rumours#5",
+        "thriller#5",
+        "a-night-at-the-opera#1"
+      ],
+      "user": false
+    },
+    {
+      "id": "up-commute",
+      "name": "通勤路上",
+      "desc": "单程刚好听完",
+      "color": "0xFF3B4C9E",
+      "colorDark": "0xFF14171C",
+      "refs": [
+        "midnights#3",
+        "future-nostalgia#2",
+        "abbey-road#7",
+        "rumours#5",
+        "nevermind#2"
+      ],
+      "user": true
+    }
+  ]
+}

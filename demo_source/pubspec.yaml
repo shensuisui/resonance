@@ -1,0 +1,11 @@
+name: resonance_demo_source
+description: resonance 演示曲库调试 HTTP 服务（仅本地开发使用）
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.5.0
+
+dev_dependencies:
+  test: ^1.25.0
+  lints: ^5.0.0

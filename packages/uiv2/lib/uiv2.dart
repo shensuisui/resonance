@@ -30,7 +30,6 @@ export 'src/design/typography.dart';
 
 // 数据层
 export 'src/data/catalog.dart';
-export 'src/data/catalog_source.dart';
 export 'src/data/lyrics.dart';
 
 // 状态层

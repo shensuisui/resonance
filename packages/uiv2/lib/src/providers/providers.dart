@@ -6,8 +6,8 @@
 ///   * 所有列表数据都来自真实来源：DAO（收藏/歌单/最近播放/设置）、
 ///     SourceManager（搜索/歌单/专辑/艺人/歌词）、LocalScanSource（本地曲目）、
 ///     DownloadManager（下载任务）、SourceLogBus（运行日志）；
-///   * 原型的内置曲库被包装成**真实音乐源** `demo_catalog`（见 catalog_source.dart），
-///     与其它源一样注册进 SourceManager，可启用/停用，不再有 mock 分支。
+///   * 演示曲库的真实数据由 Demo Debug 源（demo_source）提供；App 内只保留
+///     可注入的展示元数据，没有内置曲目/歌词常量，也没有 mock 数据分支。
 library;
 
 import 'dart:async';
@@ -20,7 +20,6 @@ import 'package:flutter/widgets.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/catalog.dart';
-import '../data/catalog_source.dart';
 
 // ==================== 壳工程注入的服务 ====================
 
@@ -86,25 +85,38 @@ final favoritesDaoProvider = Provider<FavoritesDao>(
   name: 'favoritesDaoProvider',
 );
 
-// ==================== 演示曲库（真实源的数据视图） ====================
+// ==================== 演示曲库展示元数据（可选注入） ====================
 
-/// 演示曲库的音乐源实例（壳工程注册它；测试里直接构造）
-final catalogSourceProvider = Provider<CatalogMusicSource>(
-  (ref) => CatalogMusicSource(),
-  name: 'catalogSourceProvider',
-);
-
-/// 配表曲库（仅供「来源标签 / 流派 / 专辑封面」这类展示元数据使用）
+/// 曲库展示元数据。
+///
+/// 默认空：Release 不注入演示目录。Debug 时壳工程把 demo_source 的
+/// /catalog.json 解析成 [Catalog] 后 override 这个 Provider。
 final catalogProvider = Provider<Catalog>(
-  (ref) => ref.watch(catalogSourceProvider).catalog,
+  (ref) => Catalog.empty(),
   name: 'catalogProvider',
 );
 
-/// 曲目 id → [Song]（演示曲库曲目）
+/// 曲目 id → [Song]（仅用于「把展示元数据当候选曲目」的场景）
 final catalogSongsProvider = Provider<Map<String, Song>>((ref) {
-  final source = ref.watch(catalogSourceProvider);
+  final catalog = ref.watch(catalogProvider);
   return {
-    for (final track in source.catalog.tracks) track.id: source.songOf(track),
+    for (final track in catalog.tracks)
+      track.id: Song(
+        id: track.id,
+        sourceId: kCatalogSourceId,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        coverUrl: track.cover,
+        duration: track.duration,
+        extra: {
+          'genre': track.genre,
+          'albumId': track.albumId,
+          'no': track.no,
+          'local': track.local,
+          'downloaded': track.downloaded,
+        },
+      ),
   };
 }, name: 'catalogSongsProvider');
 
@@ -2676,9 +2688,9 @@ class LyricsOpenNotifier extends Notifier<bool> {
 final lyricsOpenProvider =
     NotifierProvider<LyricsOpenNotifier, bool>(LyricsOpenNotifier.new);
 
-// ==================== 歌词（真实源 + 演示歌词兜底） ====================
+// ==================== 歌词（全部来自真实音乐源） ====================
 
-/// 当前曲目歌词：先问源，再退回演示歌词（仅演示曲库曲目）
+/// 当前曲目歌词：只问音乐源，不在 App 内做演示文本兜底
 class LyricsNotifier extends Notifier<Lyrics?> {
   @override
   Lyrics? build() {

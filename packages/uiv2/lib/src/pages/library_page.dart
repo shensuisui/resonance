@@ -412,7 +412,7 @@ class _SourcePlaylistCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 源歌单也带歌曲快照（CatalogMusicSource 会填），直接取前 4 首封面
+    // 源歌单的曲目快照由源返回；统一实现见 resolvePlaylistCovers 注释
     // 统一实现（见 resolvePlaylistCovers 注释）
     final covers = resolvePlaylistCovers(ref, playlist);
     final count = playlist.songKeys.length;

@@ -101,3 +101,14 @@ cd ..\packages\uiv2 && G:\works\shelli\fm\.fvm\flutter_sdk\bin\flutter.bat test
 3. **构建前先结束 resonance_app 进程**：否则 WebView2Loader.dll 被占用导致 MSB3021（Windows 老坑）。
 4. **sub_page 订阅**：uiv2 通过 SubscriptionHost 注入对接订阅库，壳工程尚未装配该宿主，页面会显示明确说明而非假数据。
 5. **建议后续**：补 `SourceManager` 对 getPlaylistSongs/getPlaylistList 的透传；插件源歌词 lines 为空的 crawler 侧修复；下载任务持久化。
+
+
+## 8. 演示曲库迁移（2026-11）
+
+演示曲库已从 App 内置实现改为根目录 `demo_source/` 的独立 Dart HTTP 服务，详见 [demo-source.md](demo-source.md)。
+
+- App 内删除 `CatalogMusicSource`、16 张专辑配表、9 首演示歌词与静音 WAV 生成代码；
+- 演示封面/音频/JSON 不再进入 Flutter assets；
+- Debug 启动时从 `/rule.json` 注册普通规则源，并从 `/catalog.json` 注入展示元数据；服务离线只跳过演示源；
+- Release 由 `kDebugMode` 常量分支与 assets 物理缺失双重剔除；
+- 数据接口支持 `d=<秒>` 延迟，用于真实复现慢源、超时和加载态。

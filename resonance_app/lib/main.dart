@@ -13,7 +13,7 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
+import 'dart:io' as io;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -110,13 +110,12 @@ Future<void> main() async {
       LocalCustomSource(gDatabaseProvider.songDao));
   gSourceManager.registerSource(
       FavoriteSource(gDatabaseProvider.favoritesDao, gSourceManager));
-  // 演示曲库：把原型的内置配表包装成**真实音乐源**注册进 SourceManager，
-  // 与本地源/规则源/插件源同构，可在「音乐源」页启用或停用。
-  //
-  // 配表本身没有音频，启动时生成一段静音 wav 注入，让演示曲库也能走通
-  // 「取地址 → 播放 → 播放页/歌词/队列」整条链路；生成失败退回空串（旧行为）。
-  final demoAudioUri = await _prepareDemoAudio();
-  gSourceManager.registerSource(CatalogMusicSource(audioUri: demoAudioUri));
+  // 演示曲库：仅 Debug 从 demo_source 的 HTTP 服务加载普通规则源。
+  // Release 不请求、不注册；演示数据/封面/音频也都不在 Flutter assets 中。
+  Catalog? demoCatalog;
+  if (kDebugMode) {
+    demoCatalog = await _loadDemoCatalogSource();
+  }
 
   // 4. 从 assets/rules/ 加载规则源
   await _loadRuleSources();
@@ -140,6 +139,7 @@ Future<void> main() async {
   gContainer = ProviderContainer(overrides: [
     appDatabaseProvider.overrideWith((ref) => gDatabaseProvider),
     sourceManagerProvider.overrideWith((ref) => gSourceManager),
+    catalogProvider.overrideWith((ref) => demoCatalog ?? Catalog.empty()),
     recentPlaysServiceProvider.overrideWith((ref) => gRecentPlaysService),
     playerProvider.overrideWith((ref) => gPlayer),
     downloadManagerProvider.overrideWith((ref) => gDownloadManager),
@@ -676,6 +676,76 @@ Future<void> _loadBundledPlugins() async {
   }
 }
 
+/// Debug 专用：从 demo_source 的 HTTP 服务加载演示规则源与目录元数据。
+///
+/// 服务地址优先取 --dart-define=RESONANCE_DEMO_BASE_URL；桌面默认 127.0.0.1，
+/// Android 模拟器默认 10.0.2.2。服务未启动时只跳过演示源，绝不能阻塞 App 启动。
+Future<Catalog?> _loadDemoCatalogSource() async {
+  const configured = String.fromEnvironment('RESONANCE_DEMO_BASE_URL');
+  final fallback =
+      Platform.isAndroid ? 'http://10.0.2.2:8787' : 'http://127.0.0.1:8787';
+  final base = (configured.isEmpty ? fallback : configured)
+      .replaceFirst(RegExp(r'/$'), '');
+  final client = io.HttpClient()
+    ..connectionTimeout = const Duration(seconds: 3);
+  try {
+    final ruleJson = await _fetchJson(client, Uri.parse('$base/rule.json'));
+    final config = RuleConfig.fromJson(ruleJson);
+    final source = RuleBasedMusicSource(config);
+    gSourceManager.registerSource(source);
+    gSourceManager.setSourceEnabled(config.source.id, true);
+
+    Catalog? catalog;
+    try {
+      catalog = Catalog.fromJson(
+        await _fetchJson(client, Uri.parse('$base/catalog.json')),
+      );
+    } catch (e) {
+      SourceLogBus.instance.emit(
+        config.source.id,
+        SourceLogLevel.warn,
+        '启动',
+        '目录元数据加载失败（搜索/播放仍可用）: $e',
+      );
+    }
+
+    SourceLogBus.instance.emit(
+      config.source.id,
+      SourceLogLevel.info,
+      '启动',
+      '已从 $base 加载演示规则源',
+    );
+    return catalog;
+  } catch (e) {
+    SourceLogBus.instance.emit(
+      'demo_catalog',
+      SourceLogLevel.warn,
+      '启动',
+      '演示源未加载（请先启动 demo_source）: $e',
+    );
+    return null;
+  } finally {
+    client.close(force: true);
+  }
+}
+
+/// 请求一个 JSON 对象；状态非 200 或响应不是对象时抛错，由调用方统一处理。
+Future<Map<String, dynamic>> _fetchJson(io.HttpClient client, Uri uri) async {
+  final request = await client.getUrl(uri).timeout(const Duration(seconds: 3));
+  request.headers.set(io.HttpHeaders.acceptHeader, 'application/json');
+  final response = await request.close().timeout(const Duration(seconds: 5));
+  final bytes =
+      await response.fold<List<int>>(<int>[], (all, chunk) => all..addAll(chunk));
+  if (response.statusCode != io.HttpStatus.ok) {
+    throw io.HttpException('HTTP ${response.statusCode}', uri: uri);
+  }
+  final decoded = jsonDecode(utf8.decode(bytes));
+  if (decoded is! Map<String, dynamic>) {
+    throw const FormatException('响应根节点不是 JSON 对象');
+  }
+  return decoded;
+}
+
 /// 从 assets/rules/ 加载所有 .json 规则文件
 ///
 /// 注意：Flutter ≥3.16 不再生成 AssetManifest.json（改为二进制格式），
@@ -706,47 +776,6 @@ Future<void> _loadRuleSources() async {
   }
 }
 
-/// 生成（一次）一段静音 wav 并返回 file:// URI，供演示曲库当占位音频。
-///
-/// 用代码生成而不是塞二进制资产：不增仓库体积、无版权问题，只写应用支持目录。
-Future<String> _prepareDemoAudio() async {
-  try {
-    final dir = await getApplicationSupportDirectory();
-    final file = File(p.join(dir.path, 'demo_placeholder.wav'));
-    if (!await file.exists()) {
-      await file.writeAsBytes(_silentWav(), flush: true);
-    }
-    return file.uri.toString();
-  } catch (e) {
-    debugPrint('生成演示占位音频失败: $e');
-    return '';
-  }
-}
-
-/// 8kHz / 单声道 / 16bit 的 RIFF-WAVE 静音 PCM（默认 10 秒）
-List<int> _silentWav({int seconds = 10, int sampleRate = 8000}) {
-  final dataLen = sampleRate * seconds * 2;
-  final out = BytesBuilder();
-  void tag(String s) => out.add(ascii.encode(s));
-  void u32(int v) =>
-      out.add([v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF, (v >> 24) & 0xFF]);
-  void u16(int v) => out.add([v & 0xFF, (v >> 8) & 0xFF]);
-  tag('RIFF');
-  u32(36 + dataLen);
-  tag('WAVE');
-  tag('fmt ');
-  u32(16);
-  u16(1); // PCM
-  u16(1); // 单声道
-  u32(sampleRate);
-  u32(sampleRate * 2); // byte rate
-  u16(2); // block align
-  u16(16); // bits per sample
-  tag('data');
-  u32(dataLen);
-  out.add(Uint8List(dataLen));
-  return out.takeBytes();
-}
 
 /// 应用根 Widget（uiv2 版本）
 ///

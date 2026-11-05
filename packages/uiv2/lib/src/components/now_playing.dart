@@ -507,19 +507,10 @@ class _UiV2LyricsStageState extends ConsumerState<UiV2LyricsStage> {
       return const SizedBox.shrink();
     }
 
-    // 展示元数据（演示曲库曲目才有）；真实源曲目直接用 Song 自身字段
-    final meta = ref.watch(catalogTracksProvider)[song.id];
-    // 时长统一回落（配表 → 快照 → 元数据缓存）；仍拿不到时按 3 分钟兜底
-    final resolved = resolveSongDuration(ref, song, catalogDuration: meta?.duration);
-    final duration = resolved > 0 ? resolved : 180;
     _stageContext = context;
     if (_builtFor != song.id || fromSource != null) {
       _builtFor = song.id;
-      _script = buildLyricScript(
-        trackId: song.id,
-        durationSeconds: duration,
-        fromSource: fromSource,
-      );
+      _script = buildLyricScript(fromSource: fromSource);
       // _script 按曲目重建后，行 key 与活动行都要复位
       _follow = true;
       _keys
@@ -548,7 +539,7 @@ class _UiV2LyricsStageState extends ConsumerState<UiV2LyricsStage> {
             Text('这首歌的来源没有提供歌词', style: UiV2Text.emptyTitle.copyWith(color: t.text)),
             const SizedBox(height: UiV2Spacing.s2),
             Text(
-              '内置曲目使用原创演示文本，本地扫描的曲目会读取同名的 .lrc 文件；两者都没有时显示这里。',
+              '当前音乐源没有返回歌词；本地扫描的曲目会读取同名的 .lrc 文件。',
               textAlign: TextAlign.center,
               style: UiV2Text.hint.copyWith(color: t.textDim),
             ),
@@ -557,9 +548,7 @@ class _UiV2LyricsStageState extends ConsumerState<UiV2LyricsStage> {
       );
     }
 
-    final note = _script.source == LyricSource.lrc
-        ? '来自同名 .lrc 文件'
-        : kLyricsNote;
+    const note = '来自音乐源提供的歌词';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
