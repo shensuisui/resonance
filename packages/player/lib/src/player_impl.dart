@@ -371,14 +371,10 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
       await _audioPlayer.play();
       await Future<void>.delayed(const Duration(milliseconds: 250));
       if (token != _playToken) return;
-      if (_audioPlayer.position > Duration.zero) {
-        SourceLogBus.instance.emit(
-            sourceId, SourceLogLevel.info, '播放器', '重发 play() 后已开始推进');
-        return;
-      }
+      if (_audioPlayer.position > Duration.zero) return;
     }
 
-    // 仍然不动：重设一次音频源再播（解器/管道没就绪的兜底）
+    // 仍然不动：重设一次音频源再播（解码器/管道没就绪的兜底）
     if (token != _playToken) return;
     final index = _currentIndex;
     if (index < 0 || index >= _queue.length) return;
@@ -392,13 +388,22 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
     );
     await _audioPlayer.play();
     await Future<void>.delayed(const Duration(milliseconds: 400));
-    if (_audioPlayer.position > Duration.zero) {
-      SourceLogBus.instance.emit(
-          sourceId, SourceLogLevel.info, '播放器', '重设音频源后已开始推进');
-    } else {
-      SourceLogBus.instance.emit(
-          sourceId, SourceLogLevel.warn, '播放器', '首播仍无进度（底层未启动）');
+    if (_audioPlayer.position > Duration.zero) return;
+
+    // 真实起播前不再提前返回：慢资源（首字节 / 首帧）可能远慢于 setAudioSource。
+    // 一直等到 position>0（或换曲 / 状态变化），超过 networkLoadTimeout 才抛
+    // TimeoutException，由上层 catch 回滚并清掉 item 的 loading。
+    final deadline = DateTime.now().add(networkLoadTimeout);
+    while (DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      if (token != _playToken) return;
+      if (_audioPlayer.position > Duration.zero) return;
+      if (_currentState != PlayerState.playing) return;
     }
+    SourceLogBus.instance.emit(
+        sourceId, SourceLogLevel.warn, '播放器',
+        '起播 ${networkLoadTimeout.inSeconds}s 仍无进度，判为失败');
+    throw TimeoutException('起播超时无进度（${networkLoadTimeout.inSeconds}s）');
   }
 
   void _updateState(PlayerState state) {
