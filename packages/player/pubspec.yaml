@@ -14,6 +14,8 @@ dependencies:
   core:
     path: ../core
   just_audio: ^0.10.6
+  # 后台播放/系统媒体通知/锁屏与耳机键：侧车 handler 观察 Player，见 src/audio_handler.dart
+  audio_service: ^0.18.19
   # just_audio 在 Windows 无平台实现，需显式加插件，否则运行时播放失败
   just_audio_windows: ^0.2.0
 

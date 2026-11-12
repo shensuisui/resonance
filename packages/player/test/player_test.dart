@@ -1,4 +1,6 @@
 /// PlayerImpl 测试
+library;
+
 ///
 /// 注意：just_audio 的 AudioPlayer 在 flutter test 环境无平台通道，
 /// 构造即抛 AssertionError。因此 player 的完整测试（队列/播放/模式切换）
