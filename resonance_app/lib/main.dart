@@ -30,6 +30,7 @@ import 'package:player/player.dart';
 
 import 'package:uiv2/uiv2.dart';
 import 'config/agent_debug_config.dart';
+import 'file_pickers_impl.dart';
 import 'config/release_check_extensions.dart';
 import 'subscription_library.dart';
 import 'ua_overrides.dart';
@@ -39,6 +40,15 @@ late SourceManager gSourceManager;
 late RecentPlaysService gRecentPlaysService;
 late Player gPlayer;
 late DownloadManager gDownloadManager;
+
+/// 文件交互（导入导出 / 系统「用回响打开」）
+late ShellFilePickers gFilePickers;
+
+/// 系统媒体服务 handler（仅 Android/iOS 有；桌面端为 null）
+///
+/// 它只是「观察 Player + 转发系统命令」的侧车，播放器仍是 gPlayer（PlayerImpl），
+/// 因此桌面端不初始化时行为与之前完全一致。
+ResonanceAudioHandler? gAudioHandler;
 
 /// Windows 旧版本的应用支持目录名（ProductName 为「回响」时的路径）。
 const String kLegacyWindowsProductDir = '回响';
@@ -131,6 +141,20 @@ Future<void> main() async {
       return res.url;
     },
   );
+  // 2.1 移动端：把播放器接到系统媒体服务（通知栏/锁屏/耳机键/后台保活）。
+  //     audio_service 没有 Windows/Linux 实现，桌面端跳过，行为不变。
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    try {
+      gAudioHandler = await AudioBackground.init(gPlayer);
+      SourceLogBus.instance.emit(
+          'player', SourceLogLevel.info, '媒体服务', '系统媒体会话已就绪');
+    } catch (e, st) {
+      // 初始化失败不能拖垮播放：如实记录，前台播放继续可用（后台能力降级）
+      SourceLogBus.instance.emit('player', SourceLogLevel.error, '媒体服务',
+          '音频后台服务初始化失败（前台播放不受影响）: $e\n$st');
+    }
+  }
+
   gRecentPlaysService =
       RecentPlaysService(gDatabaseProvider.recentPlaysDao);
   gDownloadManager = DownloadManagerImpl(songDao: gDatabaseProvider.songDao);
@@ -170,6 +194,10 @@ Future<void> main() async {
   await subscriptions.load();
   gSubscriptions = subscriptions;
 
+  // 4.4 文件交互：选择/保存文件，以及 Android「用回响打开 .json」的事件源
+  gFilePickers = ShellFilePickers();
+  gFilePickers.start();
+
   // 5. 启动应用：手动建 ProviderContainer，便于 driver 钩子直接操作状态
   gContainer = ProviderContainer(overrides: [
     appDatabaseProvider.overrideWith((ref) => gDatabaseProvider),
@@ -179,6 +207,7 @@ Future<void> main() async {
     playerProvider.overrideWith((ref) => gPlayer),
     downloadManagerProvider.overrideWith((ref) => gDownloadManager),
     audioCacheProvider.overrideWith((ref) => gAudioCache),
+    filePickersProvider.overrideWith((ref) => gFilePickers),
     subscriptionHostProvider.overrideWith((ref) => gSubscriptions!.host),
   ]);
 

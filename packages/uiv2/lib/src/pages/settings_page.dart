@@ -235,6 +235,49 @@ class SettingsPage extends ConsumerWidget {
             ),
           ),
 
+          // ---------- 数据备份 ----------
+          UiV2Section(
+            title: '数据备份',
+            child: UiV2Panel(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  UiV2ListRow(
+                    key: const ValueKey('settings_backup_export'),
+                    label: '导出全部数据',
+                    hint: '歌单 / 收藏 / 最近播放 / 设置 / 播放进度 · 一个 .json 文件',
+                    leading: UiV2Icon(UiV2Icons.share, size: 20, color: t.textDim),
+                    trailing: UiV2GhostMini(
+                      key: const ValueKey('settings_backup_export_btn'),
+                      label: '导出',
+                      icon: UiV2Icons.share,
+                      onTap: () => exportAllBackup(context, ref),
+                    ),
+                  ),
+                  UiV2ListRow(
+                    key: const ValueKey('settings_backup_import'),
+                    label: '从文件导入',
+                    hint: 'Android 也可在文件管理器里「用回响打开」备份 .json',
+                    leading: UiV2Icon(UiV2Icons.download, size: 20, color: t.textDim),
+                    trailing: UiV2GhostMini(
+                      key: const ValueKey('settings_backup_import_btn'),
+                      label: '选择',
+                      icon: UiV2Icons.folder,
+                      onTap: () => importBackupFlow(context, ref),
+                    ),
+                  ),
+                  UiV2ListRow(
+                    key: const ValueKey('settings_backup_last'),
+                    label: '最近一次备份',
+                    hint: _lastBackupHint(ref.watch(lastBackupProvider)),
+                    leading: UiV2Icon(UiV2Icons.clock, size: 20, color: t.textDim),
+                    divider: false,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           // ---------- 数据 ----------
           UiV2Section(
             title: '数据',
@@ -489,4 +532,16 @@ void _setThemeMode(WidgetRef ref, String value) {
     'dark' => ThemeMode.dark,
     _ => ThemeMode.system,
   });
+}
+
+/// 最近一次备份的展示文案（没有备份/损坏时给明确说明，不显示假时间）
+String _lastBackupHint(AsyncValue<LastBackupInfo?> info) {
+  final value = info.value;
+  if (info.isLoading && value == null) return '读取中…';
+  if (value == null) return '还没有备份过';
+  String two(int v) => v < 10 ? '0' + v.toString() : v.toString();
+  final at = value.at.toLocal();
+  final stamp = at.year.toString() + '-' + two(at.month) + '-' + two(at.day) +
+      ' ' + two(at.hour) + ':' + two(at.minute);
+  return stamp + ' · ' + backupStatsSummary(value.stats);
 }

@@ -43,6 +43,8 @@ dependencies:
     path: ../packages/uiv2
   path: ^1.9.0
   path_provider: ^2.1.5
+  # 文件选择/保存（导入导出用）：桌面与移动端统一 API
+  file_picker: ^11.0.3
   # Flan：agent 驱动运行中 App 的调试层（元素枚举 / 手势 / 截图 / 日志 / 热重载）。
   # 必须在 dependencies：lib/ 会 import 它；release 由 kDebugMode 常量分支树摇。
   flan_flutter: ^0.6.1

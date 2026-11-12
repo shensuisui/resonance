@@ -20,6 +20,7 @@ import 'package:flutter/widgets.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/catalog.dart';
+import '../services/file_pickers.dart';
 
 // ==================== 壳工程注入的服务 ====================
 
@@ -52,6 +53,58 @@ final recentPlaysServiceProvider = Provider<RecentPlaysService>(
   (ref) => throw UnimplementedError('recentPlaysServiceProvider 必须被覆盖'),
   name: 'recentPlaysServiceProvider',
 );
+
+/// 外部文件交互（壳工程 override：桌面用 file_picker，移动端用系统分享/SAF）
+final filePickersProvider = Provider<FilePickers>(
+  (ref) => throw UnimplementedError('filePickersProvider 必须被覆盖'),
+  name: 'filePickersProvider',
+);
+
+/// 整包备份服务（复用项目真实 DAO，不需要壳工程覆盖）
+final backupServiceProvider = Provider<BackupService>((ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return BackupService(
+    playlistDao: db.playlistDao,
+    favoritesDao: db.favoritesDao,
+    recentPlaysDao: db.recentPlaysDao,
+    settingsDao: db.settingsDao,
+    playProgressDao: db.playProgressDao,
+    songDao: db.songDao,
+  );
+}, name: 'backupServiceProvider');
+
+/// 最近一次备份的元信息（settings 的 last_backup 键）
+class LastBackupInfo {
+  /// 备份时间
+  final DateTime at;
+
+  /// 逐表统计（歌单/歌曲/收藏/最近/设置/进度）
+  final Map<String, int> stats;
+
+  /// 构造
+  const LastBackupInfo({required this.at, required this.stats});
+}
+
+/// 最近一次备份（没有则为 null）
+final lastBackupProvider = FutureProvider<LastBackupInfo?>((ref) async {
+  final raw = await ref.watch(settingsDaoProvider).get('last_backup');
+  if (raw == null || raw.isEmpty) return null;
+  try {
+    final map = jsonDecode(raw) as Map<String, dynamic>;
+    final at = DateTime.tryParse((map['at'] as Object?)?.toString() ?? '');
+    final statsRaw = map['stats'];
+    return LastBackupInfo(
+      at: at ?? DateTime.fromMillisecondsSinceEpoch(0),
+      stats: <String, int>{
+        if (statsRaw is Map)
+          for (final entry in statsRaw.entries)
+            entry.key.toString(): int.tryParse(entry.value.toString()) ?? 0,
+      },
+    );
+  } catch (_) {
+    return null;
+  }
+}, name: 'lastBackupProvider');
 
 // ==================== 便捷 DAO ====================
 

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_router.dart';
 import 'design/theme.dart';
 import 'providers/providers.dart';
+import 'widgets/backup_open_handler.dart';
 
 // 路由与根 Navigator key 都在 app_router.dart（避免 app → app_router → app 的循环导入）
 export 'app_router.dart' show uiV2NavigatorKey, uiV2DismissOverlays;
@@ -31,8 +32,9 @@ class UiV2App extends ConsumerWidget {
       theme: UiV2DesignTheme.light(),
       darkTheme: UiV2DesignTheme.dark(),
       themeMode: mode,
-      builder: (context, child) =>
-          UiV2Scope(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) => UiV2Scope(
+        child: BackupOpenHandler(child: child ?? const SizedBox.shrink()),
+      ),
     );
   }
 }

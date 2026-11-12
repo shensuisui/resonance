@@ -50,6 +50,9 @@ export 'src/components/captcha_sheet.dart';
 export 'src/components/sheets.dart';
 export 'src/components/shell_parts.dart';
 export 'src/components/surfaces.dart';
+export 'src/services/file_pickers.dart';
+export 'src/widgets/backup_flow.dart';
+export 'src/widgets/backup_open_handler.dart';
 export 'src/widgets/page_shell.dart';
 export 'src/widgets/track_actions.dart';
 

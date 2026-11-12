@@ -6,6 +6,7 @@
 library;
 
 import 'package:core/core.dart';
+import '../widgets/backup_flow.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -256,6 +257,17 @@ class _PlaylistBody extends ConsumerWidget {
                     ),
                   ),
                   UiV2GhostMini(
+                    key: const ValueKey('playlist_export'),
+                    label: '导出',
+                    icon: UiV2Icons.share,
+                    onTap: () => exportPlaylistFlow(
+                      context,
+                      ref,
+                      name: playlist.name,
+                      songs: songs,
+                    ),
+                  ),
+                  UiV2GhostMini(
                     label: '删除歌单',
                     icon: UiV2Icons.trash,
                     danger: true,
@@ -421,6 +433,20 @@ class _PlaylistBody extends ConsumerWidget {
                 showUiV2Toast(context, '已收藏「' + playlist.name + '」');
               },
             ),
+          UiV2ActionRow(
+            icon: UiV2Icons.share,
+            label: '导出歌单',
+            hint: '回响 JSON / M3U8 / CSV',
+            onTap: () {
+              Navigator.of(context).maybePop();
+              exportPlaylistFlow(
+                context,
+                ref,
+                name: playlist.name,
+                songs: songsOf(ref),
+              );
+            },
+          ),
           if (mine) ...[
             UiV2ActionRow(
               icon: UiV2Icons.plus,
