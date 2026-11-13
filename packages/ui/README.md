@@ -1,39 +1,11 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# ui — resonance UI（v1，已废弃）
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
+> ⚠️ 本包为 v1 UI，**已废弃**：壳工程默认入口已切换为 packages/uiv2，本包保留在仓库但不再被引入。新界面开发请看 packages/uiv2。
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
+## 历史职责（v1）
+- Material 3 + 种子色主题；riverpod_generator 生成 provider；Material 路由。
+- 页面：搜索 / 播放 / 最近播放 / 歌单 / 源管理 / 设置。
+- 依赖 core / crawler / player / db；cached_network_image、file_picker、card_settings_ui。
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
-
-## Features
-
-TODO: List what your package can do. Maybe include images, gifs, or videos.
-
-## Getting started
-
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
-
-## Usage
-
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
-
-```dart
-const like = 'sample';
-```
-
-## Additional information
-
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
+## 测试
+在 packages/ui 下运行 flutter test。

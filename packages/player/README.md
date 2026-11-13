@@ -1,39 +1,14 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# player — 播放器实现（just_audio）
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
+实现 core 的 Player 接口。
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
+## 职责
+- PlayerImpl：播放队列、四种播放模式（sequential / listLoop / singleLoop / shuffle）、随机历史栈、状态流同步。
+- 后台播放「侧车」：audio_service（Android 一期），见 src/audio_handler.dart；通知为渲染层，PlayMode 映射为 repeat / shuffle。
+- Windows 平台通过 just_audio_windows 提供实现。
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+## 依赖
+core、just_audio、audio_service、just_audio_windows。
 
-## Features
-
-TODO: List what your package can do. Maybe include images, gifs, or videos.
-
-## Getting started
-
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
-
-## Usage
-
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
-
-```dart
-const like = 'sample';
-```
-
-## Additional information
-
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
+## 测试
+在 packages/player 下运行 flutter test。

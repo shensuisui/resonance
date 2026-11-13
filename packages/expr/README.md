@@ -1,39 +1,15 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# expr — 表达式解析与执行
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
+纯 Dart 包，为规则引擎提供多格式表达式的解析与执行。
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/tools/pub/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
+## 职责
+- Parser：CSS / JSONPath / XPath / Regex。
+- 复合表达式：chain（&&）、fallback（||）、净化（##）、分割（#）。
+- ParserFactory 自动路由；Evaluator 负责求值。
+- @JS:（JavaScript）为预研项，当前不支持。
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+## 依赖
+html、xml、json_path。
 
-## Features
-
-TODO: List what your package can do. Maybe include images, gifs, or videos.
-
-## Getting started
-
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
-
-## Usage
-
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
-
-```dart
-const like = 'sample';
-```
-
-## Additional information
-
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
+## 测试
+在 packages/expr 下运行 dart test。
