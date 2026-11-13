@@ -3,7 +3,7 @@
 > 结论速览：uiv2 现在**完全没有**导入导出；PlaylistCodec 只能处理单歌单、且是有损格式；设置/收藏/进度等没有任何导出能力。建议按「整包 */回响备份* .json + 单歌单导出」两层设计。
 
 - 日期：2026-11-12
-- 审查范围：docs/summary-s1-s3.md 中「歌单导入/导出 (M3U/PLS/JSON)」与 PRD 3.4
+- 审查范围：docs/summaries/summary-s1-s3.md 中「歌单导入/导出 (M3U/PLS/JSON)」与 PRD 3.4
 
 ---
 

@@ -4,7 +4,7 @@
 
 - 日期：2026-11-12
 - 模块：`packages/player`（改造点）、`packages/uiv2`（无改动）、`resonance_app`（平台配置）
-- 关联现状：`docs/summary-s1-s3.md` 中标记为「低优先级、未实现」的 S3-2
+- 关联现状：`docs/summaries/summary-s1-s3.md` 中标记为「低优先级、未实现」的 S3-2
 
 ---
 
@@ -17,13 +17,13 @@
 | 播放器实现 | `PlayerImpl`（基于 just_audio 0.10.6，**单一 AudioPlayer**） | `packages/player/lib/src/player_impl.dart` |
 | 播放器契约 | 纯 Dart 抽象 `Player` / `CurrentSongSource` / `AudibleSongSource` | `packages/core` |
 | UI 绑定 | `playerStreamBindingProvider` 把三条流灌进 Riverpod | `packages/uiv2/lib/src/providers/providers.dart:1657` |
-| 平台 | Windows 桌面为主；uiv2 交付文档未覆盖安卓真机后台 | `docs/uiv2-delivery.md` |
+| 平台 | Windows 桌面为主；uiv2 交付文档未覆盖安卓真机后台 | `docs/ui/uiv2-delivery.md` |
 
 **缺口（真实用户影响）：** App 切后台或熄屏后没有媒体通知、锁屏控制、耳机媒体键与 Android Auto；iOS 无 Control Center/灵动岛；安卓进程被杀后「后台播放」也随之停止。
 
 ```
-docs/summary-s1-s3.md:63   S3-2 后台播放/锁屏/通知栏（可选，未实现）
-docs/summary-s1-s3.md:113  低 | S3-2 后台播放/锁屏/通知栏 | 需 audio_service，平台特定
+docs/summaries/summary-s1-s3.md:63   S3-2 后台播放/锁屏/通知栏（可选，未实现）
+docs/summaries/summary-s1-s3.md:113  低 | S3-2 后台播放/锁屏/通知栏 | 需 audio_service，平台特定
 ```
 
 ---

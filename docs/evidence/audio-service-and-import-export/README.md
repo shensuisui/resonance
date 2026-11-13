@@ -1,7 +1,7 @@
 # 证据：AudioService 集成 + 数据导入导出
 
 - 日期：2026-11-12
-- 配套文档：`docs/05-mobile-audioservice-integration.md`、`docs/06-data-import-export.md`
+- 配套文档：`docs/features/mobile-audioservice.md`、`docs/features/data-import-export.md`
 
 ## 采集方式
 

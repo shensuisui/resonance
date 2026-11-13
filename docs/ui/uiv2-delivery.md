@@ -105,7 +105,7 @@ cd ..\packages\uiv2 && G:\works\shelli\fm\.fvm\flutter_sdk\bin\flutter.bat test
 
 ## 8. 演示曲库迁移（2026-11）
 
-演示曲库已从 App 内置实现改为根目录 `demo_source/` 的独立 Dart HTTP 服务，详见 [demo-source.md](demo-source.md)。
+演示曲库已从 App 内置实现改为根目录 `demo_source/` 的独立 Dart HTTP 服务，详见 [demo-source.md](../features/demo-source.md)。
 
 - App 内删除 `CatalogMusicSource`、16 张专辑配表、9 首演示歌词与静音 WAV 生成代码；
 - 演示封面/音频/JSON 不再进入 Flutter assets；
