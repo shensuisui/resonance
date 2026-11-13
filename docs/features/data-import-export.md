@@ -1,6 +1,6 @@
 # 数据导入导出 —— 现状审查与方案
 
-> 结论速览：uiv2 现在**完全没有**导入导出；PlaylistCodec 只能处理单歌单、且是有损格式；设置/收藏/进度等没有任何导出能力。建议按「整包 */回响备份* .json + 单歌单导出」两层设计。
+> 结论速览：uiv2 **原无导入导出，现已落地**（详见 §11 实施记录）：整包 resonance-backup JSON 备份/还原 + 单歌单导出，配 Android「用回响打开 .json」。以下为设计过程，实施结果以 §11 为准。
 
 - 日期：2026-11-12
 - 审查范围：docs/summaries/summary-s1-s3.md 中「歌单导入/导出 (M3U/PLS/JSON)」与 PRD 3.4
@@ -53,14 +53,14 @@ v1 的 PlaylistIo 依赖 file_picker（文件选择/保存路径，Android 要 S
 ```jsonc
 {
   "format": "resonance-backup",   // 魔数，识别文件类型
-  "version": 1,                    // 结构版本，>= 才可导入
+  "version": 1,                    // 结构版本，> 当前版本才拒绝导入
   "exportedAt": "2026-11-12T20:30:00Z",
-  "stats": { "playlists": 3, "songs": 6, "favorites": 1, "recent": 3, "settings": 12 },
+  "stats": { "playlists": 3, "songs": 6, "favorites": 1, "recent": 3, "settings": 12, "progress": 1 },
   "playlists": [
     {
       "name": "夜行",
       "songs": [
-        { "songKey": "gequbao:1", "title": "素颜", "artist": "许嵩", "duration": 259, "coverUrl": null, "playUrl": null, "localPath": null }
+        { "songKey": "gequbao:1", "title": "素颜", "artist": "许嵩", "duration": 259, "coverUrl": null, "localPath": null }
       ]
     }
   ],
@@ -76,7 +76,7 @@ v1 的 PlaylistIo 依赖 file_picker（文件选择/保存路径，Android 要 S
 | 格式 | 内容 | 用途 |
 |---|---|---|
 | 回响 JSON（推荐） | song_key/sourceId/元数据/进度 | 换设备完整还原 |
-| M3U8 / CSV | 可播地址（localPath 优先，否则 playUrl） | 外部播放器 |
+| M3U8 / CSV（uiv2 侧实现） | 可播地址（localPath 优先，否则 playUrl） | 外部播放器 |
 
 ---
 
@@ -84,12 +84,12 @@ v1 的 PlaylistIo 依赖 file_picker（文件选择/保存路径，Android 要 S
 
 | 模式 | 行为 | 适用 |
 |---|---|---|
-| 合并（默认） | 歌单按 song_key 去重后追加到同名歌单或新建；收藏/最近去重；设置里仅覆盖已有键 | 日常迁移 |
+| 合并（默认） | 歌单按 song_key 去重后追加到同名歌单或新建；收藏/最近去重；设置里只写「本机没有的键」（不覆盖已有，见 §11.2） | 日常迁移 |
 | 覆盖 | 先清空对应表再写备份内容 | 完全还原某台设备快照 |
 
 - 执行前给「逐项预览」：将新增 / 跳过 / 更新 N 条，确认后才写入。
 - 设置白名单：theme_mode、play_mode、volume、scan_dir（本地路径跳过）、source_enabled_<id>。
-- 订阅地址（subscriptions）属敏感 URL，默认排除，提供显式开关。
+- 订阅地址（subscriptions）属敏感 URL，**不导出**（不在设置白名单，无开关）。
 
 ---
 
@@ -114,10 +114,10 @@ v1 的 PlaylistIo 依赖 file_picker（文件选择/保存路径，Android 要 S
 ### 5.3 底层落点
 
 - 新增 packages/core/lib/src/services/backup_codec.dart：纯 Dart，Playlist/List<FavoriteRecord>/List<RecentPlayRecord>/settings/progress ↔ JSON（带版本，与现有 PlaylistCodec 并存不破坏）。
-- 新增 packages/core/lib/src/services/backup_service.dart：exportAll(db)→BackupDocument；importBackup(doc,{mode,selection})→ImportReport；核心纯逻辑可单测，不碰文件系统。
+- 新增 packages/core/lib/src/services/backup_service.dart：exportAll({now})→BackupDocument；importDocument(doc,{mode,sections})→ImportReport；核心纯逻辑可单测，不碰文件系统。
 - uiv2 加轻量「选择备份文件」入口：**已确认（2026-11-12 用户拍板）由壳工程注入 picker 函数**，uiv2 维持零平台依赖，只调用注入的接口。
 
-  **picker 契约（草案）**：
+  **picker 契约（草案；最终实现合并为 saveTextFile，见 §11 差异 1）**：
   ```dart
   /// 壳工程注入的文件选择器（uiv2 只调接口，不依赖 file_picker 等平台包）
   abstract class FilePickers {
@@ -192,7 +192,7 @@ backup_codec 是「完整无损」的内网格式，PlaylistCodec 是「对外/�
 **已完成**
 - core：`backup_codec.dart`（魔数/版本/stats/五分区，含 v1 单歌单兼容）+
   `backup_service.dart`（exportAll、merge/overwrite、白名单过滤、同名歌单合并、本地曲目回写 songs 表）。
-- core 测试：`backup_codec_test.dart`（9）+ `backup_service_test.dart`（11），全绿。
+- core 测试：`backup_codec_test.dart`（12）+ `backup_service_test.dart`（8），全绿。
 - uiv2：`FilePickers` 契约 + `filePickersProvider`；设置页「数据备份」区块（导出/导入/最近一次备份）；
   导入预览弹层（合并/覆盖 + 分区勾选 + 逐项统计）；歌单页「导出歌单」（JSON/M3U8/CSV）；
   `BackupOpenHandler`（系统打开事件）。uiv2 analyze 0 issue，210 项测试全绿（新增 5 项流程测试）。

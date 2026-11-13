@@ -5,10 +5,11 @@
 - 日期：2026-11-12
 - 模块：`packages/player`（改造点）、`packages/uiv2`（无改动）、`resonance_app`（平台配置）
 - 关联现状：`docs/summaries/summary-s1-s3.md` 中标记为「低优先级、未实现」的 S3-2
+- 实施现状（2026-11-13 校准）：Android 后台播放已接线且配置齐全；iOS 仅初始化 handler，Info.plist 缺 UIBackgroundModes，暂不可用。详见 §9。
 
 ---
 
-## 1. 现状：uiv2 目前没有任何后台播放能力
+## 1. 调研时现状：uiv2 当时没有任何后台播放能力
 
 当前播放链路是纯前台的：
 
@@ -126,8 +127,8 @@ docs/summaries/summary-s1-s3.md:113  低 | S3-2 后台播放/锁屏/通知栏 | 
 
 - `FOREGROUND_SERVICE_MEDIA_PLAYBACK`：targetSdk 34+ 必加，否则会抛 `SecurityException`。
 - `android:foregroundServiceType="mediaPlayback"`：0.18.19 未自动注入，补齐后通知能正确归类为媒体。
-- iOS：`Info.plist` 加 `UIBackgroundModes` 的 `audio`。
-- 通知图标：`resonance_app/android/app/src/main/res/drawable*/ic_stat_*.png`。
+- iOS：需在 `Info.plist` 加 `UIBackgroundModes` 的 `audio`（**当前尚未添加，iOS 后台播放暂不可用**）。
+- 通知图标：`resonance_app/android/app/src/main/res/drawable*/ic_stat_*.png`（**当前未配置，使用系统默认图标**）。
 
 ---
 
@@ -165,14 +166,14 @@ docs/summaries/summary-s1-s3.md:113  低 | S3-2 后台播放/锁屏/通知栏 | 
   `stateStream / positionStream / durationStream / currentSongStream` 并把命令转回 PlayerImpl，
   PlayerImpl 一行未改（桌面行为零变化）。
 - 通知按钮：上一首 / 播放-暂停 / 下一首；`systemActions` 含 seek；`repeatMode/shuffleMode` 由
-  `PlayMode` 映射（listLoop→all、singleLoop→one、shuffle→shuffle all、sequential→none）。
+  `PlayMode` 映射（repeatMode：listLoop→all、singleLoop→one、shuffle→none、sequential→none；shuffleMode：shuffle→all，其余→none）。
 - `resonance_app/lib/main.dart`：仅 Android/iOS 初始化媒体服务，失败只记日志、不影响前台播放。
 - Android：清单补 WAKE_LOCK / FOREGROUND_SERVICE / FOREGROUND_SERVICE_MEDIA_PLAYBACK /
   POST_NOTIFICATIONS，新增 `AudioService` 服务（`foregroundServiceType="mediaPlayback"`）与
   `MediaButtonReceiver`；`MainActivity` 改为继承 `AudioServiceActivity`。
 
 **测试**
-- 新增 `packages/player/test/audio_handler_test.dart`：32 项（状态映射、曲目/队列去重广播、
+- 新增 `packages/player/test/audio_handler_test.dart`：20 项（状态映射、曲目/队列去重广播、
   命令转发、越界忽略、点播重建、repeat/shuffle 写回）。`player` 包 analyze 0 issue。
 
 **未完成 / 需要真机验证**

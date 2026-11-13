@@ -17,6 +17,7 @@
 demo_source/
 ├── bin/server.dart
 ├── lib/
+│   ├── demo_source.dart       # barrel 导出
 │   ├── demo_server.dart       # 路由、延迟、响应
 │   ├── demo_catalog.dart      # 演示数据模型与查询
 │   ├── rule_template.dart     # 渲染 data/rule.json 的来源占位符

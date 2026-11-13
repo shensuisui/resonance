@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | resonance_app/pubspec.yaml | flan_flutter ^0.6.1 → dependencies；flan_mcp ^0.6.1 → dev_dependencies；补 logging ^1.3.0 | 是 |
 | resonance_app/lib/config/agent_debug_config.dart | 新增：元素发现三张表（可交互类型 / 停遍历 / 取文本）+ maxScreenshotSize: null | 是 |
-| resonance_app/lib/main.dart | main() 首段改成 kDebugMode ? FlanBinding.ensureInitialized(cfg) : WidgetsFlutterBinding.ensureInitialized()；enableFlutterDriverExtension 移到 binding 之后；Logger.root.level = Level.ALL | 是 |
+| resonance_app/lib/main.dart | main() 首段改成 kDebugMode ? FlanBinding.ensureInitialized(cfg) : WidgetsFlutterBinding.ensureInitialized()；Logger.root.level = Level.ALL（**未调用 enableFlutterDriverExtension**；RESONANCE_DRIVER 在壳工程已无实际作用） | 是 |
 | resonance_app/lib/main.dart（日志桥） | SourceLogBus.consolePrinter 是项目日志唯一扇出点，在这里转发到 package:logging（带级别映射） | 是 |
 | .dsh/mcp.yml | 托管块内新增 panel-mcp-flan；因本机 fvm 不可用，command 用 dart 绝对路径 | 按团队约定（该文件本仓库已入库） |
 
@@ -37,7 +37,7 @@ server 起来就退出——宿主诊断里有 attempt、没有 active，零工�
 ## 四、release 安全性
 
 - binding 分支是 if (kDebugMode) 常量分支，release 由树摇剔除调试层。
-- enableFlutterDriverExtension 仍由 --dart-define=RESONANCE_DRIVER 单独控制，生产不传即无。
+- **未使用 enableFlutterDriverExtension**；调试/驱动能力全部由 kDebugMode 分支 + dart:developer 扩展承担，release 树摇剔除。`RESONANCE_DRIVER` 在壳工程已无实际作用（仅启动脚本遗留）。
 - **未做**：release 产物符号扫描，列入遗留。
 
 ## 五、遗留登记
