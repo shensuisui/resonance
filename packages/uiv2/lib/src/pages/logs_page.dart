@@ -1,4 +1,4 @@
-/// 运行日志（原型 renderLogs）：订阅 core 的 SourceLogBus，保留最近 200 条。
+/// 运行日志（原型 renderLogs）：订阅 core 的 SourceLogBus，保留最近 300 条。
 library;
 
 import 'package:core/core.dart';
@@ -28,7 +28,7 @@ class LogsPage extends ConsumerWidget {
         children: [
           PageHead(
             title: '运行日志',
-            sub: '${entries.length} 条记录 · 上限 200 条 · 记录各音乐源的真实执行情况',
+            sub: '${entries.length} 条记录 · 上限 300 条 · 记录各音乐源的真实执行情况',
           ),
           if (entries.isEmpty)
             const UiV2Panel(
