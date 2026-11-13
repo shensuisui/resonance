@@ -1,5 +1,7 @@
 # S1-S3 总结：数据底座 + UI + 本地扫描
 
+> ⚠️ **历史快照（2026-08-25）**：本页测试数与「剩余工作」为当时状态，最新以 [00-architecture](../00-architecture.md) / [01-data-schema](../01-data-schema.md) / features 专题为准。
+
 | 完成日期 | 2026-08-25 |
 |:---|:---|
 | 范围 | S1 + S2 + S3-1 |
@@ -60,7 +62,7 @@
 - 增量更新：已扫描文件路径跳过
 - SettingsPage 新增扫描目录配置 + 扫描按钮 + 状态显示
 
-## S3-2：后台播放/锁屏/通知栏（可选，未实现）
+## S3-2：后台播放/锁屏/通知栏（当时未实现；**现已实现，见 [mobile-audioservice](../features/mobile-audioservice.md)**）
 
 需要引入 `audio_service` 或 `just_audio_background` 包，涉及平台特定配置。
 标记为低优先级，后续按需实现。
@@ -75,7 +77,10 @@
 | expr | 50 | ✅ |
 | crawler | 57 (2 skipped) | ✅ |
 | db | 21 | ✅ |
-| **合计** | **155** | **✅ 全通过** |
+| **合计** | **155** | **✅ 全通过（当时值）** |
+
+> 注：以上为 2026-08 当时测试数；**现行** core 139、expr 63，其余见各自 test/。
+
 
 ## 提交历史
 
@@ -110,9 +115,9 @@ MusicSource 接口
 
 | 优先级 | 内容 | 备注 |
 |:---|:---|:---|
-| 低 | S3-2 后台播放/锁屏/通知栏 | 需 audio_service，平台特定 |
-| 中 | 歌单导入/导出 (M3U/PLS/JSON) | PRD 3.4 |
+| 低 | ~~S3-2 后台播放/锁屏/通知栏~~ | **已完成**（audio_service 侧车，Android 可用；iOS 缺 Info.plist，暂不可用） |
+| 中 | ~~歌单导入/导出~~ | **已完成**（core PlaylistCodec + BackupService；见 features/data-import-export） |
 | 中 | 歌单详情页（曲目列表 + 排序 + 批量操作） | PRD 3.4 |
-| 低 | 本地歌词解析（.lrc 同名文件） | LocalScanSource.getLyrics |
+| 低 | ~~本地歌词解析（.lrc 同名文件）~~ | **已完成**（LocalScanSource.getLyrics） |
 | 低 | 音频元数据标签读取（ID3/FLAC tag） | 替代文件名解析 |
 | 低 | Web 平台 SQLite 支持 | sqflite_common_ffi_web (实验性) |

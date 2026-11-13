@@ -5,6 +5,7 @@
 | 涉及包 | ui（新建）, resonance_app（接入） |
 
 > 完成状态与最终页面清单以 [summary-s1-s3](../summaries/summary-s1-s3.md) 为准（本文件为 S2 实施方案）。
+> 注：本方案面向 v1（packages/ui，**已废弃**）；**现行 UI 为 uiv2，见 [uiv2-delivery](../ui/uiv2-delivery.md)**。
 
 ---
 

@@ -1,5 +1,7 @@
 # S1：SQLite 持久化层
 
+> 本文为 S1 方案文档（历史设计记录）。**现行完整 schema（7 张表含 play_progress/settings、快照列、DB 版本 v4、6 个 DAO）以 [01-data-schema](../01-data-schema.md) 为准。**
+
 | 状态 | 已完成（见 [summary-s1-s3](../summaries/summary-s1-s3.md)） |
 |:---|:---|
 | 涉及包 | core（接口）, db（新包，SQLite 实现）, resonance_app（注入） |
@@ -33,7 +35,7 @@ db → core + sqflite + sqflite_common_ffi + path_provider + dio
 
 ---
 
-## 2. SQLite Schema
+## 2. SQLite Schema（S1 初期设计；现行见 01-data-schema）
 
 ```sql
 -- 歌曲表（复合主键）
@@ -107,8 +109,12 @@ CREATE TABLE settings (
 | `lib/src/sqflite_recent_plays_dao.dart` | RecentPlaysDao 实现 |
 | `lib/src/sqflite_favorites_dao.dart` | FavoritesDao 实现 |
 | `lib/src/sqflite_settings_dao.dart` | SettingsDao 实现（键值对 settings 表） |
-| `lib/src/sqflite_database_provider.dart` | DatabaseProvider 实现，组装四个 DAO |
+| `lib/src/sqflite_database_provider.dart` | DatabaseProvider 实现，组装全部 DAO（现行六类：Song/Playlist/RecentPlays/Favorites/Settings/PlayProgress） |
 | `lib/src/download_manager_impl.dart` | DownloadManager 实现（dio 下载 + path_provider 缓存） |
+| `lib/src/sqflite_play_progress_dao.dart` | PlayProgressDao 实现（play_progress 表） |
+| `lib/src/audio_cache_impl.dart` | 播放缓存实现（AudioCache） |
+| `lib/src/audiotags_metadata_reader.dart` | 本地音频标签读取（audiotags） |
+| `lib/src/sqflite_init*.dart` | 跨平台 sqflite 初始化（io / web） |
 | `lib/db.dart` | barrel export |
 
 ### 3.2 `packages/core` 新增
