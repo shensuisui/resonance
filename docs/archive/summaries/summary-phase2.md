@@ -1,3 +1,5 @@
+> ⚠️ 历史归档：本文为早期阶段总结，其状态与测试数已被 summary-s1-s3.md 取代，仅供追溯，勿作现行依据。
+
 # 第二期总结：在线源与规则引擎
 
 | 完成日期 | 2026-08-24 |
@@ -11,12 +13,12 @@
 
 | 步骤 | 文档 | 包 | 状态 |
 | :--- | :--- | :--- | :--- |
-| 1. LocalCustomSource + FavoriteSource | `docs/step2-1-local-sources.md` | core | ✅ |
-| 2. 创建 crawler 包 + HTTP 封装 | `docs/step2-2-crawler-http.md` | crawler | ✅ |
-| 3. 规则执行引擎 | `docs/step2-3-rule-executor.md` | crawler | ✅ |
-| 4. RuleBasedMusicSource | `docs/step2-4-rule-based-source.md` | crawler | ✅ |
-| 5. 插件下载 + 适配器 | `docs/step2-5-plugin-adapters.md` | crawler | ✅ |
-| 6. 初始规则文件 + 搜索流程打通 | `docs/step2-6-search-flow.md` | resonance_app+crawler | ✅ |
+| 1. LocalCustomSource + FavoriteSource | `docs/archive/steps/step2-1-local-sources.md` | core | ✅ |
+| 2. 创建 crawler 包 + HTTP 封装 | `docs/archive/steps/step2-2-crawler-http.md` | crawler | ✅ |
+| 3. 规则执行引擎 | `docs/archive/steps/step2-3-rule-executor.md` | crawler | ✅ |
+| 4. RuleBasedMusicSource | `docs/archive/steps/step2-4-rule-based-source.md` | crawler | ✅ |
+| 5. 插件下载 + 适配器 | `docs/archive/steps/step2-5-plugin-adapters.md` | crawler | ✅ |
+| 6. 初始规则文件 + 搜索流程打通 | `docs/archive/steps/step2-6-search-flow.md` | resonance_app+crawler | ✅ |
 
 ## 新增包
 

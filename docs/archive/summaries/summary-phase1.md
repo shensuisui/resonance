@@ -1,3 +1,5 @@
+> ⚠️ 历史归档：本文为早期阶段总结，其状态与测试数已被 summary-s1-s3.md 取代，仅供追溯，勿作现行依据。
+
 # 第一期总结：基础设施
 
 | 完成日期 | 2026-08-24 |
@@ -11,14 +13,14 @@
 
 | 步骤 | 文档 | 包 | 状态 |
 | :--- | :--- | :--- | :--- |
-| 1. 数据模型定义 | `docs/step1-data-models.md` | core | ✅ |
-| 2. MusicSource 抽象接口 | `docs/step2-music-source.md` | core | ✅ |
-| 3. 表达式解析器 + 执行器 | `docs/step3-expression-parser.md` | expr | ✅ |
-| 4. 播放器抽象接口 | `docs/step4-player-interface.md` | core | ✅ |
-| 5. 播放器实现 (just_audio) | `docs/step5-player-implementation.md` | player | ✅ |
-| 6. 持久化层 | `docs/step6-persistence.md` | core | ✅ |
-| 7. 本地文件源 | `docs/step7-local-source.md` | core | ✅ |
-| 8. SourceManager 基础框架 | `docs/step8-source-manager.md` | core | ✅ |
+| 1. 数据模型定义 | `docs/archive/steps/step1-data-models.md` | core | ✅ |
+| 2. MusicSource 抽象接口 | `docs/archive/steps/step2-music-source.md` | core | ✅ |
+| 3. 表达式解析器 + 执行器 | `docs/archive/steps/step3-expression-parser.md` | expr | ✅ |
+| 4. 播放器抽象接口 | `docs/archive/steps/step4-player-interface.md` | core | ✅ |
+| 5. 播放器实现 (just_audio) | `docs/archive/steps/step5-player-implementation.md` | player | ✅ |
+| 6. 持久化层 | `docs/archive/steps/step6-persistence.md` | core | ✅ |
+| 7. 本地文件源 | `docs/archive/steps/step7-local-source.md` | core | ✅ |
+| 8. SourceManager 基础框架 | `docs/archive/steps/step8-source-manager.md` | core | ✅ |
 
 ## 包状态
 

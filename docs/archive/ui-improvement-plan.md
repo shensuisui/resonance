@@ -1,3 +1,5 @@
+> ⚠️ 历史归档：本文为 v1（packages/ui，已废弃）UI 改进方案，仅供追溯，勿作现行依据。
+
 # resonance UI 改进方案（对标 PixelPlayer）
 
 | 文档版本 | 1.3 |
