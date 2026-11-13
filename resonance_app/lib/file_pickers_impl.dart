@@ -69,7 +69,7 @@ class ShellFilePickers implements FilePickers {
     String title = '选择文件',
     List<String> extensions = const <String>[],
   }) async {
-    final result = await FilePicker.pickFiles(
+    final result = await FilePicker.platform.pickFiles(
       dialogTitle: title,
       type: extensions.isEmpty ? FileType.any : FileType.custom,
       allowedExtensions: extensions.isEmpty ? null : extensions,
@@ -107,7 +107,7 @@ class ShellFilePickers implements FilePickers {
     required String content,
   }) async {
     final bytes = utf8.encode(content);
-    final path = await FilePicker.saveFile(
+    final path = await FilePicker.platform.saveFile(
       dialogTitle: title,
       fileName: suggestedName,
       type: extensions.isEmpty ? FileType.any : FileType.custom,
