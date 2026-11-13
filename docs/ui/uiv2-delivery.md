@@ -21,19 +21,17 @@
 | 下载 | 假进度 | `DownloadManager`（taskStream + cancel/retry/deleteCache/clearFinished） |
 | 源启停 | 假开关 | `SourceManager.setSourceEnabled` + settings `source_enabled_<id>` |
 | 设置 | 内存 | `SettingsDao`（键名与 v1 ui 包一致：theme_mode/play_mode/search_history…，两版互通） |
-| 运行日志 | 假日志 | `SourceLogBus`（真实源执行记录，200 条环形缓冲） |
+| 运行日志 | 假日志 | `SourceLogBus`（真实源执行记录，300 条环形缓冲） |
 
 **接线修正（v1 遗留缺陷）**：
 - `main.dart` 补了 `SourceManager.initAll()` —— v1 从未调用，导致 LocalScanSource 的 `search()` 恒空；
 - 补了 `assets/plugins/` 随包插件加载（v1 遗漏）；
 - 演示曲库源与本地/规则/插件源同构，可在「音乐源」页启停。
 
-## 2. 页面清单（17 个）
+## 2. 页面清单（15 个）
 
-> ⚠️ **迁移前快照**：页面清单与交互为迁移前实现描述；演示曲库来源已外移，现状见 §8。
-
-首页 / 搜索 / 音乐库 / 我喜欢的音乐 / 本地音乐（+文件夹详情）/ 我的 / 专辑 / 艺人 /
-歌单详情（真实增删改）/ 全部歌单 / 最近播放 / 下载任务 / 音乐源 / 订阅 / 运行日志 / **设置（新增）**。
+首页 / 搜索 / 音乐库 / 我喜欢的音乐 / 本地音乐（+文件夹详情）/ 我的 /
+歌单详情（真实增删改）/ 全部歌单 / 最近播放 / 下载任务 / 音乐源 / 订阅 / 运行日志 / **设置**。（共 15 个，无专辑/艺人页）
 
 交互：播放条三区（移动端单区+细线进度）、沉浸播放页（模糊封面+歌词舞台+逐行高亮跟随+手动滚动 4 秒后回跟）、
 播放队列（拖拽排序 onReorderItem + 移除 + 2 秒撤销 toast）、睡眠定时器、播放设备、曲目菜单、
@@ -43,7 +41,7 @@
 
 - `flutter analyze`：packages/uiv2 **0 error / 0 warning / 0 info**；resonance_app 同样干净。
 - `flutter build windows --debug -t lib/main.dart`：成功。
-- 运行实测（driver 模式）：应用启动、首页显示**真实最近播放**（本机数据：山水之间/幻听/若把你）、
+- 运行实测（当时 Flutter driver/集成测试模式；App 现已不注册 flutter driver 扩展，见 uiv2-release-check）：应用启动、首页显示**真实最近播放**（本机数据：山水之间/幻听/若把你）、
   音乐库显示真实歌单、搜索页显示真实搜索历史与演示曲库推荐词、我喜欢的音乐页显示真实收藏（1 首）。
 - 图标解析器修复：SVG 路径严格化数字解析（修 FormatException）+ 补 `s` 命令分支（修死循环）+ 迭代上界兜底；
   93 条图标路径全部解析通过。
@@ -58,24 +56,29 @@
 | 04-liked-desktop.png | 我喜欢的音乐 · 真实收藏（1 首 · 枫叶音乐来源标签） |
 | 06-profile-desktop.png | 我喜欢的音乐 hero 区（宽屏，含播放全部/随机/加入队列） |
 | 07-profile-phone.png | 手机断点（480px）：顶栏返回 + 底部 TabBar + 迷你播放条 |
+| 08-home-fixed.png | 首页 · 播放条 2px 溢出修复后复检 |
+| 09-home-dark.png | 首页 · 深色主题 |
 
-## 5. 测试（packages/uiv2/test/，见 test/README.md）
+## 5. 测试（packages/uiv2/test/）
 
-> ⚠️ **迁移前快照**：下列 118 例为迁移前统计（含 catalog/catalog_source 共 46 例）；配表外移后用例构成可能已变，以实际 test 目录为准，详见 §8。
+> 现状（2026-11 实测）：**39 个测试文件、约 210 个 test/testWidgets**。`catalog_source_test.dart` 与 `test/README.md` 已不存在；原「118 例」为迁移前旧统计。
 
 ```text
-00:03 +118: All tests passed!
+00:03 +210: All tests passed!
 ```
 
 | 文件 | 例数 | 覆盖 |
 |---|---|---|
-| catalog_test.dart | 21 | 配表派生（16 专辑/曲目总数/艺人排序）、时长哈希稳定性与 148~361 范围、格式化边界、来源归属/本地标记 |
-| catalog_source_test.dart | 25 | 源 id、search 空/命中/分页/hasMore、详情抛错、getSongUrl 恒空串、演示歌词、歌单/专辑接口 |
-| lyrics_test.dart | 14 | 三态装配（lrc/demo/none）、时间轴算法（lead=5、span、空行不计时）、activeLyricIndex 扫描语义 |
-| icons_test.dart | 6 | 38 个图标全渲染 + heart/user 两条历史回归直测（小数连写 FormatException / 相对 s 命令死循环） |
-| providers_test.dart | 31 | 主题/Wi-Fi/音量/搜索历史持久化、收藏快照写入、歌单 CRUD 全链路、队列操作、假 Player 计数 |
-| widgets_test.dart | 9 | 9 类组件冒烟 + 回调断言；repeat 动画固定帧（禁 pumpAndSettle） |
-| sleep_timer_test.dart | 5 | fakeAsync：每秒递减/到点 pause/cancel/覆盖重设/dispose 清理 |
+| providers_test.dart | 31 | 主题/Wi-Fi/音量/搜索历史持久化、收藏快照、歌单 CRUD、队列、假 Player |
+| widgets_test.dart | 12 | 组件冒烟 + 回调断言 |
+| play_progress_test.dart | 11 | 播放进度（play_progress）存取 |
+| row_marks_test.dart | 10 | 曲目行标记/播放态 |
+| captcha_ui_test.dart | 7 | 人机验证 UI（歌曲宝） |
+| catalog_test.dart | 7 | 展示元数据模型/设备/睡眠常量（非配表数据） |
+| lyrics_test.dart | 6 | 歌词装配/时间轴 |
+| icons_test.dart | 6 | 图标渲染 + 历史回归 |
+
+> 完整清单以 packages/uiv2/test/ 实际文件为准。
 
 基建与 ui 包一致：ProviderContainer + addTearDown、InMemoryDatabaseProvider、手写 FakePlayer
 （显式实现三条流）、无 mockito。运行：`cd packages/uiv2 && flutter test`
@@ -105,16 +108,24 @@ cd ..\packages\uiv2 && G:\works\shelli\fm\.fvm\flutter_sdk\bin\flutter.bat test
    人工点击无此现象。疑似 driver 事件与帧回调的时序问题，待排查（不影响人工使用）。
 2. ~~播放条 2px 溢出~~ 已修：进度条行改 Flexible 吸收压缩，复检无溢出警示（08-home-fixed.png）。
 3. **构建前先结束 resonance_app 进程**：否则 WebView2Loader.dll 被占用导致 MSB3021（Windows 老坑）。
-4. **sub_page 订阅**：uiv2 通过 SubscriptionHost 注入对接订阅库，壳工程尚未装配该宿主，页面会显示明确说明而非假数据。
-5. **建议后续**：补 `SourceManager` 对 getPlaylistSongs/getPlaylistList 的透传；插件源歌词 lines 为空的 crawler 侧修复；下载任务持久化。
+4. **sub_page 订阅**：uiv2 通过 SubscriptionHost 注入对接订阅库；**壳工程已装配**（main.dart 注入 subscriptionHostProvider，见 resonance_app/lib/subscription_library.dart）。
+5. **建议后续**：`SourceManager` 仍无 getPlaylistSongs/getPlaylistList 透传（uiv2 已直接调用 MusicSource 接口）；插件源歌词 lines 为空的 crawler 侧修复；下载任务持久化。
 
 
 ## 8. 演示曲库迁移（2026-11）
 
 演示曲库已从 App 内置实现改为根目录 `demo_source/` 的独立 Dart HTTP 服务，详见 [demo-source.md](../features/demo-source.md)。
 
-- App 内删除 `CatalogMusicSource`、16 张专辑配表、9 首演示歌词与静音 WAV 生成代码；
+- App 内删除 `CatalogMusicSource`、16 张专辑配表、9 首演示歌词与静音 WAV 生成代码（注：`data/catalog.dart` 仍保留展示模型/常量与 demo_catalog id，不含配表数据）；
 - 演示封面/音频/JSON 不再进入 Flutter assets；
 - Debug 启动时从 `/rule.json` 注册普通规则源，并从 `/catalog.json` 注入展示元数据；服务离线只跳过演示源；
 - Release 由 `kDebugMode` 常量分支与 assets 物理缺失双重剔除；
 - 数据接口支持 `d=<秒>` 延迟，用于真实复现慢源、超时和加载态。
+
+## 9. 数据导入导出（2026-11 新增）
+
+- 整包备份/还原（resonance-backup v1 JSON，含 playlists / favorites / recent / settings / progress）。
+- 单歌单导出（回响 JSON / M3U8 / CSV）。
+- 导入预览（合并 / 覆盖）+ 设置白名单；订阅不导出。
+- Android「用回响打开 .json」：ACTION_VIEW + MethodChannel，见 resonance_app/lib/file_pickers_impl.dart 与 uiv2 widgets/backup_open_handler.dart。
+- 详见 docs/features/data-import-export.md。

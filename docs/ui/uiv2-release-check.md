@@ -37,7 +37,7 @@
 | VM service（直连 ws） | ext.flutter.releasecheck.state（状态回读）、ext.flutter.releasecheck.cmd（navigate / dismiss / theme 等） |
 
 两个扩展由 App 侧在 kDebugMode 分支注册（resonance_app/lib/config/release_check_extensions.dart），release 树摇剔除。
-flutter_driver 与 RESONANCE_DRIVER 通道已整条移除。
+App 已不再注册 flutter_driver 扩展（改由 kDebugMode 注册 releasecheck 扩展）。注：`test_driver/`、`integration_test/ui_v2_smoke_test.dart` 与 `run_app.ps1` 仍传 `RESONANCE_DRIVER=true`，属遗留、可清理。
 
 ## 四、判定口径
 
