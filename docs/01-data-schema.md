@@ -40,6 +40,6 @@ play_progress(queue_kind, queue_id DEFAULT '', song_key, position_ms, updated_at
 ## 4. DAO（6 类）
 SongDao、PlaylistDao（含关联表）、RecentPlaysDao、FavoritesDao、SettingsDao、PlayProgressDao；DatabaseProvider 组装 6 者。另 DownloadManager / AudioCache 为实现（非表）。
 
-## 5. 已知代码侧问题（记录，未修）
-- LocalScanSource 把 durationMs（毫秒）直接写入 songs.duration，而 Song.duration 约定为秒，单位不一致。
-- _dropAllTables 未含 play_progress（现靠 onOpen 幂等补表兜住）。
+## 5. 代码侧备注
+- **字段命名**：AudioMetadata 的 `durationMs` 与 LocalScanSource 的 `durationMs` 实为**秒**（audiotags Rust `as_secs()`），与 Song.duration（秒）一致，**无单位 bug**；名称易误解，可在后续重命名。
+- （历史）曾记 `_dropAllTables` 缺 `play_progress` —— **已修复**（2026-11-13 补入 drop 列表）。
