@@ -706,3 +706,18 @@ load/save 用 try/catch 包裹（隐私模式/无存储时不报错）。
 8. 多源聚合搜索不做跨源去重：同一首歌在不同源会各自出现一行，来源由行尾标签与来源筛选条表达。
 9. 音乐库分栏内容是「歌单」而不是歌曲列表；「已下载」栏是专辑网格 + 曲目列表。
 10. 状态表达：正在播放 = 封面蒙层 eq 三柱 / 无封面时行首序号换成 eq；准备中 = spin；已下载 = 行内 '已下载' 徽标；当前行整行高亮（.track.is-current 背景 --accent-soft）。
+
+
+---
+
+## 10. Flutter 实现差异（uiv2 vs 本原型规格，2026-11-13 校准）
+
+> 记录 Flutter 端（packages/uiv2）与本原型规格的已知差异，避免把原型数值当实现现状；原型规格本身保持原样。
+
+- **路由**：实现为 15 条（go_router），**无 album / artist 页**；多出 `/profile/settings`（设置页）。
+- **运行日志上限**：实现 `SourceLogBus` 为 **300 条**（原型 LOG_MAX=200）。
+- **无障碍**：原型 `prefers-reduced-motion: reduce` 把动画压到 0.001ms；Flutter 侧**尚未实现** reduced-motion 处理。
+- **卡片宽度**：原型 ≥1440 的 188/258 两档**未实现**（实现仅默认 172、首页 236）。
+- **留白**：768–1023 实现额外给 gutter=24（原型只写 16/32/40）。
+- **演示歌词**：原型内置「示例歌词」；实现已迁 demo_source，App 侧不再内置演示歌词源（仅 lrc / none）。
+- **TITLES**：实现 `kRouteTitles` 增补 `playlist`=歌单、`settings`=设置。

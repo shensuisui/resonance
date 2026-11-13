@@ -179,23 +179,25 @@
 ### 4.1 包依赖关系
 
 ```
-resonance_app → ui
-ui → core + player + crawler
+resonance_app → uiv2（现役）/ ui（v1 已废弃）
+uiv2 / ui → core + player + crawler + db
 crawler → core + expr
 player → core
+db → core
 ```
 
 ### 4.2 各包职责
 
 #### `core`（纯 Dart）
-- **数据模型**：`Song`, `Album`, `Artist`, `Playlist`, `Lyrics`, `SourceRule` — 纯数据类，`sourceId` 字段标记来源
+- **数据模型**：`Song`, `Album`, `Artist`, `Lyrics`, `Playlist`, `SearchResult`, `SourceInfo`, `PlayProgress`, `PlayableInfo` 等（`SourceRule` 在 crawler） — 纯数据类，`sourceId` 字段标记来源
 - **MusicSource 抽象接口**：`search()`, `getSongDetail()`, `getSongUrl()`, `getLyrics()` 等
 - **本地源实现**：`LocalScanSource`, `LocalCustomSource`, `FavoriteSource`
 - **SourceManager**：源的注册/启用/禁用/聚合搜索调度
-- **Player 抽象接口**：`play()`, `pause()`, `seek()`, `state` 等，纯 Dart 定义
-- **持久化层**：SQLite 数据库、DAO（Song, Playlist, RecentPlays, Favorites）
+- **Player 抽象接口**：`play/pause/resume/stop/seek/playMode/setQueue/jumpToIndex/prepareAt` + `state/position/duration` 流，纯 Dart 定义
+- **DAO 抽象接口**：`SongDao/PlaylistDao/RecentPlaysDao/FavoritesDao/SettingsDao/PlayProgressDao` 六类 + `DatabaseProvider`；**core 零运行时依赖，SQLite 实现在 packages/db**
+- **其它服务**：`SourceManager`、`RecentPlaysService`、`DownloadManager`/`AudioCache` 抽象、`BackupCodec`/`BackupService`、`LrcParser`、`PlaylistCodec`、`SourceLogBus`
 
-#### `crawler`（纯 Dart，依赖 `core` + `expr`）
+#### `crawler`（Flutter 包，依赖 `core` + `expr` + `flutter_inappwebview`）
 - **规则执行引擎**：`RuleExecutor` — 加载规则配置，执行搜索/详情/歌词/歌单的全流程
 - **响应处理器**：`ResponseHandler` — 根据 responseType 处理 HTML/JSON/Text 响应
 - **规则链与特性**：`&&` 链式调用、`||` 备用规则、`##` 净化、`#` 分割、模板拼接
@@ -203,17 +205,17 @@ player → core
 - **插件适配器**：`LxMusicAdapter`, `MusicFreeAdapter` — 解析第三方插件格式
 - **RuleBasedMusicSource**：实现 `MusicSource` 接口，聚合多个 JSON 规则实例
 
-#### `expr`（纯 Dart，无外部依赖）
+#### `expr`（纯 Dart，依赖 `html` / `xml` / `json_path`）
 - **表达式解析器 AST**：CSS 选择器、JSONPath、XPath、Regex 各自的解析结果类型
 - **解析器实现**：`CSSParser`, `JSONPathParser`, `XPathParser`, `RegexParser`
-- **抽象层**：统一的 `ExpressionParser` 接口，`ParseResult` 结果类型
-- **不包含**：HTTP 请求、规则执行逻辑、链式调用
+- **抽象层**：`ParseResult` 结果类型 + `ExpressionEvaluator` 执行抽象；另有 `ParserFactory`（解析复合语法）与 `initExprEngine()`
+- **包含**：`&&` 链、`||` 备用、`##` 净化、`#` 分割的解析与执行（`CompoundEvaluator`）；**不包含** HTTP 请求与规则执行逻辑
 
 #### `player`（Flutter，依赖 `core`）
 - `PlayerImpl` — 实现 `core` 的 `Player` 接口，底层用 `just_audio`
 - 音频焦点、音效、均衡器等平台相关处理
 
-#### `ui`（Flutter，依赖 `core` + `player` + `crawler`）
+#### `ui`（v1，Flutter，依赖 `core` + `player` + `crawler` + `db` —— **已废弃，现役为 `uiv2`**）
 - **状态管理**：Riverpod Provider / Notifier
 - **页面**：发现页、搜索页、歌单页、播放页、源管理页、设置页
 - **公共组件**：通用 Widget、主题、导航、路由
@@ -234,7 +236,7 @@ player → core
 
 - **CSS 提取后缀**：`@text`（文本）、`@html`（HTML 内容）、`@attr`（属性值，如 `img@src`）
 
-### 5.2 高级特性（由 `crawler` 的 `RuleExecutor` 实现）
+### 5.2 高级特性（`expr` 解析 + `CompoundEvaluator` 执行，`crawler` 负责规则编排与 HTTP）
 
 - **规则链（`&&`）**：多条规则串联，前一条输出作为后一条输入。
   例：`div.book-info && h1.title && @text`
@@ -244,19 +246,19 @@ player → core
   例：`div.content##<.*?>||`（移除所有 HTML 标签）
 - **分割修饰符（`#`）**：按指定字符分割成列表。
   例：`div.tags#,`
-- **模板拼接**：`{{result}}` 代表前一步提取值。
-  例：`@Json:$.id@/novel/{{result}}`
+- **模板拼接**：`${表达式}` 代表前一步提取值（模板形如 `/novel/${$.id}`）。
+  例：`@Json:$.id` 与 `/novel/${$.id}` 组合
 
-> `expr` 包负责表达式解析（String → AST），`crawler` 包负责执行链、备用、净化、分割等组合逻辑。
+> `expr` 包负责表达式解析与组合执行（&& / || / ## / #）；`crawler` 负责规则编排与 HTTP。
 
 ### 5.3 JavaScript 表达式
-预留 `@JS:` 前缀标识，评估 `flutter_js` 等运行时集成。当前版本遇到 `@JS:` 抛出明确错误提示"JS 表达式即将支持"。预研任务包括：沙箱执行环境、输入输出规范、执行时间限制与安全防护。
+`@JS:` **尚未实现**：`ParserFactory` 无 `@JS` 分支，会退化为 CSS 选择器解析（通常报选择器非法），无专属提示。（crawler 侧有 JS 运行时 flutter_inappwebview，用于插件扩展，与此前缀不是同一机制。）
 
 ---
 
 ## 6. 规则文件结构
 
-规则文件为 JSON 格式，存放于 `resonance_app/assets/rules/`。包含以下节点（均可选，`source` 必填）：
+规则文件为 JSON 格式，存放于 `resonance_app/assets/rules/`。核心节点（均可选，`source` 必填）。**实现另支持 `playlistList`/`playlistInfo`/`preflight`（人机验证）等节点；`method` 字段当前被忽略（实际只发 GET）。** 以下为核心节点：
 
 ```json
 {
@@ -273,7 +275,7 @@ player → core
 | 字段 | 类型 | 说明 |
 | :--- | :--- | :--- |
 | `url` | string | 请求路径，支持 `{keyword}`, `{page}` 占位符 |
-| `method` | string | GET / POST |
+| `method` | string | 名义 GET/POST；**当前实现只发 GET，method 被忽略** |
 | `headers` | object | 自定义请求头，支持 `{baseUrl}` 占位 |
 | `responseType` | string | `json` / `html` / `text` |
 | `listRule` | string | 定位歌曲列表容器的规则表达式 |
@@ -281,13 +283,13 @@ player → core
 | `pagination` | object | 分页配置 |
 
 **`itemRules` 支持的字段：**
-`id`, `title`, `artist`, `album`, `cover`, `duration`, `playUrl`, `lyricUrl`, `quality`, 以及自定义字段（存入 `Song.extra`）。
+`id`, `title`, `artist`, `album`, `cover`, `duration`, `playUrl`, `lyricUrl`, 以及自定义字段（存入 `Song.extra`）。**注：`quality` 目前被丢弃（未写入模型）。**
 
 字段值支持 `${表达式}` 模板拼接，用于把多个 ID 合成**复合 ID**，例如
 `"id": "${$.id}~${$.pic_id}"`；详情 / 歌词节点再用 `params` 把它拆开。
 
 **`pagination` 字段：**
-- `type`：`page` / `offset` / `cursor`
+- `type`：`page` / `offset` / `cursor` / `size`；**注：`cursorParam`/`limitParam`/`totalRegex` 解析存在但执行侧尚未使用**
 - `pageParam`（page 类型）、`offsetParam`+`limitParam`+`limitValue`（offset 类型）、`cursorParam`+`cursorRule`（cursor 类型）
 - `totalRule`（可选）：总数提取规则
 - `totalRegex`（可选）：净化总数的正则
@@ -313,7 +315,7 @@ player → core
 
 ### 6.3 `lyric` 节点字段
 
-用于独立获取歌词内容，支持三种场景：
+用于独立获取歌词内容，设计有三种场景（**注：当前 RuleBasedMusicSource 实际只用 `{id}` 请求 lyric 节点；「直接使用 lyric 文本」「用 `{lyricUrl}` 请求」两条尚未落地**）：
 
 | 场景 | 行为 |
 | :--- | :--- |
@@ -436,11 +438,15 @@ player → core
 
 | 字段 | 类型 | 说明 |
 | :--- | :--- | :--- |
-| id | String (UUID) | 主键 |
+| id | String | 主键（调用方提供；导入歌单为 import_<hash>） |
 | name | String | 歌单名称 |
 | songKeys | List\<String\> | 包含的歌曲全局键列表 |
 | sourceId | String? | 若为导入源歌单，记录来源 ID |
 | sourcePlaylistId | String? | 源歌单原始 ID |
+| songSnapshots | Map | 歌曲快照（免回源渲染） |
+| coverUrl | String? | 封面 URL |
+| songSnapshots | Map | 歌曲快照（免回源渲染） |
+| coverUrl | String? | 封面 URL |
 | createdTime | DateTime | |
 | modifiedTime | DateTime | |
 
@@ -452,6 +458,8 @@ player → core
 | :--- | :--- | :--- |
 | song_key | TEXT PK | 歌曲全局唯一键 (sourceId:id) |
 | played_at | INTEGER | 播放时间戳（Unix 毫秒） |
+| title / artist / cover_url | TEXT | 歌曲快照（v2 起） |
+| title / artist / cover_url | TEXT | 歌曲快照（v2 起） |
 
 **favorites（最喜欢）**
 
@@ -459,8 +467,11 @@ player → core
 | :--- | :--- | :--- |
 | song_key | TEXT PK | 歌曲全局唯一键 |
 | favorite_time | INTEGER | 收藏时间戳 |
+| title / artist / cover_url | TEXT | 歌曲快照（v3 起） |
 
-**local_custom_songs（自建歌曲）**：同 songs 表结构，通过 `sourceId='local_custom'` 区分，或独立表。
+**自建歌曲**：**无独立表**，复用 `songs` 表并通过 `sourceId='local_custom'` 区分。
+
+> 完整表结构（`playlist_songs` / `settings` / `play_progress` 共 7 张表、快照列、DB 版本 v4）以 [01-data-schema](../01-data-schema.md) 为准。
 
 ---
 
@@ -478,10 +489,12 @@ player → core
 
 **播放队列规则：**
 
-| 场景 | 播放队列 |
+| 场景 | 播放队列（queue_kind） |
 |------|----------|
-| 从搜索结果/本地/最喜欢/最近播放列表点击播放 | 最近播放列表 |
-| 手动选择歌单并点击"播放全部" | 当前歌单 |
+| 从搜索结果/本地/最喜欢/最近播放列表点击播放 | recent |
+| 手动选择歌单并点击"播放全部" | playlist |
+| 本地音乐页播放 | local |
+| 我喜欢的页播放 | liked |
 
 **执行步骤：**
 1. 用户点击歌曲 → 获取播放地址（调用对应源的 `getSongDetail`）。
