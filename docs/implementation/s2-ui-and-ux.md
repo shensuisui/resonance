@@ -1,8 +1,10 @@
 # S2：UI 与用户体验
 
-| 状态 | 进行中 |
+| 状态 | 已完成（见 [summary-s1-s3](../summaries/summary-s1-s3.md)） |
 |:---|:---|
 | 涉及包 | ui（新建）, resonance_app（接入） |
+
+> 完成状态与最终页面清单以 [summary-s1-s3](../summaries/summary-s1-s3.md) 为准（本文件为 S2 实施方案）。
 
 ---
 
@@ -92,7 +94,7 @@ class AppTheme {
 ## 3. 页面结构
 
 ```
-ShellApp (Scaffold + 底部导航 + 迷你播放器)
+AppShell (Scaffold + 底部导航 + 迷你播放器)
 ├── 搜索页 (SearchPage)
 │   ├── 搜索框
 │   ├── 搜索结果列表（跨源聚合）

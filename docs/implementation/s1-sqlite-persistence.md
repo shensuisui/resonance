@@ -1,6 +1,6 @@
 # S1：SQLite 持久化层
 
-| 状态 | 进行中 |
+| 状态 | 已完成（见 [summary-s1-s3](../summaries/summary-s1-s3.md)） |
 |:---|:---|
 | 涉及包 | core（接口）, db（新包，SQLite 实现）, resonance_app（注入） |
 
@@ -85,6 +85,12 @@ CREATE TABLE favorites (
   song_key       TEXT PRIMARY KEY,
   favorite_time  INTEGER NOT NULL
 );
+
+-- 设置表（键值对：主题/播放模式/搜索历史等）
+CREATE TABLE settings (
+  key    TEXT PRIMARY KEY,
+  value  TEXT
+);
 ```
 
 ---
@@ -100,6 +106,7 @@ CREATE TABLE favorites (
 | `lib/src/sqflite_playlist_dao.dart` | PlaylistDao 实现（含关联表操作） |
 | `lib/src/sqflite_recent_plays_dao.dart` | RecentPlaysDao 实现 |
 | `lib/src/sqflite_favorites_dao.dart` | FavoritesDao 实现 |
+| `lib/src/sqflite_settings_dao.dart` | SettingsDao 实现（键值对 settings 表） |
 | `lib/src/sqflite_database_provider.dart` | DatabaseProvider 实现，组装四个 DAO |
 | `lib/src/download_manager_impl.dart` | DownloadManager 实现（dio 下载 + path_provider 缓存） |
 | `lib/db.dart` | barrel export |
