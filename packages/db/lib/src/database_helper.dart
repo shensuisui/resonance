@@ -199,6 +199,7 @@ class DatabaseHelper {
       'favorites',
       'playlists',
       'settings',
+      'play_progress',
       'songs',
     ];
     for (final table in tables) {
