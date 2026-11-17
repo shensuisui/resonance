@@ -42,3 +42,12 @@ abstract class AudioCache {
   /// 缓存发生变化（新增 / 清空）时触发，供 UI 刷新「离线可用」标记
   Stream<void> get changes;
 }
+
+/// 缓存文件的物理访问能力（供下载「拷贝缓存」使用，不扩大 AudioCache 契约）
+abstract class AudioCacheFileAccess {
+  /// 完整缓存文件的真实路径；没有/未初始化/未命中返回 null
+  String? filePathFor(String songKey);
+
+  /// 删除单曲缓存（文件 + 索引 + 通知）
+  Future<void> remove(String songKey);
+}

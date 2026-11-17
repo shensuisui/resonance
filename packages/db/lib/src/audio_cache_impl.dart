@@ -19,7 +19,7 @@ import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-class AudioCacheImpl implements AudioCache {
+class AudioCacheImpl implements AudioCache, AudioCacheFileAccess {
   /// 下载器（测试可注入）
   final Dio _dio;
 
@@ -152,6 +152,25 @@ class AudioCacheImpl implements AudioCache {
     }
     _cached.clear();
     _changes.add(null);
+  }
+
+  @override
+  String? filePathFor(String songKey) {
+    if (!_cached.contains(songKey)) return null;
+    return _pathFor(songKey);
+  }
+
+  @override
+  Future<void> remove(String songKey) async {
+    final path = _pathFor(songKey);
+    _cached.remove(songKey);
+    if (path != null) {
+      try {
+        final f = File(path);
+        if (await f.exists()) await f.delete();
+      } catch (_) {}
+    }
+    if (!_changes.isClosed) _changes.add(null);
   }
 
   /// 测试/调试用：这首歌的缓存文件路径（未初始化时 null）

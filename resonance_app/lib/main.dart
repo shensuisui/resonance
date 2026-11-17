@@ -87,7 +87,7 @@ String? debugCaptchaKey;
 String? debugCaptchaId;
 
 /// 播放缓存（离线可用）：与「已下载」分开存放，不写 localPath
-late AudioCache gAudioCache;
+late AudioCacheImpl gAudioCache;
 
 Future<void> main() async {
   // 调试层：debug 用 FlanBinding（agent 驱动：元素枚举/手势/截图/日志/热重载/圈选回传），
@@ -157,13 +157,14 @@ Future<void> main() async {
 
   gRecentPlaysService =
       RecentPlaysService(gDatabaseProvider.recentPlaysDao);
+  gAudioCache = AudioCacheImpl();
+  await gAudioCache.init();
   gDownloadManager = DownloadManagerImpl(
     songDao: gDatabaseProvider.songDao,
     downloadTaskDao: gDatabaseProvider.downloadTaskDao,
+    audioCache: gAudioCache,
   );
   await gDownloadManager.init();
-  gAudioCache = AudioCacheImpl();
-  await gAudioCache.init();
 
   // 3. 创建 SourceManager 并注册源
   gSourceManager = SourceManager();

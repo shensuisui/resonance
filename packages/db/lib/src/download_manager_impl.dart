@@ -13,6 +13,7 @@ class DownloadManagerImpl implements DownloadManager {
   final Dio _dio;
   final SongDao _songDao;
   final DownloadTaskDao? _taskDao;
+  final AudioCacheFileAccess? _audioCache;
 
   /// 自定义下载根目录（测试用）；null → support/downloads
   final String? customCacheDir;
@@ -33,11 +34,13 @@ class DownloadManagerImpl implements DownloadManager {
     Dio? dio,
     required SongDao songDao,
     DownloadTaskDao? downloadTaskDao,
+    AudioCacheFileAccess? audioCache,
     this.customCacheDir,
     this.nameOrder = 'artist_title',
   })  : _dio = dio ?? Dio(),
         _songDao = songDao,
-        _taskDao = downloadTaskDao;
+        _taskDao = downloadTaskDao,
+        _audioCache = audioCache;
 
   @override
   Stream<List<DownloadTask>> get taskStream => _taskController.stream;
@@ -88,6 +91,11 @@ class DownloadManagerImpl implements DownloadManager {
       _notify();
       unawaited(_persist(done));
       return song.localPath;
+    }
+
+    // 缓存命中：magic 校验通过才拷贝，拷后删缓存（不联网）
+    if (await _tryCopyFromCache(song)) {
+      return _tasks[song.globalKey]?.localPath;
     }
 
     final downloadUrl = url ?? song.playUrl;
@@ -142,6 +150,63 @@ class DownloadManagerImpl implements DownloadManager {
       await _execute(song, url, headers ?? _headersFor(key));
       _active = null;
     }
+  }
+
+  /// 缓存命中则拷贝为下载文件；成功返回 true（不联网）。
+  Future<bool> _tryCopyFromCache(Song song) async {
+    final cache = _audioCache;
+    if (cache == null) return false;
+    final key = song.globalKey;
+    final srcPath = cache.filePathFor(key);
+    if (srcPath == null) return false;
+    final src = File(srcPath);
+    if (!await src.exists()) return false;
+
+    // magic 校验：识别不出音频格式就不拷贝，退回联网下载
+    final ext = detectAudioExtension(await src.openRead(0, 16).first);
+    if (ext == null) return false;
+
+    final root = await _downloadRoot();
+    final dir = Directory(p.join(root.path, _sourceIdOf(key)));
+    if (!await dir.exists()) await dir.create(recursive: true);
+    final existing = (await dir
+            .list()
+            .where((e) => e is File && !e.path.endsWith('.part'))
+            .map((e) => p.basename(e.path))
+            .toList())
+        .toSet();
+    final name = uniqueFileName(
+      buildDownloadFileName(
+        title: song.title,
+        artist: song.artist,
+        order: nameOrder,
+        extension: ext,
+      ),
+      existing,
+    );
+    final dest = p.join(dir.path, name);
+    try {
+      await src.copy(dest);
+    } catch (_) {
+      return false;
+    }
+    try {
+      await cache.remove(key);
+    } catch (_) {}
+
+    final done = DownloadTask(
+      songKey: key,
+      url: song.playUrl,
+      status: DownloadStatus.completed,
+      progress: 1.0,
+      localPath: dest,
+      createdAtMilliseconds: DateTime.now().millisecondsSinceEpoch,
+    );
+    _tasks[key] = done;
+    _notify();
+    await _songDao.upsertSong(song.copyWith(localPath: dest));
+    await _persist(done);
+    return true;
   }
 
   Future<Directory> _downloadRoot() async {
