@@ -3,7 +3,7 @@
   release_check/run_app.ps1 —— 发版前集成检查专用启动器（Windows）
 
 .DESCRIPTION
-  detached 启动 resonance_app（--dart-define=RESONANCE_DRIVER=true），并把 VM service 的
+  detached 启动 resonance_app，并把 VM service 的
   WebSocket 地址写进 .dsh/tmp/flutter_run.uri。
 
   为什么必须 detached：用工具的后台 job 托管 flutter run，一旦调用超时，
@@ -30,7 +30,7 @@ param(
   [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
   [string]$AppDir = 'resonance_app',
   [string]$Target = 'lib/main.dart',
-  [string]$DartDefine = 'RESONANCE_DRIVER=true',
+  [string]$DartDefine = '',
   [int]$TimeoutSec = 120,
   [switch]$Attach,
   [switch]$Cleanup,
@@ -106,7 +106,8 @@ if (-not $Attach) {
   $appPath = Join-Path $ProjectRoot $AppDir
   # -t 显式指定入口（默认 lib/main.dart 已是 uiv2 界面）。
   
-  $argList = @($snapshot, 'run', '-d', 'windows', '-t', $Target, '--debug', "--dart-define=$DartDefine")
+  $argList = @($snapshot, 'run', '-d', 'windows', '-t', $Target, '--debug')
+  if ($DartDefine) { $argList += "--dart-define=$DartDefine" }
 
   $p = Start-Process -FilePath $dartExe -ArgumentList $argList -WorkingDirectory $appPath -RedirectStandardOutput $logOut -RedirectStandardError $logErr -WindowStyle Hidden -PassThru
   $state = [ordered]@{
