@@ -59,11 +59,11 @@ void main() {
 
   setUp(() async {
     initSqfliteForPlatform();
+    dir = await Directory.systemTemp.createTemp('resonance_set_');
     provider = SqfliteDatabaseProvider.withHelper(
-        DatabaseHelper(customDbPath: getInMemoryDatabasePath()));
+        DatabaseHelper(customDbPath: '${dir.path}/test.db'));
     await provider.initialize();
     server = await _server();
-    dir = await Directory.systemTemp.createTemp('resonance_set_');
     writer = _FakeWriter();
     dm = DownloadManagerImpl(
       songDao: provider.songDao,
