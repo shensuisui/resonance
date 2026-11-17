@@ -32,6 +32,14 @@ class DownloadTask {
   final double progress;
   /// 本地文件路径（下载完成后设置）
   final String? localPath;
+  /// 下载总字节数（若服务器提供）
+  final int? totalBytes;
+  /// 已下载字节数
+  final int? receivedBytes;
+  /// 元信息写入警告（如写标签失败，下载仍算成功）
+  final String? warning;
+  /// 写入时长（毫秒）
+  final int? createdAtMilliseconds;
   /// 错误信息（失败时）
   final String? error;
 
@@ -42,6 +50,10 @@ class DownloadTask {
     this.progress = 0.0,
     this.localPath,
     this.error,
+    this.totalBytes,
+    this.receivedBytes,
+    this.warning,
+    this.createdAtMilliseconds,
   });
 
   DownloadTask copyWith({
@@ -50,6 +62,10 @@ class DownloadTask {
     String? localPath,
     String? error,
     String? url,
+    int? totalBytes,
+    int? receivedBytes,
+    String? warning,
+    int? createdAtMilliseconds,
   }) {
     return DownloadTask(
       songKey: songKey,
@@ -58,6 +74,10 @@ class DownloadTask {
       progress: progress ?? this.progress,
       localPath: localPath ?? this.localPath,
       error: error ?? this.error,
+      totalBytes: totalBytes ?? this.totalBytes,
+      receivedBytes: receivedBytes ?? this.receivedBytes,
+      warning: warning ?? this.warning,
+      createdAtMilliseconds: createdAtMilliseconds ?? this.createdAtMilliseconds,
     );
   }
 }
@@ -71,7 +91,14 @@ abstract class DownloadManager {
   ///
   /// 如果歌曲已有缓存（localPath 不为空）直接返回。
   /// 否则使用 [url] 下载，完成后更新 Song.localPath。
-  Future<String?> download(Song song, {String? url});
+  /// 下载歌曲到本地缓存目录（外部可用成品）。
+  ///
+  /// 下载完成后写入基础标签/封面/歌词（见实现）；失败或写标签失败都如实反映。
+  Future<String?> download(Song song, {
+    String? url,
+    Map<String, String>? headers,
+    String? lyrics,
+  });
 
   /// 取消下载
   Future<void> cancel(String songKey);
@@ -86,6 +113,9 @@ abstract class DownloadManager {
   ///
   /// 返回 null 表示未缓存。
   Future<String?> getLocalPath(String songKey);
+
+  /// 移除一条 failed/cancelled 记录（只删记录，不删文件）
+  Future<void> removeRecord(String songKey);
 
   /// 获取当前下载任务列表
   List<DownloadTask> getTasks();

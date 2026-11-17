@@ -292,14 +292,16 @@ void main() {
       );
       await provider.songDao.insertSong(song);
 
-      // 计算保存路径（与 DownloadManagerImpl 相同的命名规则）
-      final cacheDir = tempCacheDir.path;
-      final fileName =
-          '${song.globalKey.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.mp3';
-      final savePath = '$cacheDir${Platform.pathSeparator}$fileName';
+      // 新的 .part 命名：customCacheDir/<sourceId>/<base64url(globalKey)>.part
+      final sourceDir =
+          '${tempCacheDir.path}${Platform.pathSeparator}${song.sourceId}';
+      await Directory(sourceDir).create(recursive: true);
+      final partName =
+          '${base64Url.encode(utf8.encode(song.globalKey)).replaceAll('=', '')}.part';
+      final partPath = '$sourceDir${Platform.pathSeparator}$partName';
 
       // 预置部分文件（模拟下载到一半被取消，已有前 10 个字节）
-      await File(savePath).writeAsString(fullContent.substring(0, 10));
+      await File(partPath).writeAsString(fullContent.substring(0, 10));
 
       // 下载 → 应通过 Range 从第 10 字节续传，最终文件内容完整
       await downloadManager.download(song);
@@ -308,7 +310,7 @@ void main() {
           reason: '下载应从断点续传并完成');
 
       // 验证最终文件内容完整（前 10 字节 + 续传的剩余部分）
-      final content = await File(savePath).readAsString();
+      final content = await File(task!.localPath!).readAsString();
       expect(content, fullContent, reason: '断点续传后文件内容应完整');
     });
   });

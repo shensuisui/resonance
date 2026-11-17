@@ -25,7 +25,15 @@ class _FakePlayer implements Player {
 
 class _FakeDownloadManager implements DownloadManager {
   @override
-  Future<String?> download(Song song, {String? url}) async => null;
+  Future<String?> download(Song song, {
+    String? url,
+    Map<String, String>? headers,
+    String? lyrics,
+  }) async =>
+      null;
+
+  @override
+  Future<void> removeRecord(String songKey) async {}
 
   @override
   dynamic noSuchMethod(Invocation invocation) => null;
