@@ -84,6 +84,21 @@ class Song {
     );
   }
 
+  /// 返回不带 localPath 的副本（copyWith 无法把字段置空）。
+  Song withoutLocalPath() => Song(
+        id: id,
+        sourceId: sourceId,
+        title: title,
+        artist: artist,
+        album: album,
+        coverUrl: coverUrl,
+        duration: duration,
+        playUrl: playUrl,
+        lyricUrl: lyricUrl,
+        lyric: lyric,
+        extra: extra,
+      );
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

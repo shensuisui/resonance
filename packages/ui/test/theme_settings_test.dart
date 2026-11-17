@@ -57,6 +57,9 @@ class FakeDatabaseProvider implements DatabaseProvider {
 
   @override
   SettingsDao get settingsDao => settings;
+
+  @override
+  DownloadTaskDao get downloadTaskDao => throw UnimplementedError();
 }
 
 void main() {

@@ -14,6 +14,8 @@ import 'package:path_provider/path_provider.dart';
 class DownloadManagerImpl implements DownloadManager {
   final Dio _dio;
   final SongDao _songDao;
+  final DownloadTaskDao? _taskDao;
+  final _progressMarks = <String, int>{};
 
   /// 自定义缓存目录（测试用）
   /// 为 null 时使用 [getTemporaryDirectory]
@@ -28,15 +30,38 @@ class DownloadManagerImpl implements DownloadManager {
   /// 任务状态流控制器
   final _taskController = StreamController<List<DownloadTask>>.broadcast();
 
-  DownloadManagerImpl({Dio? dio, required SongDao songDao, this.customCacheDir})
-      : _dio = dio ?? Dio(),
-        _songDao = songDao;
+  DownloadManagerImpl({
+    Dio? dio,
+    required SongDao songDao,
+    DownloadTaskDao? downloadTaskDao,
+    this.customCacheDir,
+  })  : _dio = dio ?? Dio(),
+        _songDao = songDao,
+        _taskDao = downloadTaskDao;
 
   @override
   Stream<List<DownloadTask>> get taskStream => _taskController.stream;
 
   @override
   List<DownloadTask> getTasks() => _tasks.values.toList();
+
+  /// 从数据库加载已持久化的任务（启动时调用一次）。
+  Future<void> init() async {
+    final dao = _taskDao;
+    if (dao == null) return;
+    for (final loaded in await dao.getAll()) {
+      var task = loaded;
+      if (loaded.status == DownloadStatus.downloading) {
+        task = loaded.copyWith(
+          status: DownloadStatus.failed,
+          error: '上次下载中断',
+        );
+        await dao.upsert(task);
+      }
+      _tasks[task.songKey] = task;
+    }
+    _notify();
+  }
 
   @override
   Future<String?> download(Song song, {String? url}) async {
@@ -68,12 +93,14 @@ class DownloadManagerImpl implements DownloadManager {
       return null;
     }
 
-    _tasks[key] = DownloadTask(
+    final pending = DownloadTask(
       songKey: key,
       url: downloadUrl,
       status: DownloadStatus.pending,
     );
+    _tasks[key] = pending;
     _notify();
+    unawaited(_persist(pending));
 
     // 异步执行下载
     _executeDownload(song, downloadUrl);
@@ -102,6 +129,7 @@ class DownloadManagerImpl implements DownloadManager {
       // 更新状态为下载中
       _tasks[key] = _tasks[key]!.copyWith(status: DownloadStatus.downloading);
       _notify();
+      unawaited(_persist(_tasks[key]!));
 
       // 已有部分文件大小（断点续传起点）
       final file = File(savePath);
@@ -140,6 +168,7 @@ class DownloadManagerImpl implements DownloadManager {
             _tasks[key] =
                 _tasks[key]!.copyWith(progress: progress.clamp(0.0, 1.0));
             _notify();
+            _persistProgress(_tasks[key]!);
           }
         }
       } finally {
@@ -153,10 +182,11 @@ class DownloadManagerImpl implements DownloadManager {
         localPath: savePath,
       );
 
-      // 持久化 localPath
-      await _songDao.updateSong(song.copyWith(localPath: savePath));
+      // 持久化 localPath（upsert：未播放过的歌也要落库）
+      await _songDao.upsertSong(song.copyWith(localPath: savePath));
 
       _notify();
+      await _persist(_tasks[key]!);
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
         _tasks[key] = _tasks[key]!.copyWith(status: DownloadStatus.cancelled);
@@ -167,12 +197,14 @@ class DownloadManagerImpl implements DownloadManager {
         );
       }
       _notify();
+      await _persist(_tasks[key]!);
     } catch (e) {
       _tasks[key] = _tasks[key]!.copyWith(
         status: DownloadStatus.failed,
         error: e.toString(),
       );
       _notify();
+      await _persist(_tasks[key]!);
     } finally {
       _cancelTokens.remove(key);
     }
@@ -187,6 +219,7 @@ class DownloadManagerImpl implements DownloadManager {
     final existing = _tasks[songKey];
     if (existing != null) {
       _tasks[songKey] = existing.copyWith(status: DownloadStatus.cancelled);
+      await _persist(_tasks[songKey]!);
     }
     _notify();
   }
@@ -202,8 +235,15 @@ class DownloadManagerImpl implements DownloadManager {
       }
     } catch (_) {}
 
+    // 同步清空 songs.local_path（否则产生「幽灵已下载」）
+    final parts = songKey.split(':');
+    if (parts.length == 2) {
+      await _songDao.clearLocalPath(parts[1], parts[0]);
+    }
+
     // 清除任务
     _tasks.remove(songKey);
+    await _taskDao?.delete(songKey);
     _notify();
   }
 
@@ -223,6 +263,22 @@ class DownloadManagerImpl implements DownloadManager {
     if (parts.length != 2) return null;
     final song = await _songDao.getSong(parts[1], parts[0]);
     return song?.localPath;
+  }
+
+  Future<void> _persist(DownloadTask task) async {
+    final dao = _taskDao;
+    if (dao == null) return;
+    try {
+      await dao.upsert(task);
+    } catch (_) {}
+  }
+
+  void _persistProgress(DownloadTask task) {
+    if (_taskDao == null) return;
+    final pct = (task.progress * 20).floor();
+    if (_progressMarks[task.songKey] == pct) return;
+    _progressMarks[task.songKey] = pct;
+    unawaited(_persist(task));
   }
 
   /// 通知状态变化

@@ -61,6 +61,27 @@ class SqfliteSongDao implements SongDao {
   }
 
   @override
+  Future<void> upsertSong(Song song) async {
+    final db = await _db;
+    await db.insert(
+      'songs',
+      songToMap(song),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  @override
+  Future<void> clearLocalPath(String id, String sourceId) async {
+    final db = await _db;
+    await db.update(
+      'songs',
+      {'local_path': null},
+      where: 'id = ? AND source_id = ?',
+      whereArgs: [id, sourceId],
+    );
+  }
+
+  @override
   Future<void> deleteSong(String id, String sourceId) async {
     final db = await _db;
     await db.delete(

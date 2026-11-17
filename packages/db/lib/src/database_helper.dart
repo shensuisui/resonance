@@ -114,6 +114,28 @@ CREATE TABLE IF NOT EXISTS play_progress (
 )
 ''';
 
+/// 下载任务表（持久化下载队列/状态）
+const String kCreateDownloadTasksTable = '''
+CREATE TABLE IF NOT EXISTS download_tasks (
+  song_key       TEXT PRIMARY KEY,
+  status         TEXT NOT NULL,
+  progress       REAL NOT NULL DEFAULT 0,
+  url            TEXT,
+  local_path     TEXT,
+  error          TEXT,
+  warning        TEXT,
+  total_bytes    INTEGER,
+  received_bytes INTEGER,
+  queue_order    INTEGER NOT NULL DEFAULT 0,
+  created_at     INTEGER NOT NULL,
+  updated_at     INTEGER NOT NULL
+)
+''';
+
+const String kCreateDownloadTasksIndex = '''
+CREATE INDEX IF NOT EXISTS idx_download_status ON download_tasks(status, queue_order)
+''';
+
 /// 所有建表 SQL（按顺序执行）
 const List<String> kCreateAllTables = [
   kCreateSongsTable,
@@ -124,6 +146,8 @@ const List<String> kCreateAllTables = [
   kCreateFavoritesTable,
   kCreateSettingsTable,
   kCreatePlayProgressTable,
+  kCreateDownloadTasksTable,
+  kCreateDownloadTasksIndex,
 ];
 
 /// 数据库助手
@@ -200,6 +224,7 @@ class DatabaseHelper {
       'playlists',
       'settings',
       'play_progress',
+      'download_tasks',
       'songs',
     ];
     for (final table in tables) {

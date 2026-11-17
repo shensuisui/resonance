@@ -39,7 +39,7 @@ late DatabaseProvider gDatabaseProvider;
 late SourceManager gSourceManager;
 late RecentPlaysService gRecentPlaysService;
 late Player gPlayer;
-late DownloadManager gDownloadManager;
+late DownloadManagerImpl gDownloadManager;
 
 /// 文件交互（导入导出 / 系统「用回响打开」）
 late ShellFilePickers gFilePickers;
@@ -157,7 +157,11 @@ Future<void> main() async {
 
   gRecentPlaysService =
       RecentPlaysService(gDatabaseProvider.recentPlaysDao);
-  gDownloadManager = DownloadManagerImpl(songDao: gDatabaseProvider.songDao);
+  gDownloadManager = DownloadManagerImpl(
+    songDao: gDatabaseProvider.songDao,
+    downloadTaskDao: gDatabaseProvider.downloadTaskDao,
+  );
+  await gDownloadManager.init();
   gAudioCache = AudioCacheImpl();
   await gAudioCache.init();
 

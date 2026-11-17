@@ -10,6 +10,7 @@ abstract class DatabaseProvider {
   FavoritesDao get favoritesDao;
   SettingsDao get settingsDao;
   PlayProgressDao get playProgressDao;
+  DownloadTaskDao get downloadTaskDao;
 }
 
 /// 歌曲 DAO 接口
@@ -18,6 +19,13 @@ abstract class SongDao {
   Future<Song?> getSong(String id, String sourceId);
   Future<List<Song>> searchSongs(String keyword);
   Future<void> updateSong(Song song);
+
+  /// 插入或覆盖（用于下载完成后对「未播放过」的歌也落库）。
+  Future<void> upsertSong(Song song);
+
+  /// 清空 local_path（删除下载缓存时用）。
+  Future<void> clearLocalPath(String id, String sourceId);
+
   Future<void> deleteSong(String id, String sourceId);
 }
 
@@ -93,6 +101,14 @@ class FavoriteRecord {
     this.artist,
     this.coverUrl,
   });
+}
+
+/// 下载任务 DAO（持久化下载队列/状态）
+abstract class DownloadTaskDao {
+  Future<void> upsert(DownloadTask task);
+  Future<List<DownloadTask>> getAll();
+  Future<void> delete(String songKey);
+  Future<void> clearByStatus(Set<DownloadStatus> statuses);
 }
 
 /// 设置 DAO 接口（key-value 存储，支持多设备同步预留）

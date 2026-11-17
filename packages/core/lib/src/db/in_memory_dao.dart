@@ -34,6 +34,18 @@ class InMemorySongDao implements SongDao {
   }
 
   @override
+  Future<void> upsertSong(Song song) async {
+    _store[_key(song.id, song.sourceId)] = song;
+  }
+
+  @override
+  Future<void> clearLocalPath(String id, String sourceId) async {
+    final key = _key(id, sourceId);
+    final song = _store[key];
+    if (song != null) _store[key] = song.withoutLocalPath();
+  }
+
+  @override
   Future<void> deleteSong(String id, String sourceId) async {
     _store.remove(_key(id, sourceId));
   }
@@ -213,6 +225,29 @@ class InMemoryPlayProgressDao implements PlayProgressDao {
   }
 }
 
+/// 下载任务 DAO 内存实现
+class InMemoryDownloadTaskDao implements DownloadTaskDao {
+  final _store = <String, DownloadTask>{};
+
+  @override
+  Future<void> upsert(DownloadTask task) async {
+    _store[task.songKey] = task;
+  }
+
+  @override
+  Future<List<DownloadTask>> getAll() async => _store.values.toList();
+
+  @override
+  Future<void> delete(String songKey) async {
+    _store.remove(songKey);
+  }
+
+  @override
+  Future<void> clearByStatus(Set<DownloadStatus> statuses) async {
+    _store.removeWhere((key, value) => statuses.contains(value.status));
+  }
+}
+
 /// 内存数据库提供者（用于测试）
 class InMemoryDatabaseProvider implements DatabaseProvider {
   @override
@@ -227,6 +262,8 @@ class InMemoryDatabaseProvider implements DatabaseProvider {
   late final SettingsDao settingsDao = InMemorySettingsDao();
   @override
   late final PlayProgressDao playProgressDao = InMemoryPlayProgressDao();
+  @override
+  late final DownloadTaskDao downloadTaskDao = InMemoryDownloadTaskDao();
 
   @override
   Future<void> initialize() async {

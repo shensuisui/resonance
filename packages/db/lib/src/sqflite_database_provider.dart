@@ -11,6 +11,7 @@ import 'sqflite_recent_plays_dao.dart';
 import 'sqflite_favorites_dao.dart';
 import 'sqflite_settings_dao.dart';
 import 'sqflite_play_progress_dao.dart';
+import 'download_task_dao.dart';
 
 class SqfliteDatabaseProvider implements DatabaseProvider {
   final DatabaseHelper _helper;
@@ -21,6 +22,7 @@ class SqfliteDatabaseProvider implements DatabaseProvider {
   late final FavoritesDao _favoritesDao;
   late final SettingsDao _settingsDao;
   late final PlayProgressDao _playProgressDao;
+  late final DownloadTaskDao _downloadTaskDao;
 
   SqfliteDatabaseProvider() : _helper = DatabaseHelper();
 
@@ -35,6 +37,7 @@ class SqfliteDatabaseProvider implements DatabaseProvider {
     _favoritesDao = SqfliteFavoritesDao(_helper);
     _settingsDao = SqfliteSettingsDao(_helper);
     _playProgressDao = SqflitePlayProgressDao(_helper);
+    _downloadTaskDao = SqfliteDownloadTaskDao(_helper);
   }
 
   @override
@@ -49,6 +52,8 @@ class SqfliteDatabaseProvider implements DatabaseProvider {
   SettingsDao get settingsDao => _settingsDao;
   @override
   PlayProgressDao get playProgressDao => _playProgressDao;
+  @override
+  DownloadTaskDao get downloadTaskDao => _downloadTaskDao;
 
   Future<void> close() async {
     await _helper.close();
