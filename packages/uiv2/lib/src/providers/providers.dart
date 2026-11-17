@@ -3051,9 +3051,55 @@ class DownloadActions {
 
   DownloadManager get _manager => ref.read(downloadManagerProvider);
 
-  /// 开始下载一首歌（已缓存时直接返回本地路径）
-  Future<String?> download(Song song, {String? url}) =>
-      _manager.download(song, url: url);
+  /// 开始下载一首歌：先解析播放地址（带 referer/UA）、补齐歌词，再交给下载器。
+  ///
+  /// 列表里的 Song 往往没有 playUrl，必须在入口统一走 getPlayable；
+  /// 直接用 song.playUrl 会「点了下载却立刻 failed」。
+  Future<String?> download(Song song, {String? url}) async {
+    final manager = _manager;
+    if (song.localPath != null && song.localPath!.isNotEmpty) {
+      return manager.download(song);
+    }
+
+    final sm = ref.read(sourceManagerProvider);
+    final headers = sm.playHeadersFor(song.sourceId);
+
+    var resolved = url;
+    if (resolved == null || resolved.isEmpty) {
+      try {
+        final info = await sm.getPlayable(song.sourceId, song.id);
+        if (info.hasUrl) resolved = info.url;
+      } catch (_) {}
+    }
+
+    var lyrics = song.lyric;
+    if (lyrics == null || lyrics.trim().isEmpty) {
+      try {
+        final fetched =
+            await ref.read(songMetadataServiceProvider).ensureLyrics(song);
+        lyrics = _toLrc(fetched);
+      } catch (_) {}
+    }
+
+    return manager.download(
+      song,
+      url: resolved,
+      headers: headers,
+      lyrics: lyrics,
+    );
+  }
+
+  /// 把 Lyrics 还原成 LRC 文本（带时间戳），用于写进标签
+  String _toLrc(Lyrics? lyrics) {
+    if (lyrics == null || lyrics.lines.isEmpty) return '';
+    String ts(Duration d) {
+      final m = d.inMinutes.toString().padLeft(2, '0');
+      final s = (d.inSeconds % 60).toString().padLeft(2, '0');
+      final cs = ((d.inMilliseconds % 1000) ~/ 10).toString().padLeft(2, '0');
+      return '$m:$s.$cs';
+    }
+    return lyrics.lines.map((l) => '[${ts(l.time)}]${l.text}').join('\n');
+  }
 
   /// 取消任务
   Future<void> cancel(String songKey) => _manager.cancel(songKey);
