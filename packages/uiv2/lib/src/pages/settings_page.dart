@@ -20,10 +20,10 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = UiV2Theme.of(context);
+    final narrow = MediaQuery.sizeOf(context).width < UiV2Breakpoints.wide;
     final themeMode = ref.watch(themeModeProvider);
     final playMode = ref.watch(playModeProvider);
     final shuffle = ref.watch(shuffleProvider);
-    final wifiOnly = ref.watch(wifiOnlyProvider);
     final audioCacheOn = ref.watch(audioCacheEnabledProvider);
     final scanDir = ref.watch(scanDirProvider).value;
     final scan = ref.watch(scanProvider);
@@ -212,25 +212,61 @@ class SettingsPage extends ConsumerWidget {
             ),
           ),
 
-          // ---------- 下载 ----------
+          // ---------- 下载设置 ----------
           UiV2Section(
-            title: '下载',
+            title: '下载设置',
             child: UiV2Panel(
               padding: EdgeInsets.zero,
-              child: UiV2ListRow(
-                label: '仅 Wi-Fi 下载',
-                hint: '避免消耗手机流量',
-                divider: false,
-                trailing: UiV2Switch(
-                  value: wifiOnly,
-                  semanticLabel: '仅 Wi-Fi 下载',
-                  onChanged: (value) async {
-                    await ref.read(wifiOnlyProvider.notifier).set(value);
-                    if (context.mounted) {
-                      showUiV2Toast(context, value ? '仅 Wi-Fi 下载：已开启' : '仅 Wi-Fi 下载：已关闭');
-                    }
-                  },
-                ),
+              child: Column(
+                children: [
+                  _downloadSegRow(
+                    context,
+                    narrow: narrow,
+                    label: '文件命名',
+                    hint: '下载文件名顺序，默认「歌手 - 歌曲」',
+                    options: const [
+                      ('artist_title', '歌手 - 歌曲'),
+                      ('title_artist', '歌曲 - 歌手'),
+                    ],
+                    value: ref.watch(downloadNameOrderProvider),
+                    onChanged: (v) =>
+                        ref.read(downloadNameOrderProvider.notifier).set(v),
+                  ),
+                  _downloadSegRow(
+                    context,
+                    narrow: narrow,
+                    label: '封面缩略图',
+                    hint: '嵌入封面的尺寸（缩略图）',
+                    options: const [
+                      ('256', '256'),
+                      ('512', '512'),
+                      ('1024', '1024'),
+                    ],
+                    value: '${ref.watch(downloadCoverSizeProvider)}',
+                    onChanged: (v) => ref
+                        .read(downloadCoverSizeProvider.notifier)
+                        .set(int.parse(v)),
+                  ),
+                  _downloadSegRow(
+                    context,
+                    narrow: narrow,
+                    label: '封面质量',
+                    hint: '缩略图 JPEG 质量',
+                    options: const [('85', '85'), ('90', '90')],
+                    value: '${ref.watch(downloadCoverQualityProvider)}',
+                    onChanged: (v) => ref
+                        .read(downloadCoverQualityProvider.notifier)
+                        .set(int.parse(v)),
+                    divider: false,
+                  ),
+                  UiV2ListRow(
+                    label: '下载目录',
+                    hint: ref.watch(downloadDirProvider).value ??
+                        '应用支持目录 / downloads',
+                    leading: UiV2Icon(UiV2Icons.folder, size: 20, color: t.textDim),
+                    divider: false,
+                  ),
+                ],
               ),
             ),
           ),
@@ -544,4 +580,44 @@ String _lastBackupHint(AsyncValue<LastBackupInfo?> info) {
   final stamp = at.year.toString() + '-' + two(at.month) + '-' + two(at.day) +
       ' ' + two(at.hour) + ':' + two(at.minute);
   return stamp + ' · ' + backupStatsSummary(value.stats);
+}
+
+
+/// 下载设置的一段：宽屏行尾放分段控件，窄屏上下堆叠（复用真实组件）
+Widget _downloadSegRow(
+  BuildContext context, {
+  required bool narrow,
+  required String label,
+  required String hint,
+  required List<(String, String)> options,
+  required String value,
+  required ValueChanged<String> onChanged,
+  bool divider = true,
+}) {
+  final control = UiV2Segmented(
+    options: options,
+    value: value,
+    onChanged: onChanged,
+    expand: narrow,
+  );
+  if (!narrow) {
+    return UiV2ListRow(
+      label: label,
+      hint: hint,
+      divider: divider,
+      trailing: control,
+    );
+  }
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(label, style: UiV2Text.trackTitle),
+        Text(hint, style: UiV2Text.hint),
+        const SizedBox(height: 8),
+        control,
+      ],
+    ),
+  );
 }

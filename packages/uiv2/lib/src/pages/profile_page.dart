@@ -150,24 +150,6 @@ class ProfilePage extends ConsumerWidget {
                           ref.read(themeModeProvider.notifier).toggleDark(),
                     ),
                   ),
-                  UiV2ListRow(
-                    label: '仅 Wi-Fi 下载',
-                    hint: '避免消耗手机流量',
-                    divider: true,
-                    trailing: UiV2Switch(
-                      value: ref.watch(wifiOnlyProvider),
-                      semanticLabel: '仅 Wi-Fi 下载',
-                      onChanged: (value) async {
-                        await ref.read(wifiOnlyProvider.notifier).set(value);
-                        if (context.mounted) {
-                          showUiV2Toast(
-                            context,
-                            value ? '仅 Wi-Fi 下载：已开启' : '仅 Wi-Fi 下载：已关闭',
-                          );
-                        }
-                      },
-                    ),
-                  ),
                   // 设置入口：主题/播放模式/音量/扫描目录/数据清理都在独立设置页，
                   // 之前只注册了路由却没有任何入口，成了死页。
                   UiV2ListRow(

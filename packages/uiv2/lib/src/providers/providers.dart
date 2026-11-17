@@ -18,6 +18,8 @@ import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter/widgets.dart'
     show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../data/catalog.dart';
 import '../services/file_pickers.dart';
@@ -2286,6 +2288,82 @@ final audioCacheEnabledProvider =
     NotifierProvider<AudioCacheEnabledNotifier, bool>(
         AudioCacheEnabledNotifier.new);
 
+/// 下载命名顺序（artist_title 默认 / title_artist）
+class DownloadNameOrderNotifier extends Notifier<String> {
+  @override
+  String build() {
+    load();
+    return 'artist_title';
+  }
+
+  Future<void> load() async {
+    final v = await ref.read(settingsDaoProvider).get(DownloadSettingsKeys.nameOrder);
+    if (v == 'artist_title' || v == 'title_artist') state = v!;
+  }
+
+  Future<void> set(String value) async {
+    state = value;
+    await ref.read(settingsDaoProvider).set(DownloadSettingsKeys.nameOrder, value);
+  }
+}
+
+final downloadNameOrderProvider =
+    NotifierProvider<DownloadNameOrderNotifier, String>(
+        DownloadNameOrderNotifier.new);
+
+/// 封面缩略图尺寸（默认 256）
+class DownloadCoverSizeNotifier extends Notifier<int> {
+  @override
+  int build() {
+    load();
+    return 256;
+  }
+
+  Future<void> load() async {
+    final v = int.tryParse(
+        await ref.read(settingsDaoProvider).get(DownloadSettingsKeys.coverSize) ?? '');
+    if (v != null) state = v;
+  }
+
+  Future<void> set(int value) async {
+    state = value;
+    await ref.read(settingsDaoProvider).set(DownloadSettingsKeys.coverSize, '$value');
+  }
+}
+
+final downloadCoverSizeProvider =
+    NotifierProvider<DownloadCoverSizeNotifier, int>(DownloadCoverSizeNotifier.new);
+
+/// 封面 JPEG 质量（默认 85）
+class DownloadCoverQualityNotifier extends Notifier<int> {
+  @override
+  int build() {
+    load();
+    return 85;
+  }
+
+  Future<void> load() async {
+    final v = int.tryParse(
+        await ref.read(settingsDaoProvider).get(DownloadSettingsKeys.coverQuality) ?? '');
+    if (v != null) state = v;
+  }
+
+  Future<void> set(int value) async {
+    state = value;
+    await ref.read(settingsDaoProvider).set(DownloadSettingsKeys.coverQuality, '$value');
+  }
+}
+
+final downloadCoverQualityProvider =
+    NotifierProvider<DownloadCoverQualityNotifier, int>(
+        DownloadCoverQualityNotifier.new);
+
+/// 下载目录（只读展示用）
+final downloadDirProvider = FutureProvider<String>((ref) async {
+  final base = await getApplicationSupportDirectory();
+  return p.join(base.path, 'downloads');
+});
+
 /// 缓存版本号：缓存新增/清空后自增，UI 据此刷新「离线可用」标记
 class AudioCacheVersion extends Notifier<int> {
   @override
@@ -3113,17 +3191,9 @@ class DownloadActions {
   /// 某首歌是否已缓存
   Future<bool> isCached(String songKey) => _manager.isCached(songKey);
 
-  /// 清理已结束的任务（返回清理条数）
-  Future<int> clearFinished() async {
-    final tasks = _manager
-        .getTasks()
-        .where((t) => t.status != DownloadStatus.downloading)
-        .toList();
-    for (final task in tasks) {
-      await _manager.deleteCache(task.songKey);
-    }
-    return tasks.length;
-  }
+  /// 移除 failed/cancelled 记录（只删记录，不删文件）
+  Future<void> removeRecord(String songKey) => _manager.removeRecord(songKey);
+
 }
 
 /// 下载写操作 Provider

@@ -30,8 +30,6 @@ class DownloadsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = UiV2Theme.of(context);
     final tasks = ref.watch(downloadTasksProvider).value ?? const <DownloadTask>[];
-    // 所有写操作（取消 / 重试 / 删除缓存 / 清理已结束）都走 DownloadActions
-    final actions = ref.read(downloadActionsProvider);
 
     final running = tasks.where((x) => x.status == DownloadStatus.downloading).length;
     final done = tasks.where((x) => x.status == DownloadStatus.completed).length;
@@ -69,27 +67,9 @@ class DownloadsPage extends ConsumerWidget {
           else ...[
             Padding(
               padding: const EdgeInsets.only(bottom: UiV2Spacing.s3),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '共 ${tasks.length} 个任务 · $summaryText',
-                      style: UiV2Text.hint.copyWith(color: t.textDim),
-                    ),
-                  ),
-                  UiV2GhostMini(
-                    label: '清理已结束',
-                    onTap: () async {
-                      final cleared = await actions.clearFinished();
-                      if (context.mounted) {
-                        showUiV2Toast(
-                          context,
-                          cleared == 0 ? '没有可清理的记录' : '已清理 $cleared 条记录',
-                        );
-                      }
-                    },
-                  ),
-                ],
+              child: Text(
+                '共 ${tasks.length} 个任务 · $summaryText',
+                style: UiV2Text.hint.copyWith(color: t.textDim),
               ),
             ),
             UiV2Panel(
@@ -190,6 +170,25 @@ class _DownloadRow extends ConsumerWidget {
                     '来源里找不到这首曲子，重试不可用',
                     style: UiV2Text.hint.copyWith(color: t.warn),
                   ),
+                if (task.warning != null && task.warning!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        UiV2Icon(UiV2Icons.info, size: 14, color: t.danger),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            task.warning!,
+                            style: UiV2Text.hint.copyWith(color: t.danger),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -216,18 +215,32 @@ class _DownloadRow extends ConsumerWidget {
                   }
                 },
               ),
-            // 重试要能拿到 Song（DownloadManager.download 需要完整曲目）；
-            // 解析不到时禁用按钮并说明原因，而不是假装开始下载
-            _ => UiV2GhostMini(
-                label: '重试',
-                onTap: resolved == null
-                    ? null
-                    : () async {
-                        await actions.retry(resolved);
-                        if (context.mounted) {
-                          showUiV2Toast(context, '已重新开始下载「$title」');
-                        }
-                      },
+            DownloadStatus.failed ||
+            DownloadStatus.cancelled =>
+              Row(
+                children: [
+                  UiV2GhostMini(
+                    label: '重试',
+                    onTap: resolved == null
+                        ? null
+                        : () async {
+                            await actions.retry(resolved);
+                            if (context.mounted) {
+                              showUiV2Toast(context, '已重新开始下载「$title」');
+                            }
+                          },
+                  ),
+                  const SizedBox(width: 6),
+                  UiV2GhostMini(
+                    label: '移除记录',
+                    onTap: () async {
+                      await actions.removeRecord(task.songKey);
+                      if (context.mounted) {
+                        showUiV2Toast(context, '已移除「$title」的下载记录');
+                      }
+                    },
+                  ),
+                ],
               ),
           },
         ],
