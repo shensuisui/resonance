@@ -34,7 +34,7 @@
 | [features/mobile-audioservice.md](features/mobile-audioservice.md) | audio_service 后台播放接入（Android 一期） | 现行(一期部分完成) |
 | [features/data-import-export.md](features/data-import-export.md) | 数据导入导出（整包备份 + 单歌单导出） | 现行(待真机) |
 | [features/offline-cache.md](features/offline-cache.md) | 播放 / 歌词缓存决策 | 决策记录(无实施记录) |
-| [features/download.md](features/download.md) | 下载功能实现计划（A 已下载重做；设计计划，未实现） | 设计计划(未实现) |
+| [features/download.md](features/download.md) | 下载功能重做（A 已下载）：P0–P4a 已实现，P4b/c 待 UI 审核 | 现行(部分) |
 | [features/demo-source.md](features/demo-source.md) | 演示曲库独立 Dart HTTP 服务 | 现行 |
 | [features/build.md](features/build.md) | GitHub Actions 自动打包 | 现行 |
 | [features/flan-integration.md](features/flan-integration.md) | Flan（agent 驱动运行 App）接入 | 现行(5 项遗留) |
