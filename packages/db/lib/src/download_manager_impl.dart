@@ -20,6 +20,7 @@ class DownloadManagerImpl implements DownloadManager {
   final DownloadTaskDao? _taskDao;
   final AudioCacheFileAccess? _audioCache;
   final TagWriter _tagWriter;
+  final SettingsDao? _settingsDao;
 
   /// 自定义下载根目录（测试用）；null → support/downloads
   final String? customCacheDir;
@@ -43,13 +44,15 @@ class DownloadManagerImpl implements DownloadManager {
     DownloadTaskDao? downloadTaskDao,
     AudioCacheFileAccess? audioCache,
     TagWriter? tagWriter,
+    SettingsDao? settingsDao,
     this.customCacheDir,
     this.nameOrder = 'artist_title',
   })  : _dio = dio ?? Dio(),
         _songDao = songDao,
         _taskDao = downloadTaskDao,
         _audioCache = audioCache,
-        _tagWriter = tagWriter ?? AudioTagsTagWriter();
+        _tagWriter = tagWriter ?? AudioTagsTagWriter(),
+        _settingsDao = settingsDao;
 
   @override
   Stream<List<DownloadTask>> get taskStream => _taskController.stream;
@@ -174,6 +177,8 @@ class DownloadManagerImpl implements DownloadManager {
       return '未写入标签：不支持的格式 $ext';
     }
     final warnings = <String>[];
+    final coverSize = await _effectiveCoverSize();
+    final coverQuality = await _effectiveCoverQuality();
     var pictures = <Picture>[];
     final coverUrl = song.coverUrl;
     if (coverUrl != null && coverUrl.isNotEmpty) {
@@ -190,8 +195,8 @@ class DownloadManagerImpl implements DownloadManager {
         if (raw == null || raw.isEmpty) throw StateError('封面为空');
         final decoded = img.decodeImage(Uint8List.fromList(raw));
         if (decoded == null) throw StateError('封面解码失败');
-        final square = img.copyResizeCropSquare(decoded, size: 256);
-        final jpg = img.encodeJpg(square, quality: 85);
+        final square = img.copyResizeCropSquare(decoded, size: coverSize);
+        final jpg = img.encodeJpg(square, quality: coverQuality);
         pictures = [
           Picture(
             pictureType: PictureType.coverFront,
@@ -323,6 +328,23 @@ class DownloadManagerImpl implements DownloadManager {
     }
   }
 
+  Future<String> _effectiveNameOrder() async {
+    final v = await _settingsDao?.get(DownloadSettingsKeys.nameOrder);
+    return v == 'title_artist' ? 'title_artist' : nameOrder;
+  }
+
+  Future<int> _effectiveCoverSize() async {
+    final raw = int.tryParse(await _settingsDao?.get(DownloadSettingsKeys.coverSize) ?? '');
+    final v = raw ?? 256;
+    return v.clamp(64, 1024);
+  }
+
+  Future<int> _effectiveCoverQuality() async {
+    final raw = int.tryParse(await _settingsDao?.get(DownloadSettingsKeys.coverQuality) ?? '');
+    final v = raw ?? 85;
+    return v.clamp(50, 95);
+  }
+
   Future<void> _execute(Song song, String url, Map<String, String> headers) async {
     final key = song.globalKey;
     final lyrics = _pendingLyrics.remove(key);
@@ -392,10 +414,11 @@ class DownloadManagerImpl implements DownloadManager {
                   .map((e) => p.basename(e.path))
                   .toList())
               .toSet();
+          final order = await _effectiveNameOrder();
           final baseName = buildDownloadFileName(
             title: song.title,
             artist: song.artist,
-            order: nameOrder,
+            order: order,
             extension: ext,
           );
           final finalName = uniqueFileName(baseName, existingNames);

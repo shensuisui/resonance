@@ -163,6 +163,7 @@ Future<void> main() async {
     songDao: gDatabaseProvider.songDao,
     downloadTaskDao: gDatabaseProvider.downloadTaskDao,
     audioCache: gAudioCache,
+    settingsDao: gDatabaseProvider.settingsDao,
   );
   await gDownloadManager.init();
 
