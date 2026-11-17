@@ -17,7 +17,7 @@
 | resonance_app/lib/config/agent_debug_config.dart | 新增：元素发现三张表（可交互类型 / 停遍历 / 取文本）+ maxScreenshotSize: null | 是 |
 | resonance_app/lib/main.dart | main() 首段改成 kDebugMode ? FlanBinding.ensureInitialized(cfg) : WidgetsFlutterBinding.ensureInitialized()；Logger.root.level = Level.ALL（**未调用 enableFlutterDriverExtension**；RESONANCE_DRIVER 在壳工程已无实际作用） | 是 |
 | resonance_app/lib/main.dart（日志桥） | SourceLogBus.consolePrinter 是项目日志唯一扇出点，在这里转发到 package:logging（带级别映射） | 是 |
-| .dsh/mcp.yml | 托管块内新增 panel-mcp-flan；因本机 fvm 不可用，command 用 dart 绝对路径 | 按团队约定（该文件本仓库已入库） |
+| .dsh/mcp.yml | 托管块内新增 panel-mcp-flan；因本机 fvm 不可用，command 用 dart 绝对路径 | 否（.dsh/ 被 .gitignore 忽略，未跟踪） |
 
 **没动业务代码**：没有为 Flan 改任何页面/组件逻辑，只加了 1 个配置文件与入口接线。
 
@@ -44,8 +44,8 @@ server 起来就退出——宿主诊断里有 attempt、没有 active，零工�
 
 | 遗留项 | 类型 | 影响 | 建议处理时机 |
 | --- | --- | --- | --- |
-| 本会话拿不到 flan 工具面 | 会话级 | 需要新会话才能驱动 | 下一步就做 |
+| 本会话拿不到 flan 工具面 | 配置错误 | mcp.yml 的 cwd 曾写成 ./fm_app/（应为 ./resonance_app/），修后需重启会话 | 已改配置，重启后验证 |
 | release 产物未做符号扫描 | 未验证 | 无法证明调试层被树摇 | 正式发版前 |
-| release_check/bin/driver.mjs 仍是自写 flutter_driver 客户端 | 待迁移 | 与 skill 指定实现不一致 | 新会话里用 Flan 工具重写步骤 DSL |
-| 元素发现配置未现场命中验证 | 未验证 | 三张表可能未生效 | 新会话跑 get_interactive_elements 确认 |
+| （已完成）release_check/bin/driver.mjs 不存在；driver.dart 已是 Flan MCP 驱动 | 已完成 | — | — |
+| 元素发现现场命中 | 已验证 | E01 通过（2026-11-01T16-03-13，25/25）；仅缺原始元素清单 | 可补 dump_elements 证据 |
 | 圈选回传（能力 7）未实测 | 未验证 | 未知 | 需真人在 App 内操作 |

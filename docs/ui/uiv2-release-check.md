@@ -25,7 +25,7 @@
       lib/resize_window.ps1      # Win32 MoveWindow 改真实窗口尺寸
       config/test_plan.yaml      # 功能用例（入库）
       config/sweep_plan.yaml     # 三断点页面巡检用例
-      config/test_plan.local.yaml# 账号等局部配置（不入库）
+      config/test_plan.local.yaml# 账号等局部配置（已入库/跟踪）
 
 产物：build/release_check/&lt;时间戳&gt;/{report.md, results.json, analysis.md, screenshots/, logs/}，以及各尺寸子目录。
 
@@ -37,7 +37,7 @@
 | VM service（直连 ws） | ext.flutter.releasecheck.state（状态回读）、ext.flutter.releasecheck.cmd（navigate / dismiss / theme 等） |
 
 两个扩展由 App 侧在 kDebugMode 分支注册（resonance_app/lib/config/release_check_extensions.dart），release 树摇剔除。
-App 已不再注册 flutter_driver 扩展（改由 kDebugMode 注册 releasecheck 扩展）。注：`test_driver/`、`integration_test/ui_v2_smoke_test.dart` 与 `run_app.ps1` 仍传 `RESONANCE_DRIVER=true`，属遗留、可清理。
+App 已不再注册 flutter_driver 扩展（改由 kDebugMode 注册 releasecheck 扩展）。`test_driver/`、`integration_test/ui_v2_smoke_test.dart` 已删除，`run_app.ps1` 默认不再传 `RESONANCE_DRIVER`。
 
 ## 四、判定口径
 
@@ -60,9 +60,9 @@ App 已不再注册 flutter_driver 扩展（改由 kDebugMode 注册 releasechec
 | # | 必做项 | 状态 |
 | --- | --- | --- |
 | 1 | release 不含调试代码 | 部分：binding 与扩展在 kDebugMode 常量分支内；**产物符号扫描未做** |
-| 2 | 元素发现配置至少 1 个类型现场命中 | 待补证据：get_interactive_elements 结果里确认 UiV2* 类型出现 |
+| 2 | 元素发现配置至少 1 个类型现场命中 | 已通过：E01（2026-11-01T16-03-13，25/25 PASS） |
 | 3 | 本项目日志能被读到 | 是：get_logs 有内容（运行日志页 25 条记录即来源） |
-| 4 | 冒烟跑通并出报告 | 是：见 build/release_check/2026-11-01T15-59-17 |
+| 4 | 冒烟跑通并出报告 | 是：见 build/release_check/2026-11-01T16-03-13 |
 | 5 | 失败可复现 | 是：本轮通过 3 个真实失败反推并修掉（浮层/锚点/阶段污染） |
 | 6 | 清理干净 | 入口末尾精确清理（run_app.ps1 -Cleanup -Force） |
 | 7 | 平时不会被误调 | 用例不在 test/，入口唯一，退出码约定生效 |

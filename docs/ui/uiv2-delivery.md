@@ -104,8 +104,7 @@ cd ..\packages\uiv2 && G:\works\shelli\fm\.fvm\flutter_sdk\bin\flutter.bat test
 
 ## 7. 已知问题与后续建议
 
-1. **驱动 tap 导航有一拍延迟**：driver tap 后立即截图，内容区偶显示上一个页面（侧栏高亮即时正确）。
-   人工点击无此现象。疑似 driver 事件与帧回调的时序问题，待排查（不影响人工使用）。
+1. **driver tap 后截图偶见上一页**：主因是 go_router 二级页 220ms 转场期间两页同绘（已由补不透明底色修复）；driver 另有 300ms 固定等待兜底。现行 plan 不含「tap 紧接截图」，不可复现；残留仅为截图无 endOfFrame 保证，属可加固项。
 2. ~~播放条 2px 溢出~~ 已修：进度条行改 Flexible 吸收压缩，复检无溢出警示（08-home-fixed.png）。
 3. **构建前先结束 resonance_app 进程**：否则 WebView2Loader.dll 被占用导致 MSB3021（Windows 老坑）。
 4. **sub_page 订阅**：uiv2 通过 SubscriptionHost 注入对接订阅库；**壳工程已装配**（main.dart 注入 subscriptionHostProvider，见 resonance_app/lib/subscription_library.dart）。

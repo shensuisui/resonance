@@ -61,6 +61,6 @@
 ## 7. 环境与开关
 | 术语 | 含义 |
 |---|---|
-| RESONANCE_DRIVER | 已无 App 侧实际使用（仅 v1 shimmer_box 遗留读取；启动脚本仍传，属遗留） |
+| RESONANCE_DRIVER | 已废弃并移除：App 无读取、启动脚本默认不再传；仅 v1 shimmer_box 死代码提及 |
 | RESONANCE_DEMO_BASE_URL | Debug 下演示曲库服务地址 |
 | demo_source | 独立 Dart HTTP 演示曲库服务（仅开发） |

@@ -7,7 +7,7 @@
 |---|---|
 | 仓库代号 fm / 壳工程 fm_app | resonance / 回响；壳工程 resonance_app |
 | 入口 main.dart + main_v2.dart | 合并为单个 lib/main.dart |
-| 驱动开关（旧名，已废弃） | RESONANCE_DRIVER（壳工程已无实际使用，仅启动脚本遗留） |
+| 驱动开关（旧名，已废弃并移除） | RESONANCE_DRIVER（壳工程无读取；`run_app.ps1` 默认不再传） |
 
 取证：[evidence/rename](evidence/rename/README.md)。
 
