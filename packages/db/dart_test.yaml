@@ -1,0 +1,2 @@
+# db 测试共享 sqflite 内存库/本地端口；串行执行避免跨测试文件串扰
+concurrency: 1
