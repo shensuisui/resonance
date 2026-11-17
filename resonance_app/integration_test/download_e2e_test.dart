@@ -1,4 +1,6 @@
 /// 真机端到端：下载（真实 HTTP）+ audiotags 原生写标签（标题/歌手/专辑/歌词/封面）
+library;
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:audiotags/audiotags.dart';
@@ -15,9 +17,13 @@ Future<DownloadTask?> _wait(DownloadManager dm, String key) async {
   for (var i = 0; i < 100; i++) {
     await Future.delayed(const Duration(milliseconds: 100));
     final t = dm.getTasks().where((x) => x.songKey == key).firstOrNull;
-    if (t == null) continue;
+    if (t == null) {
+      continue;
+    }
     if (t.status == DownloadStatus.completed ||
-        t.status == DownloadStatus.failed) return t;
+        t.status == DownloadStatus.failed) {
+      return t;
+    }
   }
   return null;
 }

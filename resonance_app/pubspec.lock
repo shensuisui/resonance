@@ -74,7 +74,7 @@ packages:
     source: hosted
     version: "0.1.25"
   audiotags:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: audiotags
       sha256: b09ab98c9b7d516470763d33fe974cab710bea1de24b5811339ac1b9e68268de
