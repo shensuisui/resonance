@@ -69,6 +69,20 @@ String _tail(List<String> lines) {
   return clean.sublist(start).join(' / ');
 }
 
+/// 子进程环境：保留既有代理，但把 localhost 排除在代理外。
+///
+/// 本机规则源测试会起本地 HTTP 桩；若 HTTP(S)_PROXY 存在而 NO_PROXY 缺失，
+/// Dart 的 findProxyFromEnvironment 会把 127.0.0.1 也送进代理，导致 502。
+Map<String, String> _env() {
+  final env = Map<String, String>.from(Platform.environment);
+  const local = 'localhost,127.0.0.1,::1';
+  for (final key in ['NO_PROXY', 'no_proxy']) {
+    final cur = env[key];
+    env[key] = (cur == null || cur.trim().isEmpty) ? local : '$cur,$local';
+  }
+  return env;
+}
+
 Future<RunResult> _run(Module m) async {
   final sw = Stopwatch()..start();
   final exe = _exe(m.flutter);
@@ -76,7 +90,13 @@ Future<RunResult> _run(Module m) async {
   stdout.writeln('=== ${m.name}（${m.flutter ? 'flutter test' : 'dart test'}）===');
   Process p;
   try {
-    p = await Process.start(exe, const ['test'], workingDirectory: m.dir.path, runInShell: Platform.isWindows);
+    p = await Process.start(
+      exe,
+      const ['test'],
+      workingDirectory: m.dir.path,
+      runInShell: Platform.isWindows,
+      environment: _env(),
+    );
   } catch (e) {
     return RunResult(ok: false, note: '无法启动 $exe：$e');
   }
