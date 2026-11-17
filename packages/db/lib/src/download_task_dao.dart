@@ -21,6 +21,9 @@ class SqfliteDownloadTaskDao implements DownloadTaskDao {
       'url': task.url,
       'local_path': task.localPath,
       'error': task.error,
+      'warning': task.warning,
+      'total_bytes': task.totalBytes,
+      'received_bytes': task.receivedBytes,
       'updated_at': now,
     };
     final updated = await db.update(
@@ -59,6 +62,9 @@ class SqfliteDownloadTaskDao implements DownloadTaskDao {
       progress: (row['progress'] as num?)?.toDouble() ?? 0,
       localPath: row['local_path'] as String?,
       error: row['error'] as String?,
+      warning: row['warning'] as String?,
+      totalBytes: (row['total_bytes'] as num?)?.toInt(),
+      receivedBytes: (row['received_bytes'] as num?)?.toInt(),
     );
   }
 

@@ -4,16 +4,22 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:core/core.dart';
+import 'package:audiotags/audiotags.dart';
 import 'package:dio/dio.dart';
+import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+
+import 'tag_writer.dart';
 
 class DownloadManagerImpl implements DownloadManager {
   final Dio _dio;
   final SongDao _songDao;
   final DownloadTaskDao? _taskDao;
   final AudioCacheFileAccess? _audioCache;
+  final TagWriter _tagWriter;
 
   /// 自定义下载根目录（测试用）；null → support/downloads
   final String? customCacheDir;
@@ -25,6 +31,7 @@ class DownloadManagerImpl implements DownloadManager {
   final _songs = <String, Song>{};
   final _cancelTokens = <String, CancelToken>{};
   final _partPaths = <String, String>{};
+  final _pendingLyrics = <String, String?>{};
   final _progressMarks = <String, int>{};
   final _queue = <String>[];
   String? _active;
@@ -35,12 +42,14 @@ class DownloadManagerImpl implements DownloadManager {
     required SongDao songDao,
     DownloadTaskDao? downloadTaskDao,
     AudioCacheFileAccess? audioCache,
+    TagWriter? tagWriter,
     this.customCacheDir,
     this.nameOrder = 'artist_title',
   })  : _dio = dio ?? Dio(),
         _songDao = songDao,
         _taskDao = downloadTaskDao,
-        _audioCache = audioCache;
+        _audioCache = audioCache,
+        _tagWriter = tagWriter ?? AudioTagsTagWriter();
 
   @override
   Stream<List<DownloadTask>> get taskStream => _taskController.stream;
@@ -114,6 +123,7 @@ class DownloadManagerImpl implements DownloadManager {
     }
 
     _songs[key] = song;
+    _pendingLyrics[key] = lyrics;
     final pending = DownloadTask(
       songKey: key,
       url: downloadUrl,
@@ -150,6 +160,66 @@ class DownloadManagerImpl implements DownloadManager {
       await _execute(song, url, headers ?? _headersFor(key));
       _active = null;
     }
+  }
+
+  /// 写入基础标签 + 封面缩略图 + 歌词；返回 warning（null 表示全部成功）。
+  Future<String?> _writeMetadata(
+    String path,
+    Song song,
+    String? lyrics,
+    Map<String, String> headers,
+  ) async {
+    final ext = p.extension(path).toLowerCase();
+    if (!{'.mp3', '.m4a', '.flac', '.ogg', '.opus'}.contains(ext)) {
+      return '未写入标签：不支持的格式 $ext';
+    }
+    final warnings = <String>[];
+    var pictures = <Picture>[];
+    final coverUrl = song.coverUrl;
+    if (coverUrl != null && coverUrl.isNotEmpty) {
+      try {
+        final res = await _dio.get<List<int>>(
+          coverUrl,
+          options: Options(
+            responseType: ResponseType.bytes,
+            receiveTimeout: const Duration(seconds: 15),
+            headers: headers,
+          ),
+        );
+        final raw = res.data;
+        if (raw == null || raw.isEmpty) throw StateError('封面为空');
+        final decoded = img.decodeImage(Uint8List.fromList(raw));
+        if (decoded == null) throw StateError('封面解码失败');
+        final square = img.copyResizeCropSquare(decoded, size: 256);
+        final jpg = img.encodeJpg(square, quality: 85);
+        pictures = [
+          Picture(
+            pictureType: PictureType.coverFront,
+            mimeType: MimeType.jpeg,
+            bytes: Uint8List.fromList(jpg),
+          ),
+        ];
+      } catch (_) {
+        warnings.add('封面写入失败');
+      }
+    }
+    final hasLyrics = lyrics != null && lyrics.trim().isNotEmpty;
+    if (!hasLyrics) warnings.add('无歌词');
+    try {
+      await _tagWriter.write(
+        path,
+        Tag(
+          title: song.title,
+          trackArtist: song.artist,
+          album: song.album,
+          lyrics: hasLyrics ? lyrics : null,
+          pictures: pictures,
+        ),
+      );
+    } catch (_) {
+      warnings.add('标签写入失败');
+    }
+    return warnings.isEmpty ? null : warnings.join('；');
   }
 
   /// 缓存命中则拷贝为下载文件；成功返回 true（不联网）。
@@ -255,6 +325,7 @@ class DownloadManagerImpl implements DownloadManager {
 
   Future<void> _execute(Song song, String url, Map<String, String> headers) async {
     final key = song.globalKey;
+    final lyrics = _pendingLyrics.remove(key);
     final cancelToken = CancelToken();
     _cancelTokens[key] = cancelToken;
     final root = await _downloadRoot();
@@ -332,12 +403,14 @@ class DownloadManagerImpl implements DownloadManager {
           await File(partPath).rename(finalPath);
           _partPaths.remove(key);
 
+          final warning = await _writeMetadata(finalPath, song, lyrics, headers);
           _tasks[key] = _tasks[key]!.copyWith(
             status: DownloadStatus.completed,
             progress: 1.0,
             localPath: finalPath,
             totalBytes: total > 0 ? total : null,
             receivedBytes: base + received,
+            warning: warning,
           );
           await _songDao.upsertSong(song.copyWith(localPath: finalPath));
           _notify();
