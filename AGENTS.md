@@ -61,6 +61,7 @@ fvm dart analyze
 
 - 单包：在 `packages/<pkg>` 下 `flutter test`；纯 Dart 包（core/expr）用 `dart test`。
 - 全部：`dart tool/test_all.dart`（跨平台；自动发现所有含 pubspec 的模块、按包类型选 runner、汇总结果，任一失败退出码 1）。
+- 本机注意：`flutter`/`dart` 不在 PATH，实际用 `.fvm/flutter_sdk/bin/flutter.bat` / `.fvm/flutter_sdk/bin/dart.bat`（如 `.fvm/flutter_sdk/bin/dart.bat tool/test_all.dart`）。
 - 覆盖率：各包 `flutter test --coverage`（当前未设统一门槛）。
 - 本机跑 db / resonance_app 测试若触发 sqlite3 原生库下载，需代理：`HTTPS_PROXY=http://127.0.0.1:7890`（hook 用 `HttpClient.findProxyFromEnvironment`）。
 
