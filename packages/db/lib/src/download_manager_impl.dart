@@ -515,7 +515,20 @@ class DownloadManagerImpl implements DownloadManager {
   Future<bool> isCached(String songKey) async {
     final path = await getLocalPath(songKey);
     if (path == null) return false;
-    return File(path).exists();
+    if (await File(path).exists()) return true;
+    // 外部删除自愈：文件没了 → 清 local_path、删任务行，避免「幽灵已下载」
+    await _healMissing(songKey);
+    return false;
+  }
+
+  Future<void> _healMissing(String songKey) async {
+    final parts = songKey.split(':');
+    if (parts.length == 2) {
+      await _songDao.clearLocalPath(parts[1], parts[0]);
+    }
+    _tasks.remove(songKey);
+    await _taskDao?.delete(songKey);
+    _notify();
   }
 
   @override
