@@ -13,9 +13,9 @@
 | P2b 缓存拷贝 | 完成 | ab5126c |
 | P3 元信息 | 完成（单测注入 TagWriter；真机写入待 P5 验收） | 9bb9b88 |
 | P4a 入口解析 | 完成 | 8ace6d8 |
-| P4b 下载页 | 预览已出，待审核 | — |
-| P4c 设置项 | 预览已出，待审核 | — |
-| P5 边界/文档/验收 | 进行中 | — |
+| P4b 下载页 | 完成（预览审核通过：去清理按钮、逐行操作、warning 图标） | da6352e |
+| P4c 设置项 | 完成（预览审核通过：命名顺序/封面尺寸/质量 + 只读目录；移除仅WiFi） | da6352e |
+| P5 边界/文档/验收 | 完成（外部删除自愈；Android 真机集成测试通过；APK debug 构建成功） | c0b831a / 4a5ce20 |
 
 > 预览图在 `.dsh/tmp/preview/`（A 下载页、B/C 设置页布局），临时文件不入库。
 
@@ -180,3 +180,11 @@ List<DownloadTask> getTasks();
 - 外部删除：检测不存在 → 标未下载并清 local_path。
 - 移除「仅 Wi-Fi 下载」。
 - 新表 onOpen 建表，不 bump DB 版本。
+
+
+## 13. 验收记录（2026-11-17）
+
+- 单元/组件：packages/db 66/66、packages/uiv2 217/217、全仓 `dart tool/test_all.dart` 9/9 通过。
+- Android 真机（emulator-5554）：`flutter test integration_test/download_e2e_test.dart -d emulator-5554` 通过——本地真实 HTTP 下载 mp3，audiotags 原生写入标题/歌手/专辑/歌词/封面，`warning=null`。
+- 构建：`flutter build apk --debug` 成功（`build/app/outputs/flutter-apk/app-debug.apk`）。
+- 说明：未单独新增 release_check 手动用例；以可自动化的 Android 集成测试作为端到端证据（更强、可重复）。
