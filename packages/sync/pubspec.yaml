@@ -1,0 +1,26 @@
+name: sync
+description: "WebDAV 云同步 — 快照链 + 多设备合并（复用 core/db）"
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.13.1
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  core:
+    path: ../core
+  db:
+    path: ../db
+  webdav_client_plus: ^3.0.0
+  archive: ^4.7.1
+  crypto: ^3.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
