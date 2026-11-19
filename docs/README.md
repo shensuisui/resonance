@@ -1,7 +1,7 @@
 # 文档地图（docs/ README）
 
 > resonance / 回响 项目文档的**唯一阅读入口**。新增文档请归入对应分区并在下方登记；过期文档移入 archive/ 并加「历史归档」横幅。
-> 更新：2026-11-13
+> 更新：2026-11-19
 
 ## 先读这 4 篇（总览 / 真相源）
 | 文档 | 说明 | 状态 |
@@ -38,6 +38,7 @@
 | [features/demo-source.md](features/demo-source.md) | 演示曲库独立 Dart HTTP 服务 | 现行 |
 | [features/build.md](features/build.md) | GitHub Actions 自动打包 | 现行 |
 | [features/flan-integration.md](features/flan-integration.md) | Flan（agent 驱动运行 App）接入 | 现行(5 项遗留) |
+| [features/webdav-sync.md](features/webdav-sync.md) | WebDAV 云同步设计（快照链留7份/多设备合并/墓碑/表结构 v5；变更感知/基线墓碑；分三期） | 设计稿(未实施) |
 
 ## 实现方案
 | 文档 | 说明 | 状态 |
