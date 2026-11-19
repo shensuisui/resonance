@@ -7,6 +7,7 @@ library;
 
 export 'src/asset_store.dart';
 export 'src/dav_client.dart';
+export 'src/file_sync_state_store.dart';
 export 'src/dav_client_webdav.dart';
 export 'src/latest.dart';
 export 'src/local_snapshot_applier.dart';
