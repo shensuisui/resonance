@@ -52,7 +52,7 @@ Future<void> _waitReady(Process proc, Duration timeout) async {
 
 /// 造一台设备（独立 DB 文件 + 内存状态）
 Future<({SyncEngine engine, SqfliteDatabaseProvider db, MemorySyncStateStore state})>
-    device(String id, String dbPath, DavClient dav) async {
+    device(String id, String dbPath, DavClient dav, {AssetStore? assets}) async {
   final db = SqfliteDatabaseProvider.withHelper(
     DatabaseHelper(customDbPath: dbPath),
   );
@@ -66,6 +66,7 @@ Future<({SyncEngine engine, SqfliteDatabaseProvider db, MemorySyncStateStore sta
       state: state,
       deviceId: id,
       deviceName: id,
+      assetStore: assets,
     ),
     db: db,
     state: state,
@@ -199,5 +200,64 @@ void main() {
     final r = await c.engine.restoreVersion(target, now: t(210));
     expect(r.success, isTrue, reason: r.error);
     expect(r.fromVersion, target);
+  });
+
+  test('资产走真实 WebDAV：写→拉→改→回传→删', () async {
+    final storeA = MemoryAssetStore();
+    final storeB = MemoryAssetStore();
+    final a = await device('D', p.join(tmp.path, 'd.db'), dav, assets: storeA);
+    final b = await device('E', p.join(tmp.path, 'e.db'), dav, assets: storeB);
+
+    // A 写订阅索引 → 推 → B 拿到
+    await storeA.write(<AssetFile>[
+      AssetFile(
+        path: 'subscriptions/index.json',
+        bytes: utf8.encode('["a"]'),
+        mtime: 100,
+      ),
+    ]);
+    final r1 = await a.engine.sync(now: t(300));
+    expect(r1.success, isTrue, reason: r1.error);
+    final rb = await b.engine.sync(now: t(310));
+    expect(rb.success, isTrue, reason: rb.error);
+    expect(
+      utf8.decode((await storeB.readAll()).single.bytes),
+      '["a"]',
+    );
+
+    // B 改同一文件（mtime 更新）→ 推 → A 拿到
+    await storeB.write(<AssetFile>[
+      AssetFile(
+        path: 'subscriptions/index.json',
+        bytes: utf8.encode('["a","b"]'),
+        mtime: 200,
+      ),
+    ]);
+    await b.engine.sync(now: t(320));
+    await a.engine.sync(now: t(330));
+    expect(
+      utf8.decode((await storeA.readAll()).single.bytes),
+      '["a","b"]',
+    );
+
+    // A 增一个文件并同步，再由 A 删除（墓碑）→ B 同步后消失
+    await storeA.write(<AssetFile>[
+      AssetFile(
+        path: 'subscriptions/extra.json',
+        bytes: utf8.encode('x'),
+        mtime: 300,
+      ),
+    ]);
+    await a.engine.sync(now: t(340));
+    await b.engine.sync(now: t(350));
+    expect((await storeB.readAll()).length, 2);
+
+    await storeA.delete(<String>['subscriptions/extra.json']);
+    await a.engine.sync(now: t(360));
+    await b.engine.sync(now: t(370));
+    expect(
+      (await storeB.readAll()).map((f) => f.path),
+      <String>['subscriptions/index.json'],
+    );
   });
 }
