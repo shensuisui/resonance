@@ -48,6 +48,8 @@
 将来做甲，只需把它换成基于 `StreamAudioSource` 的实现（边转发边落盘），
 **缓存目录、命名、命中、开关、清理全部复用，不需改动**。
 
+> 实现（2026-11-19）：采用 just_audio `LockCachingAudioSource`（`cacheFile` 指向 AudioCache 目标路径，完成 `downloadProgressStream=1` 后 `adoptExistingFile` 入索引）；M4 emulator 实测 1 倍流量/缓存完整/seek 可用，见 offline-cache-plan-甲.md。
+
 ## 六、验收（端到端）
 
 1. 播放一首 → `audio_cache` 出现完整文件；`songs.lyric` 已写入（**全程不打开播放页/不开歌词**）

@@ -11,6 +11,7 @@
 ///
 /// 壳工程不写业务逻辑，只做组装。
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:io' as io;
@@ -90,6 +91,32 @@ String? debugCaptchaId;
 /// 播放缓存（离线可用）：与「已下载」分开存放，不写 localPath
 late AudioCacheImpl gAudioCache;
 
+final Map<String, StreamSubscription<double>> _adoptSubs = {};
+
+/// 等 LockCachingAudioSource 下载完成（文件出现/progress=1）后登记入缓存索引；
+/// 若播放缓存开关已关闭，则删除文件不登记。
+void _watchAdopt(String key, String path, LockCachingAudioSource source) {
+  _adoptSubs.remove(key)?.cancel();
+  late StreamSubscription<double> sub;
+  sub = source.downloadProgressStream.listen((p) async {
+    final exists = File(path).existsSync();
+    if (p < 1.0 && !exists) return;
+    await sub.cancel();
+    _adoptSubs.remove(key);
+    final raw = await gDatabaseProvider.settingsDao.get('audio_cache_play');
+    if (raw == '0') {
+      for (final f in [File(path), File('$path.mime'), File('$path.part')]) {
+        try {
+          if (await f.exists()) await f.delete();
+        } catch (_) {}
+      }
+      return;
+    }
+    await gAudioCache.adoptExistingFile(key);
+  }, onError: (Object _) {});
+  _adoptSubs[key] = sub;
+}
+
 Future<void> main() async {
   // 调试层：debug 用 FlanBinding（agent 驱动：元素枚举/手势/截图/日志/热重载/圈选回传），
   // release 保持默认 binding。必须是 kDebugMode 这种**编译期常量分支**，
@@ -141,30 +168,20 @@ Future<void> main() async {
       // （这一路拿不到验证码；空地址会被播放器安全跳过，不会崩）
       return res.url;
     },
-    // 「甲」：未命中缓存的新歌边走播边落盘（1 倍流量）；失败由 PlayerImpl 回退原始 URL。
+    // 「甲」：用 just_audio 的 LockCachingAudioSource 边播边落盘（1 倍流量），
+    // 完成后 adopt 进 AudioCache 索引；未命中缓存/已下载/开关关闭都退回 v1。
     audioSourceBuilder: (url, {Song? song}) {
-      // M4 未通过（Android 播放器缓冲后取消读取，边播 tee 不提交缓存）：
-      // 默认关闭「甲」，保持 v1 行为；M4 验证通过后置 true。
-      const enableStreamCache = false;
-      if (!enableStreamCache) return AudioSource.uri(url);
       final remote = url.scheme == 'http' || url.scheme == 'https';
       if (song == null || !remote) return AudioSource.uri(url);
-      return CachingStreamAudioSource(
-        open: ({int? start, int? end}) => openHttpStream(
-          url,
-          headers: gSourceManager.playHeadersFor(song.sourceId),
-          start: start,
-          end: end,
-        ),
-        openSink: () async {
-          final raw =
-              await gDatabaseProvider.settingsDao.get('audio_cache_play');
-          if (raw == '0') return null;
-          if (gAudioCache.isCached(song.globalKey)) return null;
-          if (await gAudioCache.downloadedUrlFor(song) != null) return null;
-          return gAudioCache.openStream(song.globalKey);
-        },
+      final target = gAudioCache.targetPathFor(song.globalKey);
+      if (target == null) return AudioSource.uri(url);
+      final source = LockCachingAudioSource(
+        url,
+        headers: gSourceManager.playHeadersFor(song.sourceId),
+        cacheFile: File(target),
       );
+      _watchAdopt(song.globalKey, target, source);
+      return source;
     },
   );
   // 2.1 移动端：把播放器接到系统媒体服务（通知栏/锁屏/耳机键/后台保活）。
