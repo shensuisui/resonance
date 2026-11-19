@@ -5,6 +5,7 @@
 ///   * 快照 = tar.bz2（snapshot.json + assets/），保留最近 7 份。
 library;
 
+export 'src/asset_store.dart';
 export 'src/dav_client.dart';
 export 'src/dav_client_webdav.dart';
 export 'src/latest.dart';

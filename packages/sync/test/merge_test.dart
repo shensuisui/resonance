@@ -128,4 +128,41 @@ void main() {
     final snaps = (p.data['snapshots'] as Map).cast<String, Object?>();
     expect((snaps['a'] as Map)['title'], '新A'); // 较新者优先
   });
+
+  test('资产合并：按 mtime 判胜、仅墓碑才删', () {
+    final out = Merger.mergeAssets(
+      local: const <AssetEntry>[
+        AssetEntry(path: 'a.json', sha256: 'aaa', mtime: 10),
+        AssetEntry(path: 'b.json', sha256: 'bbb', mtime: 20),
+      ],
+      remote: const <AssetEntry>[
+        AssetEntry(path: 'a.json', sha256: 'zzz', mtime: 30),
+        AssetEntry(path: 'c.json', sha256: 'ccc', mtime: 40),
+      ],
+      tombstones: const <Tombstone>[
+        Tombstone(
+          entity: SyncEntity.assets,
+          key: 'b.json',
+          deletedAt: 25,
+          deviceId: 'r',
+        ),
+      ],
+    );
+    final byPath = <String, AssetEntry>{for (final a in out) a.path: a};
+    expect(byPath.keys.toSet(), <String>{'a.json', 'c.json'});
+    expect(byPath['a.json']!.sha256, 'zzz'); // 远端更新
+    expect(byPath.containsKey('b.json'), isFalse); // 墓碑删除
+  });
+
+  test('资产合并：mtime 相同按 sha 决定（结果确定）', () {
+    final out = Merger.mergeAssets(
+      local: const <AssetEntry>[
+        AssetEntry(path: 'a', sha256: 'aaa', mtime: 10),
+      ],
+      remote: const <AssetEntry>[
+        AssetEntry(path: 'a', sha256: 'zzz', mtime: 10),
+      ],
+    );
+    expect(out.single.sha256, 'zzz');
+  });
 }

@@ -140,4 +140,23 @@ void main() {
       throwsA(isA<FormatException>()),
     );
   });
+
+  test('资产清单元数据随快照往返', () {
+    final bundle = SnapshotBundle(
+      snapshot: SyncSnapshot(
+        version: 1,
+        updatedAt: 1,
+        writer: 'w',
+        assets: const <AssetEntry>[
+          AssetEntry(path: 'a.json', sha256: 'abc', mtime: 123),
+        ],
+      ),
+      assets: <String, List<int>>{'a.json': <int>[1, 2, 3]},
+    );
+    final decoded = SnapshotCodec.decode(SnapshotCodec.encode(bundle));
+    expect(decoded.snapshot.assets.single.path, 'a.json');
+    expect(decoded.snapshot.assets.single.sha256, 'abc');
+    expect(decoded.snapshot.assets.single.mtime, 123);
+    expect(decoded.assets['a.json'], <int>[1, 2, 3]);
+  });
 }

@@ -2,12 +2,15 @@
 ///
 /// 云端只存「快照链 + latest 指针」，合并全部在本机完成
 /// （docs/features/webdav-sync.md §6/§8）。
+/// 资产（订阅库/规则/插件）随快照 zip 的 assets/ 一起走；未注入 [AssetStore]
+/// 时完全不碰资产（P1 行为）。
 library;
 
 import 'dart:convert';
 
 import 'package:core/core.dart';
 
+import 'asset_store.dart';
 import 'dav_client.dart';
 import 'latest.dart';
 import 'local_snapshot_applier.dart';
@@ -38,6 +41,9 @@ class SyncEngine {
   /// 远端根目录（默认 /resonance-sync）
   final String remoteRoot;
 
+  /// 资产存储（null = 不同步资产）
+  final AssetStore? assetStore;
+
   /// 保留的快照份数
   static const int keepVersions = 7;
 
@@ -54,6 +60,7 @@ class SyncEngine {
     required this.deviceId,
     required this.deviceName,
     this.remoteRoot = '/resonance-sync',
+    this.assetStore,
   });
 
   String get _root =>
@@ -96,7 +103,9 @@ class SyncEngine {
 
     for (var attempt = 0; attempt <= 2; attempt++) {
       final latest = await _readLatest();
-      final remote = latest == null ? null : await _download(latest);
+      final remoteBundle = latest == null ? null : await _download(latest);
+      final remote = remoteBundle?.snapshot;
+      final remoteAssets = remoteBundle?.assets ?? const <String, List<int>>{};
       final nextVersion = (latest?.version ?? 0) + 1;
 
       final local = await reader.read(
@@ -105,9 +114,15 @@ class SyncEngine {
         baseline: baseline,
         now: at,
       );
+      final localAssets = await _readLocalAssets();
+      final localMeta = <AssetEntry>[
+        for (final f in localAssets)
+          AssetEntry(path: f.path, sha256: f.sha256Hex, mtime: f.mtime),
+      ];
+
       final tombstones = _mergeTombstones(
         remote?.tombstones ?? const <Tombstone>[],
-        _localDeletions(baseline, local, at),
+        _localDeletions(baseline, local, localMeta, at),
         at,
       );
 
@@ -124,15 +139,30 @@ class SyncEngine {
         mergedEntities[entity] = outcome.records;
         conflicts += outcome.conflicts;
       }
+
+      final mergedMeta = assetStore == null
+          ? const <AssetEntry>[]
+          : Merger.mergeAssets(
+              local: localMeta,
+              remote: remote?.assets ?? const <AssetEntry>[],
+              tombstones: tombstones,
+            );
       final merged = SyncSnapshot(
         version: nextVersion,
         updatedAt: at.millisecondsSinceEpoch,
         writer: deviceId,
         entities: mergedEntities,
         tombstones: tombstones,
+        assets: mergedMeta,
       );
 
       await applier.apply(merged);
+      final mergedBytes = _assetBytes(
+        mergedMeta,
+        localAssets: localAssets,
+        remoteAssets: remoteAssets,
+      );
+      await _applyAssets(mergedMeta, mergedBytes, tombstones);
 
       // 无变更：不产生新版本
       final sameAsRemote = remote != null &&
@@ -156,7 +186,9 @@ class SyncEngine {
         continue;
       }
 
-      final bytes = SnapshotCodec.encode(SnapshotBundle(snapshot: merged));
+      final bytes = SnapshotCodec.encode(
+        SnapshotBundle(snapshot: merged, assets: mergedBytes),
+      );
       final sha = SnapshotCodec.sha256Hex(bytes);
       await dav.mkdir('$_root/snapshots');
       await dav.write(_snapshotPath(nextVersion), bytes);
@@ -185,6 +217,65 @@ class SyncEngine {
     throw const SyncException('并发冲突：重试后仍被其它设备抢先');
   }
 
+  /// 读本机资产（未注入资产存储时为空）
+  Future<List<AssetFile>> _readLocalAssets() async {
+    final store = assetStore;
+    if (store == null) return const <AssetFile>[];
+    return store.readAll();
+  }
+
+  /// 为合并后的清单挑选字节：优先本机同 sha，否则用远端快照包里的
+  Map<String, List<int>> _assetBytes(
+    List<AssetEntry> meta, {
+    required List<AssetFile> localAssets,
+    required Map<String, List<int>> remoteAssets,
+  }) {
+    final localBy = <String, AssetFile>{
+      for (final f in localAssets) f.path: f,
+    };
+    final out = <String, List<int>>{};
+    for (final entry in meta) {
+      final localFile = localBy[entry.path];
+      if (localFile != null && localFile.sha256Hex == entry.sha256) {
+        out[entry.path] = localFile.bytes;
+        continue;
+      }
+      final remoteBytes = remoteAssets[entry.path];
+      if (remoteBytes != null &&
+          SnapshotCodec.sha256Hex(remoteBytes) == entry.sha256) {
+        out[entry.path] = remoteBytes;
+      }
+    }
+    return out;
+  }
+
+  /// 把合并后的资产写回本机：写入/覆盖，仅墓碑驱动的删除
+  Future<void> _applyAssets(
+    List<AssetEntry> meta,
+    Map<String, List<int>> bytes,
+    List<Tombstone> tombstones,
+  ) async {
+    final store = assetStore;
+    if (store == null) return;
+    final files = <AssetFile>[
+      for (final entry in meta)
+        if (bytes[entry.path] != null)
+          AssetFile(
+            path: entry.path,
+            bytes: bytes[entry.path]!,
+            mtime: entry.mtime,
+          ),
+    ];
+    await store.write(files);
+
+    final paths = <String>{for (final a in meta) a.path};
+    final dead = <String>{
+      for (final t in tombstones)
+        if (t.entity == SyncEntity.assets && !paths.contains(t.key)) t.key,
+    };
+    if (dead.isNotEmpty) await store.delete(dead);
+  }
+
   /// 读 latest.json（不存在返回 null）
   Future<LatestDoc?> _readLatest() async {
     final bytes = await dav.read(_latestPath);
@@ -193,7 +284,7 @@ class SyncEngine {
   }
 
   /// 下载并校验快照
-  Future<SyncSnapshot> _download(LatestDoc latest) async {
+  Future<SnapshotBundle> _download(LatestDoc latest) async {
     final bytes = await dav.read('$_root/${latest.file}');
     if (bytes == null) {
       throw SyncException('快照缺失：${latest.file}');
@@ -202,16 +293,19 @@ class SyncEngine {
         SnapshotCodec.sha256Hex(bytes) != latest.sha256) {
       throw SyncException('快照校验失败：${latest.file}');
     }
-    return SnapshotCodec.decode(bytes).snapshot;
+    return SnapshotCodec.decode(bytes);
   }
 
   /// 本机删除 → 墓碑（基线有、当前无）
   ///
   /// 刻意不覆盖 songs（索引缓存，不做删除传播）与 recent
   /// （上限 500 的滚动淘汰不是用户删除，避免墓碑噪音）。
+  /// 资产：仅当本机资产非空时才推断删除——避免「目录未初始化/读不到」
+  /// 被误判成「全删了」而把云端资产批删。
   List<Tombstone> _localDeletions(
     SyncSnapshot? baseline,
     SyncSnapshot local,
+    List<AssetEntry> localAssets,
     DateTime at,
   ) {
     if (baseline == null) return const <Tombstone>[];
@@ -230,6 +324,18 @@ class SyncEngine {
         out.add(Tombstone(
           entity: entity,
           key: key,
+          deletedAt: now,
+          deviceId: deviceId,
+        ));
+      }
+    }
+    if (assetStore != null && localAssets.isNotEmpty) {
+      final basePaths = baseline.assets.map((a) => a.path).toSet();
+      final localPaths = localAssets.map((a) => a.path).toSet();
+      for (final path in basePaths.difference(localPaths)) {
+        out.add(Tombstone(
+          entity: SyncEntity.assets,
+          key: path,
           deletedAt: now,
           deviceId: deviceId,
         ));
@@ -322,8 +428,22 @@ class SyncEngine {
     if (bytes == null) {
       return SyncReport.failure('版本 v$version 不存在', at: at);
     }
-    final snapshot = SnapshotCodec.decode(bytes).snapshot;
+    final bundle = SnapshotCodec.decode(bytes);
+    final snapshot = bundle.snapshot;
     await LocalSnapshotApplier(db: db).apply(snapshot);
+    if (assetStore != null) {
+      final meta = snapshot.assets;
+      final files = <AssetFile>[
+        for (final entry in meta)
+          if (bundle.assets[entry.path] != null)
+            AssetFile(
+              path: entry.path,
+              bytes: bundle.assets[entry.path]!,
+              mtime: entry.mtime,
+            ),
+      ];
+      await assetStore!.write(files);
+    }
     await state.writeBaseline(snapshot);
     await state.writeKnownVersion(version);
     return SyncReport(

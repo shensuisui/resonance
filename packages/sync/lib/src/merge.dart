@@ -83,6 +83,43 @@ abstract final class Merger {
     return MergeOutcome(records: merged, conflicts: conflicts);
   }
 
+  /// 合并资产清单（按 mtime 判胜；仅墓碑才删）
+  ///
+  /// 资产没有逐记录的 deviceId：mtime 相同则比 sha256（大者胜），保证确定。
+  /// 删除只认墓碑（决策 35：远端有、本地无不视为删除）。
+  static List<AssetEntry> mergeAssets({
+    required List<AssetEntry> local,
+    required List<AssetEntry> remote,
+    List<Tombstone> tombstones = const <Tombstone>[],
+  }) {
+    final localBy = <String, AssetEntry>{for (final a in local) a.path: a};
+    final remoteBy = <String, AssetEntry>{for (final a in remote) a.path: a};
+    final dead = _tombstonesOf(SyncEntity.assets, tombstones);
+    final paths = <String>{...localBy.keys, ...remoteBy.keys};
+    final out = <AssetEntry>[];
+
+    for (final path in paths) {
+      final l = localBy[path];
+      final r = remoteBy[path];
+      AssetEntry? winner;
+      if (l == null) {
+        winner = r;
+      } else if (r == null) {
+        winner = l;
+      } else if (l.mtime != r.mtime) {
+        winner = l.mtime > r.mtime ? l : r;
+      } else {
+        winner = l.sha256.compareTo(r.sha256) >= 0 ? l : r;
+      }
+      if (winner == null) continue;
+      final tomb = dead[path];
+      if (tomb != null && tomb.deletedAt > winner.mtime) continue;
+      out.add(winner);
+    }
+    out.sort((a, b) => a.path.compareTo(b.path));
+    return out;
+  }
+
   /// 取墓碑：同 key 取 deletedAt 最大者
   static Map<String, Tombstone> _tombstonesOf(
     String entity,

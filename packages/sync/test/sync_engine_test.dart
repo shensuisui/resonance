@@ -7,6 +7,8 @@
 ///   4. 删除：A 删 → 墓碑 → B 同步后删除；
 ///   5. 裁剪：超过 7 份只留最近 7 份。
 
+import 'dart:convert';
+
 import 'package:core/core.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sync/sync.dart';
@@ -58,7 +60,7 @@ class InMemoryDav implements DavClient {
 
 /// 造一套「一台设备」的依赖
 ({SyncEngine engine, InMemoryDatabaseProvider db, MemorySyncStateStore state})
-    device(String id, InMemoryDav dav) {
+    device(String id, InMemoryDav dav, {AssetStore? assets}) {
   final db = InMemoryDatabaseProvider();
   final state = MemorySyncStateStore();
   return (
@@ -68,6 +70,7 @@ class InMemoryDav implements DavClient {
       state: state,
       deviceId: id,
       deviceName: id,
+      assetStore: assets,
     ),
     db: db,
     state: state,
@@ -168,5 +171,56 @@ void main() {
     expect(await a.engine.listVersions(), isEmpty);
     expect(await a.state.readKnownVersion(), isNull);
     expect(await a.state.readBaseline(), isNull);
+  });
+
+  test('资产：A 写→B 拿到；B 改→A 拿到；删除经墓碑传播', () async {
+    final dav = InMemoryDav();
+    final storeA = MemoryAssetStore();
+    final storeB = MemoryAssetStore();
+    final a = device('A', dav, assets: storeA);
+    final b = device('B', dav, assets: storeB);
+
+    await storeA.write(<AssetFile>[
+      AssetFile(
+        path: 'subscriptions/index.json',
+        bytes: utf8.encode('v1'),
+        mtime: 100,
+      ),
+    ]);
+    await a.engine.sync(now: t(10));
+    await b.engine.sync(now: t(20));
+    expect(utf8.decode((await storeB.readAll()).single.bytes), 'v1');
+
+    // B 修改同一文件（mtime 更新）→ 推 v2 → A 拿到
+    await storeB.write(<AssetFile>[
+      AssetFile(
+        path: 'subscriptions/index.json',
+        bytes: utf8.encode('v2'),
+        mtime: 200,
+      ),
+    ]);
+    await b.engine.sync(now: t(30));
+    await a.engine.sync(now: t(40));
+    expect(utf8.decode((await storeA.readAll()).single.bytes), 'v2');
+
+    // A 新增一个文件并同步，再由 A 删除它（走墓碑）
+    await storeA.write(<AssetFile>[
+      AssetFile(
+        path: 'subscriptions/other.json',
+        bytes: utf8.encode('x'),
+        mtime: 300,
+      ),
+    ]);
+    await a.engine.sync(now: t(50));
+    await b.engine.sync(now: t(60));
+    expect((await storeB.readAll()).length, 2);
+
+    await storeA.delete(<String>['subscriptions/other.json']);
+    await a.engine.sync(now: t(70));
+    await b.engine.sync(now: t(80));
+    expect(
+      (await storeB.readAll()).map((f) => f.path),
+      <String>['subscriptions/index.json'],
+    );
   });
 }

@@ -40,6 +40,7 @@ abstract final class SnapshotCodec {
           entry.key: <Object?>[for (final r in entry.value) r.toJson()],
       },
       'tombstones': <Object?>[for (final t in snapshot.tombstones) t.toJson()],
+      'assets': <Object?>[for (final a in snapshot.assets) a.toJson()],
     };
   }
 
@@ -62,6 +63,7 @@ abstract final class SnapshotCodec {
       ];
     }
     final tombstonesJson = (json['tombstones'] as List?) ?? const <Object?>[];
+    final assetsJson = (json['assets'] as List?) ?? const <Object?>[];
     return SyncSnapshot(
       version: (json['version'] as num?)?.toInt() ?? 0,
       updatedAt: (json['updatedAt'] as num?)?.toInt() ?? 0,
@@ -70,6 +72,10 @@ abstract final class SnapshotCodec {
       tombstones: <Tombstone>[
         for (final item in tombstonesJson)
           Tombstone.fromJson((item as Map).cast<String, Object?>()),
+      ],
+      assets: <AssetEntry>[
+        for (final item in assetsJson)
+          AssetEntry.fromJson((item as Map).cast<String, Object?>()),
       ],
     );
   }
@@ -139,8 +145,13 @@ abstract final class SnapshotCodec {
         final c = a.entity.compareTo(b.entity);
         return c != 0 ? c : a.key.compareTo(b.key);
       });
+    final assets = <AssetEntry>[...snapshot.assets]
+      ..sort((a, b) => a.path.compareTo(b.path));
     final json = <String, Object?>{
       'entities': entities,
+      'assets': <Object?>[
+        for (final a in assets) <String, Object?>{'path': a.path, 'sha256': a.sha256},
+      ],
       'tombstones': <Object?>[
         for (final t in tombstones)
           <String, Object?>{

@@ -97,6 +97,42 @@ class Tombstone {
   String toString() => 'Tombstone($entity/$key @$deletedAt)';
 }
 
+/// 资产文件条目（只存元数据，字节在 zip 的 assets/ 下）
+class AssetEntry {
+  /// 相对路径（如 subscriptions/index.json）
+  final String path;
+
+  /// 内容 sha256（十六进制）
+  final String sha256;
+
+  /// 修改时间（毫秒，UTC）
+  final int mtime;
+
+  /// 构造
+  const AssetEntry({
+    required this.path,
+    required this.sha256,
+    required this.mtime,
+  });
+
+  /// 转 JSON
+  Map<String, Object?> toJson() => <String, Object?>{
+        'path': path,
+        'sha256': sha256,
+        'mtime': mtime,
+      };
+
+  /// 从 JSON 还原
+  factory AssetEntry.fromJson(Map<String, Object?> json) => AssetEntry(
+        path: json['path'] as String,
+        sha256: json['sha256'] as String? ?? '',
+        mtime: (json['mtime'] as num?)?.toInt() ?? 0,
+      );
+
+  @override
+  String toString() => 'AssetEntry($path, $mtime)';
+}
+
 /// 快照内的实体分区名
 abstract final class SyncEntity {
   /// 歌曲索引
@@ -148,6 +184,9 @@ class SyncSnapshot {
   /// 删除墓碑
   final List<Tombstone> tombstones;
 
+  /// 资产清单（字节在 zip 的 assets/ 下；空表示不带资产）
+  final List<AssetEntry> assets;
+
   /// 构造
   const SyncSnapshot({
     required this.version,
@@ -155,6 +194,7 @@ class SyncSnapshot {
     required this.writer,
     this.entities = const <String, List<SyncRecord>>{},
     this.tombstones = const <Tombstone>[],
+    this.assets = const <AssetEntry>[],
   });
 
   /// 记录总数（统计/UI 用）
@@ -172,6 +212,7 @@ class SyncSnapshot {
     String? writer,
     Map<String, List<SyncRecord>>? entities,
     List<Tombstone>? tombstones,
+    List<AssetEntry>? assets,
   }) =>
       SyncSnapshot(
         version: version ?? this.version,
@@ -179,6 +220,7 @@ class SyncSnapshot {
         writer: writer ?? this.writer,
         entities: entities ?? this.entities,
         tombstones: tombstones ?? this.tombstones,
+        assets: assets ?? this.assets,
       );
 }
 
