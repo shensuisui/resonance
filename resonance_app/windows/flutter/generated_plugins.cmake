@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   audiotags
   flutter_inappwebview_windows
+  flutter_secure_storage_windows
   just_audio_windows
 )
 
