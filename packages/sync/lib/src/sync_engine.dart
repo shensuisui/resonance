@@ -127,7 +127,7 @@ class SyncEngine {
       );
 
       final mergedEntities = <String, List<SyncRecord>>{};
-      var conflicts = 0;
+      final conflictList = <MergeConflict>[];
       for (final entity in SyncEntity.all) {
         final outcome = Merger.mergeEntity(
           entity: entity,
@@ -137,7 +137,7 @@ class SyncEngine {
           baseline: baseline?.recordsOf(entity),
         );
         mergedEntities[entity] = outcome.records;
-        conflicts += outcome.conflicts;
+        conflictList.addAll(outcome.conflicts);
       }
 
       final mergedMeta = assetStore == null
@@ -175,7 +175,8 @@ class SyncEngine {
           pulled: merged.recordCount,
           fromVersion: latest.version,
           toVersion: latest.version,
-          conflicts: conflicts,
+          conflicts: conflictList.length,
+          conflictList: conflictList,
           at: at,
         );
       }
@@ -211,7 +212,8 @@ class SyncEngine {
         pushed: true,
         fromVersion: latest?.version,
         toVersion: nextVersion,
-        conflicts: conflicts,
+        conflicts: conflictList.length,
+        conflictList: conflictList,
         at: at,
       );
     }

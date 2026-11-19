@@ -1,6 +1,8 @@
 /// 一次同步的结果（供 UI 展示）
 library;
 
+import 'merge.dart';
+
 /// 一次同步的结果
 class SyncReport {
   /// 应用到的记录数（合并结果规模）
@@ -18,6 +20,9 @@ class SyncReport {
   /// 冲突数（双方都改过且 data 不同）
   final int conflicts;
 
+  /// 冲突明细（供「冲突详情」展示）
+  final List<MergeConflict> conflictList;
+
   /// 是否成功
   final bool success;
 
@@ -34,6 +39,7 @@ class SyncReport {
     this.fromVersion,
     this.toVersion,
     this.conflicts = 0,
+    this.conflictList = const <MergeConflict>[],
     this.success = true,
     this.error,
     required this.at,

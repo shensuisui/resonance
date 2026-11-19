@@ -12,16 +12,46 @@ import 'dart:convert';
 
 import 'snapshot.dart';
 
+/// 一条冲突（双方都改过且 data 不同）
+class MergeConflict {
+  /// 实体分区
+  final String entity;
+
+  /// 记录 key
+  final String key;
+
+  /// 本机侧的 updatedAt
+  final int localUpdatedAt;
+
+  /// 远端侧的 updatedAt
+  final int remoteUpdatedAt;
+
+  /// 构造
+  const MergeConflict({
+    required this.entity,
+    required this.key,
+    required this.localUpdatedAt,
+    required this.remoteUpdatedAt,
+  });
+
+  @override
+  String toString() =>
+      'MergeConflict($entity/$key, local: $localUpdatedAt, remote: $remoteUpdatedAt)';
+}
+
 /// 单个实体的合并结果
 class MergeOutcome {
   /// 合并后的记录
   final List<SyncRecord> records;
 
-  /// 冲突数（双方都改过且 data 不同）
-  final int conflicts;
+  /// 具体冲突项
+  final List<MergeConflict> conflicts;
 
   /// 构造
-  const MergeOutcome({required this.records, required this.conflicts});
+  const MergeOutcome({required this.records, this.conflicts = const <MergeConflict>[]});
+
+  /// 冲突数
+  int get conflictCount => conflicts.length;
 }
 
 /// 合并器
@@ -47,7 +77,7 @@ abstract final class Merger {
 
     final keys = <String>{...localByKey.keys, ...remoteByKey.keys};
     final merged = <SyncRecord>[];
-    var conflicts = 0;
+    final conflicts = <MergeConflict>[];
 
     for (final key in keys) {
       final l = localByKey[key];
@@ -67,7 +97,14 @@ abstract final class Merger {
         final base = baseByKey[key];
         final localChanged = _changed(l, base);
         final remoteChanged = _changed(r, base);
-        if (localChanged && remoteChanged) conflicts++;
+        if (localChanged && remoteChanged) {
+          conflicts.add(MergeConflict(
+            entity: entity,
+            key: key,
+            localUpdatedAt: l.updatedAt,
+            remoteUpdatedAt: r.updatedAt,
+          ));
+        }
       }
 
       // 3) 歌单：曲目并集 + 顺序以较新者为主

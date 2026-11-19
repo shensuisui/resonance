@@ -42,7 +42,7 @@ void main() {
     expect(byKey['b']!.data['v'], 3);
     expect(byKey['b']!.updatedAt, 30);
     // 无基线时按「双方都有且 data 不同」计，b 记为 1 个冲突
-    expect(out.conflicts, 1);
+    expect(out.conflictCount, 1);
   });
 
   test('updatedAt 相同：按 deviceId 兜底（大者胜，结果确定）', () {
@@ -88,7 +88,7 @@ void main() {
       remote: remote,
       baseline: <SyncRecord>[_rec('k', 10, data: base)],
     );
-    expect(both.conflicts, 1);
+    expect(both.conflictCount, 1);
 
     // 远端与基线一致（没改），只有本地改过 → 不算冲突
     final onlyLocal = Merger.mergeEntity(
@@ -97,7 +97,7 @@ void main() {
       remote: remote,
       baseline: <SyncRecord>[_rec('k', 30, data: <String, Object?>{'v': 'r'})],
     );
-    expect(onlyLocal.conflicts, 0);
+    expect(onlyLocal.conflictCount, 0);
   });
 
   test('歌单：曲目并集、顺序以较新者为主、独有曲目追加末尾', () {
