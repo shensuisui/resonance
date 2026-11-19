@@ -52,7 +52,8 @@ Future<void> _waitReady(Process proc, Duration timeout) async {
 
 /// 造一台设备（独立 DB 文件 + 内存状态）
 Future<({SyncEngine engine, SqfliteDatabaseProvider db, MemorySyncStateStore state})>
-    device(String id, String dbPath, DavClient dav, {AssetStore? assets}) async {
+    device(String id, String dbPath, DavClient dav,
+        {AssetStore? assets, String remoteRoot = '/resonance-sync'}) async {
   final db = SqfliteDatabaseProvider.withHelper(
     DatabaseHelper(customDbPath: dbPath),
   );
@@ -67,6 +68,7 @@ Future<({SyncEngine engine, SqfliteDatabaseProvider db, MemorySyncStateStore sta
       deviceId: id,
       deviceName: id,
       assetStore: assets,
+      remoteRoot: remoteRoot,
     ),
     db: db,
     state: state,
@@ -205,8 +207,10 @@ void main() {
   test('资产走真实 WebDAV：写→拉→改→回传→删', () async {
     final storeA = MemoryAssetStore();
     final storeB = MemoryAssetStore();
-    final a = await device('D', p.join(tmp.path, 'd.db'), dav, assets: storeA);
-    final b = await device('E', p.join(tmp.path, 'e.db'), dav, assets: storeB);
+    // 资产用例用独立远端目录，避免与前面元数据用例的版本/墓碑耦合
+    const root = '/resonance-sync-assets';
+    final a = await device('D', p.join(tmp.path, 'd.db'), dav, assets: storeA, remoteRoot: root);
+    final b = await device('E', p.join(tmp.path, 'e.db'), dav, assets: storeB, remoteRoot: root);
 
     // A 写订阅索引 → 推 → B 拿到
     await storeA.write(<AssetFile>[
