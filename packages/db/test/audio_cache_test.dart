@@ -29,7 +29,15 @@ void main() {
     tmp = await Directory.systemTemp.createTemp('audio_cache_test');
     server.listen((request) async {
       final res = request.response;
-      if (request.uri.path == '/audio.mp3') {
+      if (request.uri.path == '/slow.mp3') {
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        final bytes = List<int>.filled(4096, 8);
+        res
+          ..statusCode = HttpStatus.ok
+          ..headers.contentType = ContentType.binary
+          ..contentLength = bytes.length
+          ..add(bytes);
+      } else if (request.uri.path == '/audio.mp3') {
         final bytes = List<int>.filled(4096, 7);
         res
           ..statusCode = HttpStatus.ok
@@ -71,12 +79,12 @@ void main() {
     await File(target).parent.create(recursive: true);
     // 模拟"上次下到一半"：只有残片
     await File('$target.part').writeAsBytes(List<int>.filled(1024, 1));
-    await cache.init();
+    await cache.rescan();
     expect(cache.isCached(song.globalKey), isFalse, reason: '半截文件绝不能命中');
 
     // 完整文件到位后（残片仍在）应命中
     await File(target).writeAsBytes(List<int>.filled(2048, 2));
-    await cache.init();
+    await cache.rescan();
     expect(cache.isCached(song.globalKey), isTrue);
     expect(cache.localUrlFor(song.globalKey), startsWith('file:'));
     await cache.dispose();
@@ -138,6 +146,52 @@ void main() {
     ]);
     expect(cache.isCached(song.globalKey), isTrue);
     expect(cache.cachedKeys.length, 1);
+    await cache.dispose();
+  });
+
+  test('外部删除文件后 isCached/localUrlFor 自愈', () async {
+    final cache = AudioCacheImpl(customDir: tmp.path);
+    await cache.init();
+    await cache.cacheAfterPlay(song, 'http://localhost:$port/audio.mp3');
+    expect(cache.isCached(song.globalKey), isTrue);
+
+    final path = cache.filePathFor(song.globalKey)!;
+    await File(path).delete();
+
+    expect(cache.isCached(song.globalKey), isFalse);
+    expect(cache.localUrlFor(song.globalKey), isNull);
+    expect(cache.cachedKeys, isEmpty);
+    await cache.dispose();
+  });
+
+  test('init 幂等：重复调用只扫盘/广播一次', () async {
+    final cache = AudioCacheImpl(customDir: tmp.path);
+    var events = 0;
+    final sub = cache.changes.listen((_) => events++);
+    await cache.init();
+    await cache.init();
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    expect(events, 1);
+    await sub.cancel();
+    await cache.dispose();
+  });
+
+  test('clear 取消在飞下载，且不再写回索引/文件', () async {
+    final cache = AudioCacheImpl(customDir: tmp.path);
+    await cache.init();
+    final future = cache.cacheAfterPlay(song, 'http://localhost:$port/slow.mp3');
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    await cache.clear();
+    await future;
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+
+    expect(cache.isCached(song.globalKey), isFalse);
+    final leftovers = tmp
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.mp3') || f.path.endsWith('.part'))
+        .toList();
+    expect(leftovers, isEmpty);
     await cache.dispose();
   });
 }

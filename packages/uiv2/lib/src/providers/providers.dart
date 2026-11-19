@@ -341,6 +341,8 @@ final themeModeProvider =
 class WifiOnlyNotifier extends Notifier<bool> {
   static const String key = 'wifi_only';
 
+  bool _loaded = false;
+
   @override
   bool build() {
     load();
@@ -351,6 +353,13 @@ class WifiOnlyNotifier extends Notifier<bool> {
   Future<void> load() async {
     final raw = await ref.read(settingsDaoProvider).get(key);
     if (raw != null) state = raw == '1';
+    _loaded = true;
+  }
+
+  /// 确保已从 settings 读取过（避免重启后首次播放误用默认 true）
+  Future<bool> ensureLoaded() async {
+    if (!_loaded) await load();
+    return state;
   }
 
   /// 设置并持久化
@@ -1764,15 +1773,19 @@ final playerStreamBindingProvider = Provider<void>((ref) {
         unawaited(ref.read(songMetadataServiceProvider).ensureLyrics(song));
         // 起播成功后把音频另存一份：开关默认开；已下载/已有缓存会自动跳过；
         // 失败静默（下次再播会重试）。命中判断只认完整文件，绝不播半截文件。
-        if (ref.read(audioCacheEnabledProvider)) {
-          unawaited(ref.read(audioCacheProvider).cacheAfterPlay(
+        unawaited(() async {
+          final enabled = await ref
+              .read(audioCacheEnabledProvider.notifier)
+              .ensureLoaded();
+          if (!enabled) return;
+          await ref.read(audioCacheProvider).cacheAfterPlay(
                 song,
                 song.playUrl ?? '',
                 headers: ref
                     .read(sourceManagerProvider)
                     .playHeadersFor(song.sourceId),
-              ));
-        }
+              );
+        }());
       }
     }));
   }
@@ -2264,6 +2277,8 @@ class AudioCacheEnabledNotifier extends Notifier<bool> {
   /// settings 键
   static const String key = 'audio_cache_play';
 
+  bool _loaded = false;
+
   @override
   bool build() {
     load();
@@ -2274,6 +2289,13 @@ class AudioCacheEnabledNotifier extends Notifier<bool> {
   Future<void> load() async {
     final raw = await ref.read(settingsDaoProvider).get(key);
     if (raw != null) state = raw == '1';
+    _loaded = true;
+  }
+
+  /// 确保已从 settings 读取过（避免重启后首次播放误用默认 true）
+  Future<bool> ensureLoaded() async {
+    if (!_loaded) await load();
+    return state;
   }
 
   /// 设置并持久化

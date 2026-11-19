@@ -38,6 +38,15 @@ class AudioCacheImpl implements AudioCache, AudioCacheFileAccess {
   /// 变更广播
   final StreamController<void> _changes = StreamController<void>.broadcast();
 
+  /// init 是否已完成（避免 main + binding 重复扫盘）
+  bool _initialized = false;
+
+  /// 代际：clear 后自增，阻止在飞下载把文件写回索引
+  int _generation = 0;
+
+  /// 在飞下载的取消令牌（clear 时取消）
+  final Map<String, CancelToken> _cancelTokens = {};
+
   /// 构造
   AudioCacheImpl({Dio? dio, this.customDir}) : _dio = dio ?? Dio();
 
@@ -48,13 +57,26 @@ class AudioCacheImpl implements AudioCache, AudioCacheFileAccess {
   Set<String> get cachedKeys => Set.unmodifiable(_cached);
 
   @override
-  bool isCached(String songKey) => _cached.contains(songKey);
+  bool isCached(String songKey) {
+    if (!_cached.contains(songKey)) return false;
+    final path = _pathFor(songKey);
+    if (path != null && File(path).existsSync()) return true;
+    // 外部删除自愈：文件没了就移出索引，避免继续给出坏 file://
+    _cached.remove(songKey);
+    if (!_changes.isClosed) _changes.add(null);
+    return false;
+  }
 
   @override
   String? localUrlFor(String songKey) {
     if (!_cached.contains(songKey)) return null;
     final path = _pathFor(songKey);
-    return path == null ? null : Uri.file(path).toString();
+    if (path == null || !File(path).existsSync()) {
+      _cached.remove(songKey);
+      if (!_changes.isClosed) _changes.add(null);
+      return null;
+    }
+    return Uri.file(path).toString();
   }
 
   @override
@@ -67,6 +89,8 @@ class AudioCacheImpl implements AudioCache, AudioCacheFileAccess {
 
   @override
   Future<void> init() async {
+    if (_initialized) return;
+    _initialized = true;
     final root = await _root();
     _cached.clear();
     if (!await root.exists()) {
@@ -88,6 +112,12 @@ class AudioCacheImpl implements AudioCache, AudioCacheFileAccess {
     _changes.add(null);
   }
 
+  /// 强制重扫缓存目录（init 幂等；测试/工具需要刷新索引时用）
+  Future<void> rescan() async {
+    _initialized = false;
+    await init();
+  }
+
   @override
   Future<void> cacheAfterPlay(Song song, String url,
       {Map<String, String>? headers}) async {
@@ -98,6 +128,9 @@ class AudioCacheImpl implements AudioCache, AudioCacheFileAccess {
     if (_cached.contains(key) || _inflight.contains(key)) return;
 
     _inflight.add(key);
+    final gen = _generation;
+    final token = CancelToken();
+    _cancelTokens[key] = token;
     try {
       await _root();
       final path = _pathFor(key);
@@ -107,13 +140,23 @@ class AudioCacheImpl implements AudioCache, AudioCacheFileAccess {
       final part = File('$path.part');
       // 上次没下完的残片直接重下（不做续传，换取实现简单可靠）
       if (await part.exists()) await part.delete();
-      await _dio.download(url, part.path, options: Options(headers: headers));
+      await _dio.download(url, part.path,
+          options: Options(headers: headers), cancelToken: token);
+      // clear() 之后不再把文件写回索引（也不留文件）
+      if (gen != _generation || token.isCancelled) {
+        if (await part.exists()) await part.delete();
+        return;
+      }
       final len = await part.length();
       if (len <= 0) {
         await part.delete();
         return;
       }
       await part.rename(target.path); // 只有走到这里才算「完整」
+      if (gen != _generation) {
+        if (await target.exists()) await target.delete();
+        return;
+      }
       _cached.add(key);
       _changes.add(null);
       SourceLogBus.instance.emit(song.sourceId, SourceLogLevel.info, '缓存',
@@ -124,6 +167,7 @@ class AudioCacheImpl implements AudioCache, AudioCacheFileAccess {
           '缓存失败 id=${song.id}: $e');
     } finally {
       _inflight.remove(key);
+      _cancelTokens.remove(key);
     }
   }
 
@@ -140,6 +184,12 @@ class AudioCacheImpl implements AudioCache, AudioCacheFileAccess {
 
   @override
   Future<void> clear() async {
+    _generation++;
+    for (final token in _cancelTokens.values) {
+      if (!token.isCancelled) token.cancel();
+    }
+    _cancelTokens.clear();
+    _initialized = false; // 允许下次 init 重新扫盘
     final root = await _root();
     if (await root.exists()) {
       await for (final e in root.list()) {
