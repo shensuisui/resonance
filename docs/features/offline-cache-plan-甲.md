@@ -1,6 +1,6 @@
 # 离线缓存升级「甲」——边播边落盘（1 倍流量）
 
-> 状态：**方案（未实现）** ｜ 更新：2026-11-19 ｜ 对应 offline-cache.md §五「预留」与下载功能 B 侧。
+> 状态：**M1 已实现（audioSourceBuilder，f2b1265）；M2 由 playSourceResolver 覆盖；M3/M4 待定** ｜ 更新：2026-11-19 ｜ 对应 offline-cache.md §五「预留」与下载功能 B 侧。
 
 ## 1. 背景
 
@@ -14,7 +14,7 @@
 
 ## 3. 方案（分层，可回退）
 
-### M1：player 加 audioSourceBuilder（核心、零行为变化）
+### M1：player 加 audioSourceBuilder（核心、零行为变化）——**已实现**
 
     typedef AudioSourceBuilder = AudioSource Function(Uri url, {required bool cache});
     PlayerImpl(audioSourceBuilder: ...) // 默认 = (url) => AudioSource.uri(url)
