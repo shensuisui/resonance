@@ -8,5 +8,7 @@ library;
 export 'src/dav_client.dart';
 export 'src/dav_client_webdav.dart';
 export 'src/latest.dart';
+export 'src/local_snapshot_reader.dart';
+export 'src/sync_settings_keys.dart';
 export 'src/snapshot.dart';
 export 'src/snapshot_codec.dart';
