@@ -32,7 +32,7 @@ db        ──> core（SQLite 实现，Flutter 包）
 - **歌词**：在 currentSongStream 漏斗处 ensureLyrics 写入 songs.lyric，按 key 去重并发。
 - **持久化**：UI → Service/DAO → DatabaseProvider（SQLite），见 [01-data-schema](01-data-schema.md)。
 - **离线缓存**：播放成功后后台另存完整文件（.part 临时名，完整才命中），见 [offline-cache](features/offline-cache.md)。
-- **后台播放**：壳层 audio_service 侧车；**Android 已接线且配置齐全**；**iOS 仅初始化 handler（Info.plist 缺 UIBackgroundModes，暂不可用）**。
+- **后台播放**：壳层 audio_service 侧车；**Android 已接线且配置齐全**；**iOS 已补 `UIBackgroundModes: audio`（2026-11-19），待 macOS/Xcode 验证**。
 
 ## 4. 音乐源清单
 | 源 | sourceId | 类型 | 说明 |

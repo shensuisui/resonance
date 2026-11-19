@@ -127,7 +127,7 @@ docs/summaries/summary-s1-s3.md:113  低 | S3-2 后台播放/锁屏/通知栏 | 
 
 - `FOREGROUND_SERVICE_MEDIA_PLAYBACK`：targetSdk 34+ 必加，否则会抛 `SecurityException`。
 - `android:foregroundServiceType="mediaPlayback"`：0.18.19 未自动注入，补齐后通知能正确归类为媒体。
-- iOS：需在 `Info.plist` 加 `UIBackgroundModes` 的 `audio`（**当前尚未添加，iOS 后台播放暂不可用**）。
+- iOS：需在 `Info.plist` 加 `UIBackgroundModes` 的 `audio`（**已于 2026-11-19 添加；待 macOS/Xcode 构建与真机验证，本机 Windows 无法验证**）。
 - 通知图标：`resonance_app/android/app/src/main/res/drawable*/ic_stat_*.png`（**当前未配置，使用系统默认图标**）。
 
 ---

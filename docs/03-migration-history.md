@@ -27,7 +27,7 @@
 - 早期「DAO 接口 + 内存实现」；现落地 packages/db（sqflite / ffi），7 张表、版本 v4。详见 [01-data-schema](01-data-schema.md)、[s1](implementation/s1-sqlite-persistence.md)。
 
 ## 5. 后台播放：未实现 → audio_service 侧车
-- 早期 S3-2 未实现；现以 audio_service 侧车接入：**Android 已接线且配置齐全**；**iOS 仅初始化 handler（Info.plist 缺 UIBackgroundModes，暂不可用）**。详见 [mobile-audioservice](features/mobile-audioservice.md)。
+- 早期 S3-2 未实现；现以 audio_service 侧车接入：**Android 已接线且配置齐全**；**iOS 已补 `UIBackgroundModes: audio`（2026-11-19），待 macOS/Xcode 验证**。详见 [mobile-audioservice](features/mobile-audioservice.md)。
 
 ## 6. 数据导入导出：无 → 整包备份 + 单歌单导出
 - uiv2 原无导入导出；现落地整包 JSON 备份/还原 + 单歌单导出，并支持 Android「用回响打开 .json」。详见 [data-import-export](features/data-import-export.md)。
