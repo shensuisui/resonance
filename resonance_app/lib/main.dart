@@ -24,6 +24,7 @@ import 'package:flan_flutter/flan_flutter.dart';
 import 'package:logging/logging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:crawler/crawler.dart';
 import 'package:db/db.dart';
 import 'package:player/player.dart';
@@ -139,6 +140,27 @@ Future<void> main() async {
       // 源站要求人机验证时这里没有地址：验证由 UI 层的验证面板接管
       // （这一路拿不到验证码；空地址会被播放器安全跳过，不会崩）
       return res.url;
+    },
+    // 「甲」：未命中缓存的新歌边走播边落盘（1 倍流量）；失败由 PlayerImpl 回退原始 URL。
+    audioSourceBuilder: (url, {Song? song}) {
+      final remote = url.scheme == 'http' || url.scheme == 'https';
+      if (song == null || !remote) return AudioSource.uri(url);
+      return CachingStreamAudioSource(
+        open: ({int? start, int? end}) => openHttpStream(
+          url,
+          headers: gSourceManager.playHeadersFor(song.sourceId),
+          start: start,
+          end: end,
+        ),
+        openSink: () async {
+          final raw =
+              await gDatabaseProvider.settingsDao.get('audio_cache_play');
+          if (raw == '0') return null;
+          if (gAudioCache.isCached(song.globalKey)) return null;
+          if (await gAudioCache.downloadedUrlFor(song) != null) return null;
+          return gAudioCache.openStream(song.globalKey);
+        },
+      );
     },
   );
   // 2.1 移动端：把播放器接到系统媒体服务（通知栏/锁屏/耳机键/后台保活）。

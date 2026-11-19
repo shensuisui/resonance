@@ -6,7 +6,7 @@ import 'package:just_audio/just_audio.dart' hide PlayerState;
 import 'shuffle_bag.dart';
 
 /// 音源构建器：默认 `AudioSource.uri`；壳层可注入「甲」实现（本地代理/流式转发）。
-typedef AudioSourceBuilder = AudioSource Function(Uri url);
+typedef AudioSourceBuilder = AudioSource Function(Uri url, {Song? song});
 
 /// 基于 just_audio 的播放器实现
 class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
@@ -14,6 +14,9 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
 
   /// 音源构建器（默认 AudioSource.uri，行为与旧实现一致）
   final AudioSourceBuilder audioSourceBuilder;
+
+  /// 是否注入了自定义 builder（用于装载失败回退原始 URL）
+  final bool _hasCustomSourceBuilder;
 
   /// 队列里的曲目常常只有 id（来自最近播放/歌单快照，没有 playUrl）。
   /// 真正播放前用它现取一次地址；取到后写回队列，避免重复请求。
@@ -64,17 +67,18 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
   /// 网络源装载超时：防止任何一次异常源把播放串行队列永久占死。
   final Duration networkLoadTimeout;
 
-  static AudioSource _defaultSource(Uri url) => AudioSource.uri(url);
+  static AudioSource _defaultSource(Uri url, {Song? song}) => AudioSource.uri(url);
 
   /// 测试用：走一遍音源构建器（不触发平台装载）
-  AudioSource buildSource(Uri url) => audioSourceBuilder(url);
+  AudioSource buildSource(Uri url, {Song? song}) => audioSourceBuilder(url, song: song);
 
   PlayerImpl({
     this.urlResolver,
     AudioSourceBuilder? audioSourceBuilder,
     this.fileLoadTimeout = const Duration(seconds: 4),
     this.networkLoadTimeout = const Duration(seconds: 30),
-  }) : audioSourceBuilder = audioSourceBuilder ?? _defaultSource {
+  })  : audioSourceBuilder = audioSourceBuilder ?? _defaultSource,
+        _hasCustomSourceBuilder = audioSourceBuilder != null {
     _setupListeners();
   }
 
@@ -269,12 +273,23 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
     }
     try {
       final audioUri = Uri.parse(url);
-      await _audioPlayer.setAudioSource(
-        audioSourceBuilder(audioUri),
-        preload: true,
-      ).timeout(
-        audioUri.scheme == 'file' ? fileLoadTimeout : networkLoadTimeout,
-      );
+      try {
+        await _audioPlayer.setAudioSource(
+          audioSourceBuilder(audioUri, song: song),
+          preload: true,
+        ).timeout(
+          audioUri.scheme == 'file' ? fileLoadTimeout : networkLoadTimeout,
+        );
+      } catch (_) {
+        if (!_hasCustomSourceBuilder) rethrow;
+        // 「甲」流式源失败（网络/缓存写入）→ 回退原始 URL，保证能播
+        await _audioPlayer.setAudioSource(
+          AudioSource.uri(audioUri),
+          preload: true,
+        ).timeout(
+          audioUri.scheme == 'file' ? fileLoadTimeout : networkLoadTimeout,
+        );
+      }
       // 加载期间如果又来了新的播放请求，就不要再提交这一条（否则 UI 会停在过期的曲目）
       if (token != _playToken) return;
       // 关键：音频源真的被播放器接受之后才广播，并记下"在播的就是它"。
@@ -394,10 +409,19 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
     if (url.isEmpty) return;
     SourceLogBus.instance.emit(
         sourceId, SourceLogLevel.info, '播放器', '重发 play() 无效，重设音频源再播');
-    await _audioPlayer.setAudioSource(
-      audioSourceBuilder(Uri.parse(url)),
-      preload: true,
-    );
+    final retryUri = Uri.parse(url);
+    try {
+      await _audioPlayer.setAudioSource(
+        audioSourceBuilder(retryUri, song: _queue[index]),
+        preload: true,
+      );
+    } catch (_) {
+      if (!_hasCustomSourceBuilder) rethrow;
+      await _audioPlayer.setAudioSource(
+        AudioSource.uri(retryUri),
+        preload: true,
+      );
+    }
     await _audioPlayer.play();
     await Future<void>.delayed(const Duration(milliseconds: 400));
     if (_audioPlayer.position > Duration.zero) return;
