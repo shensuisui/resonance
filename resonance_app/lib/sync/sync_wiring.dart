@@ -40,8 +40,37 @@ class SyncCredentials {
       password.isNotEmpty;
 }
 
+/// 凭据存储能力（便于单测注入内存实现）
+abstract interface class CredentialStore {
+  /// 读取
+  Future<SyncCredentials?> read();
+
+  /// 写入
+  Future<void> write(SyncCredentials creds);
+
+  /// 清空
+  Future<void> clear();
+}
+
+/// 内存实现（单测 / e2e 用）
+class MemoryCredentialStore implements CredentialStore {
+  SyncCredentials? _creds;
+
+  /// 构造
+  MemoryCredentialStore([this._creds]);
+
+  @override
+  Future<SyncCredentials?> read() async => _creds;
+
+  @override
+  Future<void> write(SyncCredentials creds) async => _creds = creds;
+
+  @override
+  Future<void> clear() async => _creds = null;
+}
+
 /// 凭据存储：系统安全存储（不写 settings、不入云、不进日志）
-class SyncCredentialStore {
+class SecureCredentialStore implements CredentialStore {
   static const String _kBaseUrl = 'sync_base_url';
   static const String _kUsername = 'sync_username';
   static const String _kPassword = 'sync_password';
@@ -49,7 +78,7 @@ class SyncCredentialStore {
   final FlutterSecureStorage _storage;
 
   /// 构造
-  const SyncCredentialStore({
+  const SecureCredentialStore({
     this._storage = const FlutterSecureStorage(),
   });
 
@@ -132,7 +161,7 @@ Future<SyncEngine> buildSyncEngine({
   required SettingsDao settings,
   required String supportDir,
   String remoteRoot = '/resonance-sync',
-  SyncCredentialStore credentials = const SyncCredentialStore(),
+  SecureCredentialStore credentials = const SecureCredentialStore(),
 }) async {
   final creds = await credentials.read();
   if (creds == null || !creds.isComplete) {

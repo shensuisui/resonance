@@ -126,7 +126,10 @@ class SyncStatusCache {
 class ShellSyncService implements SyncService, AutoSyncHost {
   final DatabaseProvider _db;
   final SettingsDao _settings;
-  final SyncCredentialStore _credentials;
+  final CredentialStore _credentials;
+
+  /// 支持目录覆盖（测试注入；为空则用 getApplicationSupportDirectory）
+  final String? supportDirOverride;
   final SyncStatusCache _cache;
 
   final StreamController<void> _configChanged =
@@ -136,7 +139,8 @@ class ShellSyncService implements SyncService, AutoSyncHost {
   ShellSyncService({
     required DatabaseProvider db,
     required SettingsDao settings,
-    SyncCredentialStore credentials = const SyncCredentialStore(),
+    CredentialStore credentials = const SecureCredentialStore(),
+    this.supportDirOverride,
   })  : _db = db,
         _settings = settings,
         _credentials = credentials,
@@ -193,7 +197,7 @@ class ShellSyncService implements SyncService, AutoSyncHost {
   }
 
   Future<String> get _supportDir async =>
-      (await getApplicationSupportDirectory()).path;
+      supportDirOverride ?? (await getApplicationSupportDirectory()).path;
 
   Future<SyncEngine> _engine(SyncCredentials creds) async {
     final dir = await _supportDir;
