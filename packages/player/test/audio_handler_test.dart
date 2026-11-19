@@ -146,12 +146,24 @@ void main() {
 
     test('buildControls：中间那颗按钮随播放态切换', () {
       final playing = buildControls(playing: true);
-      expect(playing.map((c) => c.action).toList(),
-          [MediaAction.skipToPrevious, MediaAction.pause, MediaAction.skipToNext]);
+      expect(playing.map((c) => c.action).toList(), [
+        MediaAction.custom,
+        MediaAction.skipToPrevious,
+        MediaAction.pause,
+        MediaAction.skipToNext,
+        MediaAction.custom,
+      ]);
+      expect(playing.first.customAction?.name, 'toggleShuffle');
+      expect(playing.last.customAction?.name, 'toggleRepeat');
 
       final paused = buildControls(playing: false);
-      expect(paused.map((c) => c.action).toList(),
-          [MediaAction.skipToPrevious, MediaAction.play, MediaAction.skipToNext]);
+      expect(paused.map((c) => c.action).toList(), [
+        MediaAction.custom,
+        MediaAction.skipToPrevious,
+        MediaAction.play,
+        MediaAction.skipToNext,
+        MediaAction.custom,
+      ]);
     });
 
     test('songToMediaItem：id 用 globalKey；无封面→artUri=null；duration<=0 退回 song.duration', () {
@@ -192,8 +204,16 @@ void main() {
       final state = handler.playbackState.value;
       expect(state.processingState, AudioProcessingState.idle);
       expect(state.playing, isFalse);
-      expect(state.controls.map((c) => c.action).toList(),
-          [MediaAction.skipToPrevious, MediaAction.play, MediaAction.skipToNext]);
+      final actions = state.controls.map((c) => c.action).toList();
+      expect(actions, [
+        MediaAction.custom,
+        MediaAction.skipToPrevious,
+        MediaAction.play,
+        MediaAction.skipToNext,
+        MediaAction.custom,
+      ]);
+      expect(state.controls.first.customAction?.name, 'toggleShuffle');
+      expect(state.controls.last.customAction?.name, 'toggleRepeat');
     });
 
     test('状态流：playing → ready+playing，paused → ready+非播放', () async {
@@ -201,12 +221,12 @@ void main() {
       await flush();
       expect(handler.playbackState.value.processingState, AudioProcessingState.ready);
       expect(handler.playbackState.value.playing, isTrue);
-      expect(handler.playbackState.value.controls[1].action, MediaAction.pause);
+      expect(handler.playbackState.value.controls.any((c) => c.action == MediaAction.pause), isTrue);
 
       player.emitState(PlayerState.paused);
       await flush();
       expect(handler.playbackState.value.playing, isFalse);
-      expect(handler.playbackState.value.controls[1].action, MediaAction.play);
+      expect(handler.playbackState.value.controls.any((c) => c.action == MediaAction.play), isTrue);
     });
 
     test('状态流：loading / error 如实上报', () async {
@@ -369,6 +389,17 @@ void main() {
       expect(handler.playbackState.value.shuffleMode, AudioServiceShuffleMode.all);
 
       await handler.setShuffleMode(AudioServiceShuffleMode.none);
+      expect(player.playMode, PlayMode.listLoop);
+    });
+    test('自定义通知按钮：随机/循环切换 playMode', () async {
+      await handler.customAction('toggleShuffle');
+      expect(player.playMode, PlayMode.shuffle);
+      await handler.customAction('toggleShuffle');
+      expect(player.playMode, PlayMode.listLoop);
+
+      await handler.customAction('toggleRepeat');
+      expect(player.playMode, PlayMode.singleLoop);
+      await handler.customAction('toggleRepeat');
       expect(player.playMode, PlayMode.listLoop);
     });
   });

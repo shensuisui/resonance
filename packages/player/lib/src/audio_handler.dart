@@ -49,9 +49,19 @@ AudioServiceShuffleMode mapShuffleMode(PlayMode mode) =>
 
 /// 通知/锁屏上按「playing」选出中间那颗按钮：上一首 / 播放或暂停 / 下一首
 List<MediaControl> buildControls({required bool playing}) => <MediaControl>[
+      MediaControl.custom(
+        androidIcon: 'drawable/uiv2_shuffle',
+        label: '随机',
+        name: 'toggleShuffle',
+      ),
       MediaControl.skipToPrevious,
       if (playing) MediaControl.pause else MediaControl.play,
       MediaControl.skipToNext,
+      MediaControl.custom(
+        androidIcon: 'drawable/uiv2_repeat',
+        label: '循环',
+        name: 'toggleRepeat',
+      ),
     ];
 
 /// [Song] → 系统媒体条目（id 用 globalKey，可反查队列/回源解析）
@@ -124,6 +134,23 @@ class ResonanceAudioHandler extends BaseAudioHandler {
       await sub.cancel();
     }
     _subs.clear();
+  }
+
+  // ==================== 自定义通知按钮 ====================
+
+  @override
+  Future<dynamic> customAction(String name, [Map<String, dynamic>? extras]) async {
+    switch (name) {
+      case 'toggleShuffle':
+        _player.playMode = _player.playMode == PlayMode.shuffle
+            ? PlayMode.listLoop
+            : PlayMode.shuffle;
+      case 'toggleRepeat':
+        _player.playMode = _player.playMode == PlayMode.singleLoop
+            ? PlayMode.listLoop
+            : PlayMode.singleLoop;
+    }
+    _emitPlaybackState();
   }
 
   // ==================== 对外命令（系统 -> Player） ====================

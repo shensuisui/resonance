@@ -10,6 +10,7 @@
 | 媒体键/传输控制 | `cmd media_session dispatch play-pause`：`PLAYING(3)` → `PAUSED(2)`（position 81→162） | `media_session_paused.txt` |
 | 前台服务/后台保活 | `AudioService isForeground=true foregroundId=1124 types=0x2`，channel=`com.resonance.app.channel.audio` | `audio_service_foreground.txt` |
 | 通知样式 | Notification id=1124，channel=`com.resonance.app.channel.audio`「回响播放」，title=「通知测试」，动作 Previous/Pause/Next | `notification.txt`、`notif_shade.png` |
+| 自定义通知按钮 | 随机/循环按钮已出现（同源 SVG→VectorDrawable） | `notif_custom_buttons.png` |
 | 锁屏媒体控件 | ❌ 本次未取到：模拟器 SystemUI 无响应（ANR），见 `lock_systemui_anr.png` | 待复验 |
 
 ## 复现方式
