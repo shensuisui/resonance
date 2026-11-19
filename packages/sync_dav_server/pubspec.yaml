@@ -1,0 +1,12 @@
+name: sync_dav_server
+description: "测试用真实 WebDAV 服务（shelf_dav）；仅本地/CI 的 e2e 使用，不发布"
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.13.1
+
+dependencies:
+  shelf: ^1.4.1
+  shelf_dav: ^1.0.0
+  file: ^7.0.0

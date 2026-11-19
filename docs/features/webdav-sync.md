@@ -460,14 +460,15 @@ class SyncReport {
 ## 15. 测试方案（真实环境，不用 mock）
 
 1. **单元测试（纯逻辑）**：`merge.dart` 覆盖并集/取新/墓碑/歌单顺序/冲突计数；`snapshot_codec` 的 tar.bz2 往返 + sha256 校验 + 损坏包拒绝；`latest` 编解码；时钟平手用 deviceId 的确定性；**7 份裁剪**（第 8 次推送后最旧被删）。
-2. **端到端（真实 WebDAV）**：测试内用 `shelf_dav` 起**真实 WebDAV 服务器**，跑真实 `PUT/GET/PROPFIND/MOVE/DELETE`，模拟两台设备（两个 `SyncEngine` + 两份独立临时 DB）：
+2. **端到端（真实 WebDAV，已跑通）**：`shelf_dav` 依赖 xml ^6、`webdav_client_plus` 依赖 xml ^7，**无法同包共存**——因此单独建 `packages/sync_dav_server`（仅测试用）起真实服务，`packages/sync/test/webdav_e2e_test.dart` 用子进程拉起它，跑真实 HTTP + 真实 SQLite 文件；模拟两台设备（两个 `SyncEngine` + 两份独立 DB）：
    - 首台推 `v1`、第二台拉合推 `v2`；
    - 并发写（先改后推 vs 先推）→ 乐观并发后不丢；
    - 删除传播（A 删 B 同步后也删）；
    - 歌单顺序合并；
    - 资产文件新增/修改/删除镜像（快照包内 `assets/`）；
    - 回滚到 `v(N-2)`；
-   - 重置同步。
+   - 重置同步；
+   - （已实现在 e2e）原语读写/列目录/删除、首推 v1、增量 v2、删除传播、裁剪到 7 份、`restoreVersion` 回滚。
 3. **真机手验**：连坚果云 / Nextcloud 各跑一遍「首台→第二台→改→回传」，截图留证（放入 `docs/evidence/`）。
 4. 遵循「测试先行 + 每改动 analyze + 全量测试」。
 
