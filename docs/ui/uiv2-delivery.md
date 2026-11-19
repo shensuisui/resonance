@@ -108,7 +108,7 @@ cd ..\packages\uiv2 && G:\works\shelli\fm\.fvm\flutter_sdk\bin\flutter.bat test
 2. ~~播放条 2px 溢出~~ 已修：进度条行改 Flexible 吸收压缩，复检无溢出警示（08-home-fixed.png）。
 3. **构建前先结束 resonance_app 进程**：否则 WebView2Loader.dll 被占用导致 MSB3021（Windows 老坑）。
 4. **sub_page 订阅**：uiv2 通过 SubscriptionHost 注入对接订阅库；**壳工程已装配**（main.dart 注入 subscriptionHostProvider，见 resonance_app/lib/subscription_library.dart）。
-5. **建议后续**：`SourceManager` 仍无 getPlaylistSongs/getPlaylistList 透传（uiv2 已直接调用 MusicSource 接口）；插件源歌词 lines 为空的 crawler 侧修复；下载任务持久化。
+5. **建议后续**：`SourceManager` 仍无 getPlaylistSongs/getPlaylistList 透传（uiv2 已直接调用 MusicSource 接口）；插件源歌词 lines 为空的 crawler 侧修复。（下载任务持久化已于 2026-11-18 完成，见 features/download.md。）
 
 
 ## 8. 演示曲库迁移（2026-11）

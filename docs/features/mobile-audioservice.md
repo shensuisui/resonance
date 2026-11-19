@@ -177,7 +177,6 @@ docs/summaries/summary-s1-s3.md:113  低 | S3-2 后台播放/锁屏/通知栏 | 
   命令转发、越界忽略、点播重建、repeat/shuffle 写回）。`player` 包 analyze 0 issue。
 
 **未完成 / 需要真机验证**
-- 本机 Gradle 构建卡在 **预存在的** `sqlite3` 原生库下载（`https://github.com/simolus3/...` 不可达，
-  与本次改动无关）：`flutter build apk --debug` 在 `:app:compileFlutterBuildDebug` 失败。
-  因此「通知实际样式/锁屏/耳机键/后台保活」尚未在本机验证，需要在可访问 GitHub 的环境或真机上确认。
+- ~~本机 Gradle 构建卡在 sqlite3 下载~~ **已解决**（2026-11-13：`file_picker` 固定 10.3.10 + `HTTPS_PROXY` 代理后，`flutter build apk --debug` 成功，见 features/build.md）。
+- 「通知实际样式/锁屏/耳机键/后台保活」仍需真机/模拟器实测（2026-11-19 起可用模拟器 + APK 验证,见验证记录处）。
 - 自定义通知按钮（随机/循环图标）未做：需要自备两枚 drawable；一期先用系统 repeat/shuffle 状态字段。

@@ -39,7 +39,7 @@ download_tasks(song_key PK, status, progress, url, local_path, error, warning,
 - playlist_songs 以 position 保序；删除歌单时 CASCADE 删关联。
 - recent_plays 上限 500（超出清最旧）；insert 去重、移顶。
 - play_progress 一个队列一行（queue_kind ∈ recent/playlist/liked/local），只存「听到哪」，曲目每次从真实数据重建。
-- settings 键值对：theme_mode / play_mode / search_history / source_enabled_<id> / audio_cache_play 等（与 v1 ui 包键名互通）；下载设置键后续为 download_name_order / download_cover_size / download_cover_quality。
+- settings 键值对：theme_mode / play_mode / search_history / source_enabled_<id> / audio_cache_play 等（与 v1 ui 包键名互通）；下载设置键：download_name_order / download_cover_size / download_cover_quality（2026-11-18 已实现）。
 - download_tasks：status ∈ pending/downloading/completed/failed/cancelled；启动时 downloading→failed（保留 .part 供重试）；completed 行与 songs.local_path 对应，local_path 清空即视为未下载。
 
 ## 4. DAO（7 类）
