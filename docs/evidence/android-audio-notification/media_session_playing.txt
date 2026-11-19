@@ -1,0 +1,12 @@
+    active=false
+    metadata: null
+  Last MediaButtonReceiver: MBR {pi=PendingIntent{d10744e: PendingIntentRecord{5c5796f com.resonance.app broadcastIntent}}, componentName=ComponentInfo{com.resonance.app/com.ryanheise.audioservice.MediaButtonReceiver}, type=1, pkg=com.resonance.app}
+  Media button session is com.resonance.app/media-session/2 (userId=0)
+    media-session com.resonance.app/media-session/2 (userId=0)
+      package=com.resonance.app
+      launchIntent=PendingIntent{aeeb67c: PendingIntentRecord{ee4ec40 com.resonance.app startActivity (allowlist: 7534366:+30s0ms/0/NOTIFICATION_SERVICE/NotificationManagerService)}}
+      mediaButtonReceiver=MBR {pi=PendingIntent{d10744e: PendingIntentRecord{5c5796f com.resonance.app broadcastIntent}}, componentName=ComponentInfo{com.resonance.app/com.ryanheise.audioservice.MediaButtonReceiver}, type=1, pkg=com.resonance.app}
+      active=true
+      state=PlaybackState {state=PLAYING(3), position=5, buffered position=0, speed=1.0, updated=9942197, actions=3670015, custom actions=[], active item id=0, error=null}
+      metadata: size=5, description=通知测试, 歌手, null
+  uid=10157 packages=com.resonance.app 

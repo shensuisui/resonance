@@ -1,0 +1,10 @@
+  * ServiceRecord{624fde0 u0 com.resonance.app/com.ryanheise.audioservice.AudioService c:com.resonance.app}
+    intent={act=android.media.browse.MediaBrowserService cmp=com.resonance.app/com.ryanheise.audioservice.AudioService}
+    startForegroundCount=6
+    infoAllowStartForeground=[callingPackage: com.resonance.app; callingUid: 10157; uidState: TOP ; uidBFSL: [BFSL]; BFGS denied: false; intent: Intent { xflg=0x4 cmp=com.resonance.app/com.ryanheise.audioservice.AudioService }; code:PROC_STATE_TOP; tempAllowListReason:<null>; allowWiu:12; targetSdkVersion:36; callerTargetSdkVersion:36; startForegroundCount:5; bindFromPackage:null; isBindService:false]
+    isForeground=true foregroundId=1124 types=0x00000002 foregroundNoti=Notification(channel=com.resonance.app.channel.audio shortcut=null contentView=null vibrate=null sound=null defaults=0 flags=ONGOING_EVENT|NO_CLEAR|FOREGROUND_SERVICE|NO_DISMISS color=0xffc9341c category=transport actions=3 vis=PUBLIC)
+      intent={act=android.media.browse.MediaBrowserService xflg=0x4 cmp=com.resonance.app/com.ryanheise.audioservice.AudioService}
+          ConnectionRecord{4fc6fe3 u0 CR CAPS com.resonance.app/com.ryanheise.audioservice.AudioService:@3d02c12 flags=0x1001}
+      ConnectionRecord{4fc6fe3 u0 CR CAPS com.resonance.app/com.ryanheise.audioservice.AudioService:@3d02c12 flags=0x1001}
+  * ConnectionRecord{4fc6fe3 u0 CR CAPS com.resonance.app/com.ryanheise.audioservice.AudioService:@3d02c12 flags=0x1001}
+    binding=AppBindRecord{bc05f75 com.resonance.app/com.ryanheise.audioservice.AudioService:com.resonance.app}

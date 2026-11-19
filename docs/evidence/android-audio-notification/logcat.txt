@@ -1,0 +1,5 @@
+--------- beginning of main
+11-19 06:32:20.548  3606  3636 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(104)] Using the Impeller rendering backend (OpenGLES).
+11-19 06:32:20.703  3606  3644 I flutter : The Dart VM service is listening on http://127.0.0.1:46307/rv9EtHmdD04=/
+11-19 06:32:21.537  3606  3606 I flutter : 🚀 Hi, flutter_inappwebview here, thank you for using it! If you like this plugin → 💙 Support development https://inappwebview.dev/donate ⭐ Star on GitHub https://github.com/pichillilorenzo/flutter_inappwebview 📱 Showcase your app https://inappwebview.dev/showcase
+11-19 06:32:24.201  3606  3606 I flutter : PROBE_PLAYING

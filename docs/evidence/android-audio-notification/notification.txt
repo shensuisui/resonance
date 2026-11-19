@@ -1,0 +1,14 @@
+    NotificationRecord(0x0c03875a: pkg=com.resonance.app user=UserHandle{0} id=1124 tag=null importance=2 key=0|com.resonance.app|1124|null|10157: Notification(channel=com.resonance.app.channel.audio shortcut=null contentView=null vibrate=null sound=null defaults=0 flags=ONGOING_EVENT|NO_CLEAR|FOREGROUND_SERVICE|NO_DISMISS color=0xffc9341c category=transport actions=3 vis=PUBLIC))
+      key=0|com.resonance.app|1124|null|10157
+      groupKey=0|com.resonance.app|1124|null|10157
+                [0] "Previous" -> PendingIntent{3daf281: PendingIntentRecord{65f7cbe com.resonance.app broadcastIntent (allowlist: 7534366:+30s0ms/0/NOTIFICATION_SERVICE/NotificationManagerService)}}
+                [1] "Pause" -> PendingIntent{ae2bf26: PendingIntentRecord{f44779 com.resonance.app broadcastIntent (allowlist: 7534366:+30s0ms/0/NOTIFICATION_SERVICE/NotificationManagerService)}}
+                [2] "Next" -> PendingIntent{62d2767: PendingIntentRecord{be79bc3 com.resonance.app broadcastIntent (allowlist: 7534366:+30s0ms/0/NOTIFICATION_SERVICE/NotificationManagerService)}}
+                android.title=String (通知测试)
+                android.title=String (Physical keyboards configured)
+                android.title=String (Serial console enabled)
+                android.title=String (Virtual SD card)
+      AppSettings: com.resonance.app (10157) importance=DEFAULT userSet=false
+      mNextAlarmTime=0
+      mNextAlarmTime=Thu Nov 19 07:00:00 GMT 2026 (1795071600000), in +27m29s633ms, now=Thu Nov 19 06:32:30 GMT 2026 (1795069950367)
+    mKeys [Pair{259286552 -1|android|55|null|1000}, Pair{259316529 0|com.android.systemui|1397773634|public:253,80|10124}, Pair{269130195 -1|android|19|null|1000}, Pair{269142254 0|com.resonance.app|1124|null|10157}]

@@ -178,5 +178,5 @@ docs/summaries/summary-s1-s3.md:113  低 | S3-2 后台播放/锁屏/通知栏 | 
 
 **未完成 / 需要真机验证**
 - ~~本机 Gradle 构建卡在 sqlite3 下载~~ **已解决**（2026-11-13：`file_picker` 固定 10.3.10 + `HTTPS_PROXY` 代理后，`flutter build apk --debug` 成功，见 features/build.md）。
-- 「通知实际样式/锁屏/耳机键/后台保活」仍需真机/模拟器实测（2026-11-19 起可用模拟器 + APK 验证,见验证记录处）。
+- 2026-11-19 已在 Android 模拟器（emulator-5554）实测：**通知样式 / 媒体键（play-pause）/ 前台服务保活均通过**，见 [evidence/android-audio-notification](../evidence/android-audio-notification/README.md)；**锁屏媒体控件视觉因模拟器 SystemUI ANR 未截到**，待复验。
 - 自定义通知按钮（随机/循环图标）未做：需要自备两枚 drawable；一期先用系统 repeat/shuffle 状态字段。
