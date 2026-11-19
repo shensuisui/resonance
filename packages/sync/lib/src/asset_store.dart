@@ -65,12 +65,22 @@ class MemoryAssetStore implements AssetStore {
 }
 
 /// 文件系统实现：把 root 下的文件按相对路径镜像
+///
+/// [prefixes] 为空 = 镜像全部；非空则只取这些前缀（如 subscriptions/、rules/），
+/// 避免把 App 私有目录里的其它文件（DB、日志）也当成资产同步出去。
 class DirectoryAssetStore implements AssetStore {
   /// 根目录
   final String root;
 
+  /// 只镜像这些相对路径前缀（空 = 全部）
+  final List<String> prefixes;
+
   /// 构造
-  const DirectoryAssetStore(this.root);
+  const DirectoryAssetStore(this.root, {this.prefixes = const <String>[]});
+
+  /// 该相对路径是否属于要同步的资产
+  bool _allowed(String rel) =>
+      prefixes.isEmpty || prefixes.any(rel.startsWith);
 
   /// 规范化相对路径（统一用 /，去掉前导 /）
   String _norm(String path) {
@@ -89,6 +99,7 @@ class DirectoryAssetStore implements AssetStore {
     await for (final entity in dir.list(recursive: true)) {
       if (entity is! File) continue;
       final rel = _norm(entity.path.substring(dir.path.length));
+      if (!_allowed(rel)) continue;
       final stat = await entity.stat();
       out.add(AssetFile(
         path: rel,
