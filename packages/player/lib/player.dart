@@ -2,7 +2,6 @@
 library;
 
 export 'src/audio_handler.dart';
-export 'src/cache_stream_audio_source.dart';
-export 'src/caching_stream_audio_source.dart';
+export 'package:just_audio/just_audio.dart' show LockCachingAudioSource;
 export 'src/player_impl.dart';
 export 'src/shuffle_bag.dart';
