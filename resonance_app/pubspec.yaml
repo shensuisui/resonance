@@ -56,6 +56,8 @@ dependencies:
     path: ../packages/sync
   # 云同步凭据进系统安全存储（Keystore / Keychain / DPAPI）
   flutter_secure_storage: ^9.2.4
+  # 自动同步「仅 Wi-Fi」判断
+  connectivity_plus: ^6.1.4
 
 dev_dependencies:
   flutter_test:

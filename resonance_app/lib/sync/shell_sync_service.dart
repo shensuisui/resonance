@@ -4,6 +4,7 @@
 /// 合并/网络/DB 细节都在 packages/sync 里。
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -12,6 +13,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sync/sync.dart';
 import 'package:uiv2/uiv2.dart';
 
+import 'sync_auto_runner.dart';
 import 'sync_wiring.dart';
 
 /// 把 baseUrl 变成展示名（坚果云 / Nextcloud / 域名）
@@ -121,11 +123,14 @@ class SyncStatusCache {
 }
 
 /// [SyncService] 的壳工程实现
-class ShellSyncService implements SyncService {
+class ShellSyncService implements SyncService, AutoSyncHost {
   final DatabaseProvider _db;
   final SettingsDao _settings;
   final SyncCredentialStore _credentials;
   final SyncStatusCache _cache;
+
+  final StreamController<void> _configChanged =
+      StreamController<void>.broadcast();
 
   /// 构造
   ShellSyncService({
@@ -136,6 +141,56 @@ class ShellSyncService implements SyncService {
         _settings = settings,
         _credentials = credentials,
         _cache = SyncStatusCache(settings);
+
+  @override
+  Stream<DbChange>? get changes =>
+      _db is DbChangeSource ? (_db as DbChangeSource).changes : null;
+
+  @override
+  Stream<void> get configChanges => _configChanged.stream;
+
+  @override
+  Future<bool> get enabled async =>
+      (await _settings.get(SyncStatusCache.kEnabled)) == '1';
+
+  @override
+  Future<bool> get wifiOnly async =>
+      (await _settings.get('sync_wifi_only') ?? '1') != '0';
+
+  @override
+  Future<bool> get startupPull async =>
+      (await _settings.get('sync_startup_pull') ?? '1') != '0';
+
+  @override
+  Future<int> get debounceMillis async {
+    final s = int.tryParse(await _settings.get('sync_debounce_seconds') ?? '') ?? 30;
+    return s * 1000;
+  }
+
+  @override
+  Future<int> get intervalMillis async {
+    final m = int.tryParse(await _settings.get('sync_interval_minutes') ?? '') ?? 0;
+    return m * 60000;
+  }
+
+  /// 自动同步一次（不写 UI 状态之外的东西；供运行器调用）
+  @override
+  Future<void> syncAuto() async {
+    if (!await enabled) return;
+    final creds = await _credentials.read();
+    if (creds == null || !creds.isComplete) return;
+    final engine = await _engine(creds);
+    final report = await engine.sync(trigger: 'auto');
+    await _cache.writeReport(report);
+    try {
+      await _settings.set(
+        SyncStatusCache.kDeviceCount,
+        (await engine.deviceCount()).toString(),
+      );
+    } on Exception {
+      // 设备数只是展示，失败不影响同步
+    }
+  }
 
   Future<String> get _supportDir async =>
       (await getApplicationSupportDirectory()).path;
@@ -243,12 +298,14 @@ class ShellSyncService implements SyncService {
     }
     await _credentials.write(creds);
     await _settings.set(SyncStatusCache.kEnabled, '1');
+    _configChanged.add(null);
     return syncNow();
   }
 
   @override
   Future<SyncActionResult> setEnabled(bool enabled) async {
     await _settings.set(SyncStatusCache.kEnabled, enabled ? '1' : '0');
+    _configChanged.add(null);
     if (!enabled) return const SyncActionResult.ok();
     return syncNow();
   }
@@ -322,6 +379,7 @@ class ShellSyncService implements SyncService {
     }
     await _cache.clearResult();
     await _settings.delete(SyncStatusCache.kDeviceCount);
+    _configChanged.add(null);
     return const SyncActionResult.ok();
   }
 }

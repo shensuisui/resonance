@@ -34,6 +34,8 @@ import 'package:uiv2/uiv2.dart';
 import 'config/agent_debug_config.dart';
 import 'file_pickers_impl.dart';
 import 'sync/shell_sync_service.dart';
+import 'sync/sync_auto_runner.dart';
+import 'sync/wifi_gate.dart';
 import 'config/release_check_extensions.dart';
 import 'subscription_library.dart';
 import 'ua_overrides.dart';
@@ -48,7 +50,10 @@ late DownloadManagerImpl gDownloadManager;
 late ShellFilePickers gFilePickers;
 
 /// 云同步服务（uiv2 的 SyncService 实现）
-late SyncService gSyncService;
+late ShellSyncService gSyncService;
+
+/// 自动同步运行器（防抖/启动/定时/Wi-Fi）
+late SyncAutoRunner gSyncRunner;
 
 /// 系统媒体服务 handler（仅 Android/iOS 有；桌面端为 null）
 ///
@@ -256,6 +261,9 @@ Future<void> main() async {
     db: gDatabaseProvider,
     settings: gDatabaseProvider.settingsDao,
   );
+  gSyncRunner = SyncAutoRunner(host: gSyncService, isOnWifi: isOnWifi);
+  unawaited(gSyncRunner.start());
+  WidgetsBinding.instance.addObserver(_SyncLifecycleObserver(gSyncRunner));
 
   // 5. 启动应用：手动建 ProviderContainer，便于 driver 钩子直接操作状态
   gContainer = ProviderContainer(overrides: [
@@ -912,5 +920,20 @@ class ResonanceApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return const UiV2App();
+  }
+}
+
+
+/// 回前台时补一次自动同步（仅该职责，不抢焦点）
+class _SyncLifecycleObserver with WidgetsBindingObserver {
+  final SyncAutoRunner runner;
+
+  _SyncLifecycleObserver(this.runner);
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(runner.onForeground());
+    }
   }
 }
