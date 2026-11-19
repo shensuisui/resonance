@@ -66,7 +66,7 @@ void main() {
 
     expect(snapshot.version, 1);
     expect(snapshot.recordsOf(SyncEntity.songs).single.key, 's:1');
-    expect(snapshot.recordsOf(SyncEntity.playlists).single.key, '夜行');
+    expect(snapshot.recordsOf(SyncEntity.playlists).single.key, 'p1');
     expect(snapshot.recordsOf(SyncEntity.favorites).single.key, 's:1');
     expect(snapshot.recordsOf(SyncEntity.recent).single.key, 's:1');
     expect(

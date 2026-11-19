@@ -96,10 +96,12 @@ class LocalSnapshotReader {
       final updatedAt = p.modifiedTime.millisecondsSinceEpoch > songsUpdatedAt
           ? p.modifiedTime.millisecondsSinceEpoch
           : songsUpdatedAt;
+      // B2：歌单以 id 为身份（重命名只改 name 不动 id），
+      // 这样 play_progress.queue_id / settings.last_queue 永远不需要改写
       out.add(SyncRecord(
-        key: p.name,
+        key: p.id,
         updatedAt: updatedAt,
-        deviceId: _deviceOf(SyncEntity.playlists, p.name, updatedAt, baseline),
+        deviceId: _deviceOf(SyncEntity.playlists, p.id, updatedAt, baseline),
         data: <String, Object?>{
           'id': p.id,
           'name': p.name,

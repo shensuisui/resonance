@@ -108,7 +108,7 @@
 
 | 快照内实体 | 数据来源 | 合并键 | 变更时间列 |
 |---|---|---|---|
-| `playlists` | `playlists` + `playlist_songs`（含顺序、快照） | 歌单 `name` | `modified_time` + §13 的 `playlist_songs.updated_at`/顺序指纹 |
+| `playlists` | `playlists` + `playlist_songs`（含顺序、快照） | 歌单 `id` | `modified_time` + §13 的 `playlist_songs.updated_at`/顺序指纹 |
 | `favorites` | `favorites` | `song_key` | `favorite_time` |
 | `recent` | `recent_plays`（本机上限 500 同步后截断） | `song_key` | `played_at` |
 | `progress` | `play_progress` | `(queue_kind,queue_id)` | `updated_at` |
@@ -246,7 +246,9 @@ assets/…           # 订阅库 / 规则 / 插件文件树镜像（原样）
 - `songs` 写回策略：**只补缺 + 更新元数据（title/artist/album/duration/cover_url），不动 `play_url` / `lyric_url` / `local_path`**（地址类字段由本机按来源重新解析，避免把过期 URL 写进来）。
 
 ### 7.3 歌单（playlists）
-- 按 `name` 合并（同名视为同一张）。
+- 按 `id` 合并（B2：id 创建时生成、全局统一，重命名只改 name 不动 id）。
+- 同名但 id 不同 = 两张不同歌单，**不静默合并**（P3 加「发现同名歌单，是否合并」提示）。
+- 因此 `play_progress.queue_id` 与 `settings.last_queue` 不需要随同步改写。
 - 曲目集：按 `song_key` **并集**；被墓碑删除的曲目剔除。
 - 顺序：以 `modified_time` 较新的那份为主序列；仅在另一份中出现的曲目**追加末尾**（追加顺序按各自 position）。
 - 结果写回时重排 `position`，并更新 `playlist_songs.updated_at`（§13）。
@@ -529,6 +531,7 @@ class SyncReport {
 | 40 | 单飞锁 | 同一时刻一个同步任务，结束补一次 |
 | 41 | HTTP | 默认仅 HTTPS；localhost/私有网段可放行 http 并警告 |
 | 42 | songs.lyric | 快照不含歌词正文，只含 lyric_url |
+| 43 | 歌单身份 | B2：id 全局统一、按 id 合并；重命名保留，同名独立创建不合并 |
 | 23 | play_device | 不入云，设备本地 |
 | 24 | download_* 偏好 | 入云 |
 | 25 | 定时间隔 | 自定义数值（分钟），默认关 |

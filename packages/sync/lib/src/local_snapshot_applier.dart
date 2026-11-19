@@ -3,15 +3,14 @@
 /// 与 [LocalSnapshotReader] 对称。关键规则（docs/features/webdav-sync.md）：
 ///   * songs：只补缺 + 更新元数据，**不动 play_url / lyric_url / local_path**
 ///     （地址类字段由本机按来源重新解析，避免把过期 URL 写进来）；
-///   * playlists：按 name 命中本机就沿用本机 id，并把 progress.queueId 一起重映射
-///     （否则跨设备的播放进度会对不上）；
+///   * playlists：以 **id** 为身份（B2）。id 一经创建全局统一、永不改写，
+///     因此 `play_progress.queue_id` 与 `settings.last_queue` 不需要跟着搬；
+///     重命名只是改 name；
 ///   * favorites / recent / progress / settings：以合并结果为全集，
 ///     本机多出来的（= 已被合并删除）同步删除；settings 只动白名单键。
 library;
 
 import 'package:core/core.dart';
-import 'package:crypto/crypto.dart';
-import 'dart:convert';
 
 import 'snapshot.dart';
 import 'sync_settings_keys.dart';
@@ -26,34 +25,27 @@ class LocalSnapshotApplier {
 
   /// 应用一份合并后的快照
   Future<void> apply(SyncSnapshot snapshot) async {
-    // 歌单先写：progress 的 queueId 需要按 id 映射改写
-    final playlistIdMap = await _applyPlaylists(snapshot);
+    await _applyPlaylists(snapshot);
     await _applySongs(snapshot);
     await _applyFavorites(snapshot);
     await _applyRecent(snapshot);
-    await _applyProgress(snapshot, playlistIdMap);
+    await _applyProgress(snapshot);
     await _applySettings(snapshot);
   }
 
-  /// 稳定派生歌单 id（远端记录未带 id 时用）
-  String _stableId(String name) =>
-      'pl_' + sha256.convert(utf8.encode(name)).toString().substring(0, 16);
-
-  /// 写回歌单；返回 远端 id → 本机 id 的映射
-  Future<Map<String, String>> _applyPlaylists(SyncSnapshot snapshot) async {
+  /// 写回歌单（按 id 定位；远端新歌单直接采纳其 id）
+  Future<void> _applyPlaylists(SyncSnapshot snapshot) async {
     final existing = await db.playlistDao.getAllPlaylists();
-    final byName = <String, Playlist>{for (final p in existing) p.name: p};
-    final idMap = <String, String>{};
+    final byId = <String, Playlist>{for (final p in existing) p.id: p};
 
     for (final rec in snapshot.recordsOf(SyncEntity.playlists)) {
-      final name = rec.key;
       final data = rec.data;
-      final remoteId = (data['id'] as String?) ?? '';
-      final local = byName[name];
-      final id = local?.id ??
-          (remoteId.isNotEmpty ? remoteId : _stableId(name));
-      if (remoteId.isNotEmpty && remoteId != id) idMap[remoteId] = id;
+      final rawId = (data['id'] as String?) ?? '';
+      final id = rawId.isNotEmpty ? rawId : rec.key;
+      if (id.isEmpty) continue;
 
+      final local = byId[id];
+      final name = (data['name'] as String?) ?? local?.name ?? id;
       final songKeys =
           ((data['songKeys'] as List?) ?? const <Object?>[]).cast<String>();
       final snapJson = ((data['snapshots'] as Map?) ?? const <String, Object?>{})
@@ -61,8 +53,7 @@ class LocalSnapshotApplier {
       final snapshots = <String, Song>{
         for (final e in snapJson.entries) e.key: _songFromSnapshot(e.value),
       };
-      final modified =
-          DateTime.fromMillisecondsSinceEpoch(rec.updatedAt);
+      final modified = DateTime.fromMillisecondsSinceEpoch(rec.updatedAt);
 
       final playlist = Playlist(
         id: id,
@@ -81,13 +72,13 @@ class LocalSnapshotApplier {
         await db.playlistDao.updatePlaylist(playlist);
       }
     }
-    return idMap;
   }
 
   /// 从歌单快照里的 {key: {title,...}} 还原 Song（仅展示用元数据）
   Song _songFromSnapshot(Object? raw) {
-    final map = (raw as Map?)?.cast<String, Object?>() ?? const <String, Object?>{};
-    // 这里的 Song 只是快照载体，id/sourceId 由外层 key 决定；占位即可
+    final map =
+        (raw as Map?)?.cast<String, Object?>() ?? const <String, Object?>{};
+    // 这里的 Song 只是快照载体；展示读的是 title/artist/coverUrl/duration
     return Song(
       id: '',
       sourceId: '',
@@ -178,21 +169,15 @@ class LocalSnapshotApplier {
     await db.recentPlaysDao.cleanOldest(500);
   }
 
-  /// 写回播放进度（歌单队列的 id 按映射改写）
-  Future<void> _applyProgress(
-    SyncSnapshot snapshot,
-    Map<String, String> playlistIdMap,
-  ) async {
+  /// 写回播放进度（B2 下 id 已统一，不需要重映射）
+  Future<void> _applyProgress(SyncSnapshot snapshot) async {
     final records = snapshot.recordsOf(SyncEntity.progress);
-    String mapId(String kind, String id) =>
-        kind == 'playlist' ? (playlistIdMap[id] ?? id) : id;
-
     final desired = <String>{};
+
     for (final rec in records) {
       final d = rec.data;
       final kind = (d['queueKind'] as String?) ?? '';
-      final rawId = (d['queueId'] as String?) ?? '';
-      final id = mapId(kind, rawId);
+      final id = (d['queueId'] as String?) ?? '';
       desired.add('$kind|$id');
       await db.playProgressDao.upsert(PlayProgress(
         queueKind: kind,

@@ -103,18 +103,18 @@ void main() {
     expect(two.playUrl, isNull); // 新曲不落远端地址，交给本机重新解析
   });
 
-  test('歌单同名沿用本机 id，progress.queueId 跟着重映射', () async {
+  test('B2：同 id 重命名只改 name，本机引用不变', () async {
     final now = DateTime.now();
     await db.playlistDao.insertPlaylist(Playlist(
-      id: 'local-p',
+      id: 'p1',
       name: '夜行',
       songKeys: const <String>['s:1'],
       createdTime: now,
       modifiedTime: now,
     ));
-    await db.playProgressDao.upsert(PlayProgress(
+    await db.playProgressDao.upsert(const PlayProgress(
       queueKind: 'playlist',
-      queueId: 'local-p',
+      queueId: 'p1',
       songKey: 's:1',
       positionMs: 111,
       updatedAt: 1,
@@ -123,27 +123,25 @@ void main() {
     await LocalSnapshotApplier(db: db).apply(_snap(<String, List<SyncRecord>>{
       SyncEntity.playlists: <SyncRecord>[
         const SyncRecord(
-          key: '夜行',
+          key: 'p1',
           updatedAt: 10,
           deviceId: 'r',
           data: <String, Object?>{
-            'id': 'remote-p',
-            'name': '夜行',
+            'id': 'p1',
+            'name': '新名字',
             'songKeys': <String>['s:1', 's:2'],
-            'snapshots': <String, Object?>{
-              's:1': <String, Object?>{'title': 'T1', 'artist': 'A1'},
-            },
+            'snapshots': <String, Object?>{},
           },
         ),
       ],
       SyncEntity.progress: <SyncRecord>[
         const SyncRecord(
-          key: 'playlist|remote-p',
+          key: 'playlist|p1',
           updatedAt: 10,
           deviceId: 'r',
           data: <String, Object?>{
             'queueKind': 'playlist',
-            'queueId': 'remote-p',
+            'queueId': 'p1',
             'songKey': 's:2',
             'positionMs': 222,
             'updatedAt': 10,
@@ -152,14 +150,42 @@ void main() {
       ],
     }));
 
-    final playlist = await db.playlistDao.getPlaylist('local-p');
-    expect(playlist, isNotNull);
-    expect(playlist!.songKeys, <String>['s:1', 's:2']);
+    final playlist = await db.playlistDao.getPlaylist('p1');
+    expect(playlist!.name, '新名字'); // 改名
+    expect(playlist.songKeys, <String>['s:1', 's:2']);
+    final progress = await db.playProgressDao.get('playlist', 'p1');
+    expect(progress!.positionMs, 222); // 引用不变
+  });
 
-    expect(await db.playProgressDao.get('playlist', 'remote-p'), isNull);
-    final mapped = await db.playProgressDao.get('playlist', 'local-p');
-    expect(mapped, isNotNull);
-    expect(mapped!.positionMs, 222);
+  test('B2：同名不同 id 视为两张歌单（不自动合并）', () async {
+    final now = DateTime.now();
+    await db.playlistDao.insertPlaylist(Playlist(
+      id: 'local-p',
+      name: '夜行',
+      songKeys: const <String>['s:1'],
+      createdTime: now,
+      modifiedTime: now,
+    ));
+
+    await LocalSnapshotApplier(db: db).apply(_snap(<String, List<SyncRecord>>{
+      SyncEntity.playlists: <SyncRecord>[
+        const SyncRecord(
+          key: 'remote-p',
+          updatedAt: 10,
+          deviceId: 'r',
+          data: <String, Object?>{
+            'id': 'remote-p',
+            'name': '夜行',
+            'songKeys': <String>['s:9'],
+            'snapshots': <String, Object?>{},
+          },
+        ),
+      ],
+    }));
+
+    final all = await db.playlistDao.getAllPlaylists();
+    expect(all.length, 2);
+    expect(all.map((p) => p.id).toSet(), <String>{'local-p', 'remote-p'});
   });
 
   test('settings：只动白名单键，设备本地项不受影响', () async {
