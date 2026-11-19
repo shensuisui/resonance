@@ -10,7 +10,13 @@ import 'database_helper.dart';
 class SqfliteSongDao implements SongDao {
   final DatabaseHelper _helper;
 
-  SqfliteSongDao(this._helper);
+  /// 写变更总线（可空：单测可不接）
+  final DbChangeBus? _bus;
+
+  SqfliteSongDao(this._helper, {DbChangeBus? changeBus}) : _bus = changeBus;
+
+  /// 通知同步层：歌曲索引变了
+  void _emit() => _bus?.emit(DbEntity.songs);
 
   Future<Database> get _db => _helper.getDatabase();
 
@@ -22,6 +28,7 @@ class SqfliteSongDao implements SongDao {
       songToMap(song),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    _emit();
   }
 
   @override
@@ -58,6 +65,7 @@ class SqfliteSongDao implements SongDao {
       where: 'id = ? AND source_id = ?',
       whereArgs: [song.id, song.sourceId],
     );
+    _emit();
   }
 
   @override
@@ -68,6 +76,7 @@ class SqfliteSongDao implements SongDao {
       songToMap(song),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    _emit();
   }
 
   @override
@@ -79,6 +88,7 @@ class SqfliteSongDao implements SongDao {
       where: 'id = ? AND source_id = ?',
       whereArgs: [id, sourceId],
     );
+    _emit();
   }
 
   @override
@@ -89,5 +99,6 @@ class SqfliteSongDao implements SongDao {
       where: 'id = ? AND source_id = ?',
       whereArgs: [id, sourceId],
     );
+    _emit();
   }
 }

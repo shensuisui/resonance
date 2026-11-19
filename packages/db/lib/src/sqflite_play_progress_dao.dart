@@ -13,8 +13,15 @@ class SqflitePlayProgressDao implements PlayProgressDao {
   /// 数据库助手
   final DatabaseHelper _helper;
 
+  /// 写变更总线（可空：单测可不接）
+  final DbChangeBus? _bus;
+
   /// 构造
-  SqflitePlayProgressDao(this._helper);
+  SqflitePlayProgressDao(this._helper, {DbChangeBus? changeBus})
+      : _bus = changeBus;
+
+  /// 通知同步层：播放进度变了
+  void _emit() => _bus?.emit(DbEntity.progress);
 
   Future<Database> get _db => _helper.getDatabase();
 
@@ -53,6 +60,7 @@ class SqflitePlayProgressDao implements PlayProgressDao {
       // 同一队列只留最新一条：反复播放时不断覆盖，不产生垃圾行
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    _emit();
   }
 
   @override
@@ -63,6 +71,7 @@ class SqflitePlayProgressDao implements PlayProgressDao {
       where: 'queue_kind = ? AND queue_id = ?',
       whereArgs: [queueKind, queueId],
     );
+    _emit();
   }
 
   @override

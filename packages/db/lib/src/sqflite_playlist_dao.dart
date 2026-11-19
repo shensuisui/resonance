@@ -10,7 +10,13 @@ import 'database_helper.dart';
 class SqflitePlaylistDao implements PlaylistDao {
   final DatabaseHelper _helper;
 
-  SqflitePlaylistDao(this._helper);
+  /// 写变更总线（可空：单测可不接）
+  final DbChangeBus? _bus;
+
+  SqflitePlaylistDao(this._helper, {DbChangeBus? changeBus}) : _bus = changeBus;
+
+  /// 通知同步层：歌单变了
+  void _emit() => _bus?.emit(DbEntity.playlists);
 
   Future<Database> get _db => _helper.getDatabase();
 
@@ -35,6 +41,7 @@ class SqflitePlaylistDao implements PlaylistDao {
             'playlist_songs', _songRow(playlist.id, playlist, i));
       }
     });
+    _emit();
   }
 
   @override
@@ -84,6 +91,7 @@ class SqflitePlaylistDao implements PlaylistDao {
             'playlist_songs', _songRow(playlist.id, playlist, i));
       }
     });
+    _emit();
   }
 
   @override
@@ -95,6 +103,7 @@ class SqflitePlaylistDao implements PlaylistDao {
           where: 'playlist_id = ?', whereArgs: [id]);
       await txn.delete('playlists', where: 'id = ?', whereArgs: [id]);
     });
+    _emit();
   }
 
   /// DB 行 → Playlist（songKeys 与快照一并重建）

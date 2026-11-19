@@ -10,7 +10,13 @@ import 'database_helper.dart';
 class SqfliteSettingsDao implements SettingsDao {
   final DatabaseHelper _helper;
 
-  SqfliteSettingsDao(this._helper);
+  /// 写变更总线（可空：单测可不接）
+  final DbChangeBus? _bus;
+
+  SqfliteSettingsDao(this._helper, {DbChangeBus? changeBus}) : _bus = changeBus;
+
+  /// 通知同步层：设置变了
+  void _emit() => _bus?.emit(DbEntity.settings);
 
   Future<Database> get _db => _helper.getDatabase();
 
@@ -31,6 +37,7 @@ class SqfliteSettingsDao implements SettingsDao {
       'value': value,
       'updated_at': DateTime.now().millisecondsSinceEpoch,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+    _emit();
   }
 
   @override
@@ -44,5 +51,6 @@ class SqfliteSettingsDao implements SettingsDao {
   Future<void> delete(String key) async {
     final db = await _db;
     await db.delete('settings', where: 'key = ?', whereArgs: [key]);
+    _emit();
   }
 }

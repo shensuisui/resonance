@@ -10,7 +10,13 @@ import 'database_helper.dart';
 class SqfliteFavoritesDao implements FavoritesDao {
   final DatabaseHelper _helper;
 
-  SqfliteFavoritesDao(this._helper);
+  /// 写变更总线（可空：单测可不接）
+  final DbChangeBus? _bus;
+
+  SqfliteFavoritesDao(this._helper, {DbChangeBus? changeBus}) : _bus = changeBus;
+
+  /// 通知同步层：收藏变了
+  void _emit() => _bus?.emit(DbEntity.favorites);
 
   Future<Database> get _db => _helper.getDatabase();
 
@@ -30,6 +36,7 @@ class SqfliteFavoritesDao implements FavoritesDao {
       'artist': artist,
       'cover_url': coverUrl,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+    _emit();
   }
 
   @override
@@ -37,6 +44,7 @@ class SqfliteFavoritesDao implements FavoritesDao {
     final db = await _db;
     await db.delete('favorites',
         where: 'song_key = ?', whereArgs: [songKey]);
+    _emit();
   }
 
   @override

@@ -12,7 +12,14 @@ import 'database_helper.dart';
 class SqfliteRecentPlaysDao implements RecentPlaysDao {
   final DatabaseHelper _helper;
 
-  SqfliteRecentPlaysDao(this._helper);
+  /// 写变更总线（可空：单测可不接）
+  final DbChangeBus? _bus;
+
+  SqfliteRecentPlaysDao(this._helper, {DbChangeBus? changeBus})
+      : _bus = changeBus;
+
+  /// 通知同步层：最近播放变了
+  void _emit() => _bus?.emit(DbEntity.recent);
 
   Future<Database> get _db => _helper.getDatabase();
 
@@ -32,6 +39,7 @@ class SqfliteRecentPlaysDao implements RecentPlaysDao {
       'artist': artist,
       'cover_url': coverUrl,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+    _emit();
   }
 
   @override
@@ -62,6 +70,7 @@ class SqfliteRecentPlaysDao implements RecentPlaysDao {
   Future<void> deleteRecentPlay(String songKey) async {
     final db = await _db;
     await db.delete('recent_plays', where: 'song_key = ?', whereArgs: [songKey]);
+    _emit();
   }
 
   @override
@@ -80,5 +89,6 @@ class SqfliteRecentPlaysDao implements RecentPlaysDao {
       '(SELECT song_key FROM recent_plays ORDER BY played_at ASC LIMIT ?)',
       [toDelete],
     );
+    _emit();
   }
 }

@@ -39,3 +39,4 @@ export 'src/player/player_interface.dart';
 /// 数据库
 export 'src/db/database_provider.dart';
 export 'src/db/in_memory_dao.dart';
+export 'src/db/db_change.dart';
