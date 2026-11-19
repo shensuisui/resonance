@@ -33,6 +33,7 @@ import 'package:player/player.dart';
 import 'package:uiv2/uiv2.dart';
 import 'config/agent_debug_config.dart';
 import 'file_pickers_impl.dart';
+import 'sync/shell_sync_service.dart';
 import 'config/release_check_extensions.dart';
 import 'subscription_library.dart';
 import 'ua_overrides.dart';
@@ -45,6 +46,9 @@ late DownloadManagerImpl gDownloadManager;
 
 /// 文件交互（导入导出 / 系统「用回响打开」）
 late ShellFilePickers gFilePickers;
+
+/// 云同步服务（uiv2 的 SyncService 实现）
+late SyncService gSyncService;
 
 /// 系统媒体服务 handler（仅 Android/iOS 有；桌面端为 null）
 ///
@@ -247,6 +251,12 @@ Future<void> main() async {
   gFilePickers = ShellFilePickers();
   gFilePickers.start();
 
+  // 4.5 云同步：把引擎接到 uiv2 契约（凭据在系统安全存储）
+  gSyncService = ShellSyncService(
+    db: gDatabaseProvider,
+    settings: gDatabaseProvider.settingsDao,
+  );
+
   // 5. 启动应用：手动建 ProviderContainer，便于 driver 钩子直接操作状态
   gContainer = ProviderContainer(overrides: [
     appDatabaseProvider.overrideWith((ref) => gDatabaseProvider),
@@ -258,6 +268,7 @@ Future<void> main() async {
     audioCacheProvider.overrideWith((ref) => gAudioCache),
     filePickersProvider.overrideWith((ref) => gFilePickers),
     subscriptionHostProvider.overrideWith((ref) => gSubscriptions!.host),
+    syncServiceProvider.overrideWith((ref) => gSyncService),
   ]);
 
   // 播放缓存：建立索引并把变更流接到版本号上（UI 的「离线可播」标记据此刷新）

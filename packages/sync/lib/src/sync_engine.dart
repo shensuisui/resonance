@@ -439,6 +439,12 @@ class SyncEngine {
     return versions;
   }
 
+  /// 云端已知设备数（latest.devices）
+  Future<int> deviceCount() async {
+    final latest = await _readLatest();
+    return latest?.devices.length ?? 0;
+  }
+
   /// 历史版本明细（设备名/触发方式/时间）；无 history 时回退为仅版本号
   Future<List<LatestVersionInfo>> listVersionInfo() async {
     final latest = await _readLatest();
