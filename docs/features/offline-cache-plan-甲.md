@@ -1,6 +1,6 @@
 # 离线缓存升级「甲」——边播边落盘（1 倍流量）
 
-> 状态：**已落地（2026-11-19）：采用 just_audio `LockCachingAudioSource`；M4 emulator 实测通过（served=2722=size、requests=1、缓存完整、seek 可用）** ｜ 更新：2026-11-19 ｜ 对应 offline-cache.md §五「预留」与下载功能 B 侧。
+> 状态：**已落地（2026-11-19）：采用 just_audio `LockCachingAudioSource`；M4 emulator 实测通过（served=2722=size、requests=1、缓存完整、seek 可用；带 headers 亦通过，见 evidence/offline-cache-stream）** ｜ 更新：2026-11-19 ｜ 对应 offline-cache.md §五「预留」与下载功能 B 侧。
 
 ## 1. 背景
 

@@ -18,9 +18,11 @@ void main() {
     final bytes = base64Decode(_mp3B64);
     var served = 0;
     var requests = 0;
+    String? referer;
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((req) async {
       requests++;
+      referer ??= req.headers.value('referer');
       final res = req.response;
       final range = req.headers.value(HttpHeaders.rangeHeader);
       var start = 0;
@@ -73,7 +75,11 @@ void main() {
 
     final player = PlayerImpl(
       audioSourceBuilder: (url, {Song? song}) {
-        final source = LockCachingAudioSource(url, cacheFile: File(target));
+        final source = LockCachingAudioSource(
+          url,
+          headers: const {'referer': 'https://ref.example/'},
+          cacheFile: File(target),
+        );
         source.downloadProgressStream.listen((p) async {
           if (p >= 1.0 || File(target).existsSync()) {
             await cache.adoptExistingFile(key);
@@ -102,6 +108,7 @@ void main() {
     expect(file.existsSync(), isTrue);
     expect(file.lengthSync(), bytes.length, reason: '缓存文件应完整');
     expect(served, lessThan(bytes.length * 2), reason: '约 1 倍流量: served=$served size=${bytes.length}');
+    expect(referer, 'https://ref.example/', reason: 'headers 应经本地代理透传');
     // ignore: avoid_print
     print('M4_LOCK_RESULT served=$served size=${bytes.length} requests=$requests');
 
