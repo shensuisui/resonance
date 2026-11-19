@@ -26,7 +26,7 @@
 
 - 甲 builder 命中 `AudioCache` 完整文件 → 直接 `AudioSource.uri(file://)`，避免双下。未命中 → 走 v1。先拿到缓存命中收益与桌面验证。
 
-### M3：流式转发（CacheStreamAudioSource）
+### M3：流式转发（CacheStreamAudioSource）——**核心源已实现（2026-11-19，含单测）；待接线**
 
     class CacheStreamAudioSource extends StreamAudioSource {
       // 输入：远端 Stream(List<int>)；旁路写 .part；
