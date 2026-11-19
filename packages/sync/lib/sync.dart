@@ -7,3 +7,6 @@ library;
 
 export 'src/dav_client.dart';
 export 'src/dav_client_webdav.dart';
+export 'src/latest.dart';
+export 'src/snapshot.dart';
+export 'src/snapshot_codec.dart';
