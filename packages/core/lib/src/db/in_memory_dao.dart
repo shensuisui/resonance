@@ -54,10 +54,23 @@ class InMemorySongDao implements SongDao {
 class InMemoryPlaylistDao implements PlaylistDao {
   final _store = <String, Playlist>{};
 
+  /// 每个歌单的「曲目最后变更时间」（毫秒），供同步层测试用
+  final _songsUpdatedAt = <String, int>{};
+
+  /// 写入歌单并刷新曲目变更时间
+  void _put(Playlist playlist) {
+    _store[playlist.id] = playlist;
+    _songsUpdatedAt[playlist.id] = DateTime.now().millisecondsSinceEpoch;
+  }
+
   @override
   Future<void> insertPlaylist(Playlist playlist) async {
-    _store[playlist.id] = playlist;
+    _put(playlist);
   }
+
+  @override
+  Future<int> getSongsUpdatedAt(String playlistId) async =>
+      _songsUpdatedAt[playlistId] ?? 0;
 
   @override
   Future<Playlist?> getPlaylist(String id) async {
@@ -71,12 +84,13 @@ class InMemoryPlaylistDao implements PlaylistDao {
 
   @override
   Future<void> updatePlaylist(Playlist playlist) async {
-    _store[playlist.id] = playlist;
+    _put(playlist);
   }
 
   @override
   Future<void> deletePlaylist(String id) async {
     _store.remove(id);
+    _songsUpdatedAt.remove(id);
   }
 }
 

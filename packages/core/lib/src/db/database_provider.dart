@@ -36,6 +36,12 @@ abstract class PlaylistDao {
   Future<List<Playlist>> getAllPlaylists();
   Future<void> updatePlaylist(Playlist playlist);
   Future<void> deletePlaylist(String id);
+
+  /// 歌单曲目集合的最后变更时间（毫秒时间戳；无曲目返回 0）
+  ///
+  /// 云同步用它判断「歌单内容（增删/换序）是否变过」，
+  /// 与 [Playlist.modifiedTime]（歌单属性）互补。
+  Future<int> getSongsUpdatedAt(String playlistId);
 }
 
 /// 最近播放 DAO 接口

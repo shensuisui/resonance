@@ -18,7 +18,9 @@ import 'sqflite_init.dart';
 /// v3：favorites 表新增歌曲快照列（title/artist/cover_url）。
 /// v4：playlist_songs 表新增歌曲快照列（title/artist/cover_url/duration），
 ///     根治规则源 getSongDetail 不返回元数据导致的自定义歌单歌曲名称为空。
-const int kDbVersion = 4;
+/// v5：playlist_songs 新增 updated_at（毫秒），供云同步判断歌单内容变更
+///     （曲目增删/换序）；约定仍是不迁移旧数据，升级即重建。
+const int kDbVersion = 5;
 
 /// 建表 SQL
 const String kCreateSongsTable = '''
@@ -61,6 +63,7 @@ CREATE TABLE IF NOT EXISTS playlist_songs (
   artist       TEXT,
   cover_url    TEXT,
   duration     INTEGER,
+  updated_at   INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (playlist_id, song_key),
   FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
 )

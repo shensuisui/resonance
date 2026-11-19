@@ -172,6 +172,19 @@ class SqflitePlaylistDao implements PlaylistDao {
       'artist': snap?.artist,
       'cover_url': snap?.coverUrl,
       'duration': snap?.duration,
+      // 曲目增删/换序都算内容变更：写入时打时间戳，同步层取 MAX 判断
+      'updated_at': DateTime.now().millisecondsSinceEpoch,
     };
+  }
+
+  @override
+  Future<int> getSongsUpdatedAt(String playlistId) async {
+    final db = await _db;
+    final rows = await db.rawQuery(
+      'SELECT MAX(updated_at) AS mx FROM playlist_songs WHERE playlist_id = ?',
+      [playlistId],
+    );
+    final value = rows.isEmpty ? null : rows.first['mx'];
+    return (value as num?)?.toInt() ?? 0;
   }
 }
