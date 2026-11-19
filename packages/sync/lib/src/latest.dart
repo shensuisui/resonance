@@ -56,6 +56,9 @@ class LatestDoc {
   /// 最后写入设备
   final String writer;
 
+  /// 推送来源（manual=手动 / auto=自动，供历史版本明细展示）
+  final String trigger;
+
   /// 已知设备列表
   final List<LatestDevice> devices;
 
@@ -66,6 +69,7 @@ class LatestDoc {
     required this.sha256,
     required this.updatedAt,
     required this.writer,
+    this.trigger = 'auto',
     this.devices = const <LatestDevice>[],
   });
 
@@ -84,10 +88,11 @@ class LatestDoc {
         'sha256': sha256,
         'updatedAt': updatedAt,
         'writer': writer,
+        'trigger': trigger,
         'devices': <Object?>[for (final d in devices) d.toJson()],
       });
 
-  /// 从 JSON Map 还原
+  /// 从 JSON Map 还原（trigger 为可选字段，缺省按 auto 兼容旧快照）
   factory LatestDoc.fromJson(Map<String, Object?> json) {
     if (json['format'] != magic) {
       throw const FormatException('不是 resonance-sync-latest');
@@ -103,6 +108,7 @@ class LatestDoc {
       sha256: json['sha256'] as String? ?? '',
       updatedAt: (json['updatedAt'] as num?)?.toInt() ?? 0,
       writer: json['writer'] as String? ?? '',
+      trigger: json['trigger'] as String? ?? 'auto',
       devices: <LatestDevice>[
         for (final item in list)
           LatestDevice.fromJson((item as Map).cast<String, Object?>()),
@@ -129,6 +135,7 @@ class LatestDoc {
       sha256: sha256,
       updatedAt: updatedAt,
       writer: writer,
+      trigger: trigger,
       devices: merged.values.toList(),
     );
   }

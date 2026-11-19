@@ -76,14 +76,14 @@ class SyncEngine {
   String _snapshotPath(int version) => '$_root/${_snapshotRel(version)}';
 
   /// 执行一次同步（自动：永远合并；无变更不产生新版本）
-  Future<SyncReport> sync({DateTime? now}) async {
+  Future<SyncReport> sync({DateTime? now, String trigger = 'auto'}) async {
     final at = now ?? DateTime.now();
     if (_running) {
       return SyncReport(at: at, error: '已有同步任务在进行');
     }
     _running = true;
     try {
-      return await _loop(at);
+      return await _loop(at, trigger);
     } on SyncException catch (e) {
       return SyncReport.failure(e.message, at: at);
     } on DavException catch (e) {
@@ -96,7 +96,7 @@ class SyncEngine {
   }
 
   /// 同步主循环（带乐观并发重试）
-  Future<SyncReport> _loop(DateTime at) async {
+  Future<SyncReport> _loop(DateTime at, String trigger) async {
     final baseline = await state.readBaseline();
     final reader = LocalSnapshotReader(db: db, deviceId: deviceId);
     final applier = LocalSnapshotApplier(db: db);
@@ -198,6 +198,7 @@ class SyncEngine {
         sha256: sha,
         updatedAt: at.millisecondsSinceEpoch,
         writer: deviceId,
+        trigger: trigger,
         devices: _devicesWith(check, at),
       );
       await dav.write(_latestPath, utf8.encode(doc.encode()));

@@ -223,4 +223,13 @@ void main() {
       <String>['subscriptions/index.json'],
     );
   });
+
+  test('手动与自动触发写进 latest 的 trigger', () async {
+    final dav = InMemoryDav();
+    final a = device('A', dav);
+    await a.db.favoritesDao.addFavorite('s:1', 1000);
+    await a.engine.sync(now: t(10), trigger: 'manual');
+    final latest = LatestDoc.decode(utf8.decode(dav.files['/resonance-sync/latest.json']!));
+    expect(latest.trigger, 'manual');
+  });
 }
