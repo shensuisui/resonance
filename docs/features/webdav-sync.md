@@ -533,6 +533,10 @@ class SyncReport {
 | 41 | HTTP | 默认仅 HTTPS；localhost/私有网段可放行 http 并警告 |
 | 42 | songs.lyric | 快照不含歌词正文，只含 lyric_url |
 | 43 | 歌单身份 | B2：id 全局统一、按 id 合并；重命名保留，同名独立创建不合并 |
+| 44 | 凭据存储 | 抽 CredentialStore：Secure（系统安全存储）/ Memory（测试）；壳工程注入 |
+| 45 | 自动同步默认 | 启动/回前台拉取、变更防抖 30s、仅 Wi-Fi；定时默认关、仅前台 Timer |
+| 46 | 版本历史元信息 | latest.history 记最近 7 版的 writer/trigger/updatedAt，供历史明细分设备/时间/触发 |
+| 47 | 冲突明细 | MergeConflict（实体/键/两侧时间）随 SyncReport 上抛，UI 只读展示 |
 | 23 | play_device | 不入云，设备本地 |
 | 24 | download_* 偏好 | 入云 |
 | 25 | 定时间隔 | 自定义数值（分钟），默认关 |
@@ -555,6 +559,13 @@ class SyncReport {
 ---
 
 ## 19. 实施期验证清单（不阻塞设计，落地前逐项实测）
+
+### 19.1 实现状态（2026-11-20）
+
+- ✅ P1 引擎+实体：`packages/sync`（DavClient/SnapshotCodec/Reader/Applier/Merger/SyncEngine/Scheduler）+ db 变更总线 + schema v5；真实 WebDAV e2e。
+- ✅ P2 资产/订阅树：AssetStore（Memory/Directory，前缀白名单）+ 快照内 assets + mtime 判胜/墓碑；真实 WebDAV 资产 e2e。
+- ✅ P3 UI+历史回滚：uiv2 契约/Provider、设置页云同步区块与 4 个弹层、ShellSyncService、自动运行器；ShellSyncService 真实 e2e（真实 WebDAV + 真实 SQLite）。
+- ⏳ 待用户真机：iOS 资产目录行为；连坚果云/Nextcloud 真账号跑一次（本机无账号，未能代跑）。
 
 1. **iOS 真机**：`getApplicationSupportDirectory` 下的「建目录→写→读→删除→再读」；并决定是否对该目录加「不参与系统备份」（iOS `NSURLIsExcludedFromBackupKey`、Android backup rules），避免与 WebDAV 双来源。
 2. **曲库体积实测**：数千曲时 `snapshot.json` 原始大小、`tar.bz2` 后大小、7 份占用 → 确认对目标 WebDAV 无压力（合成 5000 曲已实测约 252KB/份，待真曲库复核）。
