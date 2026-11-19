@@ -48,6 +48,12 @@ abstract class AudioCacheFileAccess {
   /// 完整缓存文件的真实路径；没有/未初始化/未命中返回 null
   String? filePathFor(String songKey);
 
+  /// 目标缓存文件路径（不要求已命中；供外部缓存器落盘）
+  String? targetPathFor(String songKey);
+
+  /// 外部缓存器写完文件后登记入索引（文件存在且非空才成功）
+  Future<bool> adoptExistingFile(String songKey);
+
   /// 删除单曲缓存（文件 + 索引 + 通知）
   Future<void> remove(String songKey);
 }

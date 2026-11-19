@@ -241,6 +241,20 @@ class AudioCacheImpl implements AudioCache, AudioCacheFileAccess, AudioCacheStre
   }
 
   @override
+  String? targetPathFor(String songKey) => _pathFor(songKey);
+
+  @override
+  Future<bool> adoptExistingFile(String songKey) async {
+    final path = _pathFor(songKey);
+    if (path == null) return false;
+    final f = File(path);
+    if (!await f.exists() || await f.length() == 0) return false;
+    _cached.add(songKey);
+    if (!_changes.isClosed) _changes.add(null);
+    return true;
+  }
+
+  @override
   Future<void> remove(String songKey) async {
     final path = _pathFor(songKey);
     _cached.remove(songKey);

@@ -51,4 +51,20 @@ void main() {
     expect(files, isEmpty);
     await cache.dispose();
   });
+
+  test('adoptExistingFile：外部写完的文件可登记入索引', () async {
+    final cache = AudioCacheImpl(customDir: tmp.path);
+    await cache.init();
+    final path = cache.targetPathFor(song.globalKey)!;
+    final f = File(path);
+    await f.parent.create(recursive: true);
+    await f.writeAsBytes([7, 8, 9]);
+
+    expect(await cache.adoptExistingFile(song.globalKey), isTrue);
+    expect(cache.isCached(song.globalKey), isTrue);
+    expect(cache.localUrlFor(song.globalKey), startsWith('file:'));
+
+    expect(await cache.adoptExistingFile('s:missing'), isFalse);
+    await cache.dispose();
+  });
 }
