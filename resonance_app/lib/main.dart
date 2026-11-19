@@ -143,6 +143,10 @@ Future<void> main() async {
     },
     // 「甲」：未命中缓存的新歌边走播边落盘（1 倍流量）；失败由 PlayerImpl 回退原始 URL。
     audioSourceBuilder: (url, {Song? song}) {
+      // M4 未通过（Android 播放器缓冲后取消读取，边播 tee 不提交缓存）：
+      // 默认关闭「甲」，保持 v1 行为；M4 验证通过后置 true。
+      const enableStreamCache = false;
+      if (!enableStreamCache) return AudioSource.uri(url);
       final remote = url.scheme == 'http' || url.scheme == 'https';
       if (song == null || !remote) return AudioSource.uri(url);
       return CachingStreamAudioSource(

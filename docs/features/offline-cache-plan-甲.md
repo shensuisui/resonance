@@ -26,7 +26,7 @@
 
 - 甲 builder 命中 `AudioCache` 完整文件 → 直接 `AudioSource.uri(file://)`，避免双下。未命中 → 走 v1。先拿到缓存命中收益与桌面验证。
 
-### M3：流式转发（CacheStreamAudioSource）——**核心源已实现（2026-11-19，含单测）；待接线**
+### M3：流式转发（CacheStreamAudioSource）——**核心源 + 接线已实现（2026-11-19）；但 M4 实测未通过，builder 默认关闭（main 里 enableStreamCache=false）**
 
     class CacheStreamAudioSource extends StreamAudioSource {
       // 输入：远端 Stream(List<int>)；旁路写 .part；
@@ -36,7 +36,7 @@
 - 失败回退：转发出错 → 回到 `AudioSource.uri(原始URL)` 重播（推荐）。
 - 保持「乙」可恢复性：完整才改名，半截不播；目录/命名/命中/清理复用「乙」实现。
 
-### M4：流式边界
+### M4：流式边界（**未通过**：Android ExoPlayer 缓冲后取消读取，tee 的 onDone 不触发，缓存不落盘）
 
 - seek / 进度 / 后台保活的流式 source 边界处理；release_check 冒烟。
 
