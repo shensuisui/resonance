@@ -39,6 +39,58 @@ class LatestDevice {
       );
 }
 
+/// 一份历史版本的元信息（供历史版本明细展示）
+class LatestVersionInfo {
+  /// 版本号
+  final int version;
+
+  /// 快照相对路径
+  final String file;
+
+  /// 校验和
+  final String sha256;
+
+  /// 推送设备 id
+  final String writer;
+
+  /// 推送来源（manual / auto）
+  final String trigger;
+
+  /// 推送时间（毫秒，UTC）
+  final int updatedAt;
+
+  /// 构造
+  const LatestVersionInfo({
+    required this.version,
+    required this.file,
+    required this.sha256,
+    required this.writer,
+    this.trigger = 'auto',
+    required this.updatedAt,
+  });
+
+  /// 转 JSON
+  Map<String, Object?> toJson() => <String, Object?>{
+        'version': version,
+        'file': file,
+        'sha256': sha256,
+        'writer': writer,
+        'trigger': trigger,
+        'updatedAt': updatedAt,
+      };
+
+  /// 从 JSON 还原
+  factory LatestVersionInfo.fromJson(Map<String, Object?> json) =>
+      LatestVersionInfo(
+        version: (json['version'] as num?)?.toInt() ?? 0,
+        file: json['file'] as String? ?? '',
+        sha256: json['sha256'] as String? ?? '',
+        writer: json['writer'] as String? ?? '',
+        trigger: json['trigger'] as String? ?? 'auto',
+        updatedAt: (json['updatedAt'] as num?)?.toInt() ?? 0,
+      );
+}
+
 /// 最新版本指针
 class LatestDoc {
   /// 快照版本号
@@ -62,6 +114,9 @@ class LatestDoc {
   /// 已知设备列表
   final List<LatestDevice> devices;
 
+  /// 最近若干版本的元信息（最多 7 条，供历史明细）
+  final List<LatestVersionInfo> history;
+
   /// 构造
   const LatestDoc({
     required this.version,
@@ -71,6 +126,7 @@ class LatestDoc {
     required this.writer,
     this.trigger = 'auto',
     this.devices = const <LatestDevice>[],
+    this.history = const <LatestVersionInfo>[],
   });
 
   /// 魔数
@@ -90,6 +146,7 @@ class LatestDoc {
         'writer': writer,
         'trigger': trigger,
         'devices': <Object?>[for (final d in devices) d.toJson()],
+        'history': <Object?>[for (final h in history) h.toJson()],
       });
 
   /// 从 JSON Map 还原（trigger 为可选字段，缺省按 auto 兼容旧快照）
@@ -109,6 +166,10 @@ class LatestDoc {
       updatedAt: (json['updatedAt'] as num?)?.toInt() ?? 0,
       writer: json['writer'] as String? ?? '',
       trigger: json['trigger'] as String? ?? 'auto',
+      history: <LatestVersionInfo>[
+        for (final item in (json['history'] as List?) ?? const <Object?>[])
+          LatestVersionInfo.fromJson((item as Map).cast<String, Object?>()),
+      ],
       devices: <LatestDevice>[
         for (final item in list)
           LatestDevice.fromJson((item as Map).cast<String, Object?>()),
@@ -136,6 +197,7 @@ class LatestDoc {
       updatedAt: updatedAt,
       writer: writer,
       trigger: trigger,
+      history: history,
       devices: merged.values.toList(),
     );
   }

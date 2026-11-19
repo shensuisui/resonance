@@ -193,6 +193,20 @@ class SyncEngine {
       final sha = SnapshotCodec.sha256Hex(bytes);
       await dav.mkdir('$_root/snapshots');
       await dav.write(_snapshotPath(nextVersion), bytes);
+      final history = <LatestVersionInfo>[
+        ...(check?.history ?? const <LatestVersionInfo>[]),
+        LatestVersionInfo(
+          version: nextVersion,
+          file: _snapshotRel(nextVersion),
+          sha256: sha,
+          writer: deviceId,
+          trigger: trigger,
+          updatedAt: at.millisecondsSinceEpoch,
+        ),
+      ];
+      while (history.length > keepVersions) {
+        history.removeAt(0);
+      }
       final doc = LatestDoc(
         version: nextVersion,
         file: _snapshotRel(nextVersion),
@@ -201,6 +215,7 @@ class SyncEngine {
         writer: deviceId,
         trigger: trigger,
         devices: _devicesWith(check, at),
+        history: history,
       );
       await dav.write(_latestPath, utf8.encode(doc.encode()));
       await _pruneSnapshots();
@@ -422,6 +437,24 @@ class SyncEngine {
     }
     versions.sort();
     return versions;
+  }
+
+  /// 历史版本明细（设备名/触发方式/时间）；无 history 时回退为仅版本号
+  Future<List<LatestVersionInfo>> listVersionInfo() async {
+    final latest = await _readLatest();
+    if (latest != null && latest.history.isNotEmpty) return latest.history;
+    final versions = await listVersions();
+    return <LatestVersionInfo>[
+      for (final v in versions)
+        LatestVersionInfo(
+          version: v,
+          file: _snapshotRel(v),
+          sha256: '',
+          writer: '',
+          trigger: 'unknown',
+          updatedAt: 0,
+        ),
+    ];
   }
 
   /// 回滚到指定历史版本（覆盖本机；不推送）

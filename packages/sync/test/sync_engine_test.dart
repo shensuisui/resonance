@@ -232,4 +232,21 @@ void main() {
     final latest = LatestDoc.decode(utf8.decode(dav.files['/resonance-sync/latest.json']!));
     expect(latest.trigger, 'manual');
   });
+
+  test('历史版本明细记住设备与触发方式，且只留最近 7 条', () async {
+    final dav = InMemoryDav();
+    final a = device('A', dav);
+    await a.db.favoritesDao.addFavorite('s:0', 100);
+    await a.engine.sync(now: t(10), trigger: 'manual');
+    for (var i = 1; i <= 8; i++) {
+      await a.db.favoritesDao.addFavorite('s:$i', 100 + i);
+      await a.engine.sync(now: t(10 + i), trigger: 'auto');
+    }
+    final info = await a.engine.listVersionInfo();
+    expect(info.length, 7);
+    expect(info.last.version, 9);
+    expect(info.last.writer, 'A');
+    expect(info.last.trigger, 'auto');
+    expect(info.first.version, 3);
+  });
 }
