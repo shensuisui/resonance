@@ -53,4 +53,18 @@ class SqfliteSettingsDao implements SettingsDao {
     await db.delete('settings', where: 'key = ?', whereArgs: [key]);
     _emit();
   }
+
+  @override
+  Future<List<SettingEntry>> getAllEntries() async {
+    final db = await _db;
+    final rows = await db.query('settings');
+    return <SettingEntry>[
+      for (final r in rows)
+        SettingEntry(
+          key: r['key'] as String,
+          value: r['value'] as String? ?? '',
+          updatedAt: (r['updated_at'] as num?)?.toInt() ?? 0,
+        ),
+    ];
+  }
 }

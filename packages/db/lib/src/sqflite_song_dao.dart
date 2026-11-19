@@ -101,4 +101,17 @@ class SqfliteSongDao implements SongDao {
     );
     _emit();
   }
+
+  @override
+  Future<List<SongRecord>> getAllSongRecords() async {
+    final db = await _db;
+    final rows = await db.query('songs');
+    return <SongRecord>[
+      for (final r in rows)
+        SongRecord(
+          song: songFromMap(r),
+          updatedAt: (r['updated_at'] as num?)?.toInt() ?? 0,
+        ),
+    ];
+  }
 }

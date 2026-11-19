@@ -13,9 +13,24 @@ abstract class DatabaseProvider {
   DownloadTaskDao get downloadTaskDao;
 }
 
+/// 歌曲记录（带更新时间，供云同步判断变更）
+class SongRecord {
+  /// 歌曲
+  final Song song;
+
+  /// songs.updated_at（毫秒）
+  final int updatedAt;
+
+  /// 构造
+  const SongRecord({required this.song, required this.updatedAt});
+}
+
 /// 歌曲 DAO 接口
 abstract class SongDao {
   Future<void> insertSong(Song song);
+
+  /// 全部歌曲（云同步用；带 updated_at）
+  Future<List<SongRecord>> getAllSongRecords();
   Future<Song?> getSong(String id, String sourceId);
   Future<List<Song>> searchSongs(String keyword);
   Future<void> updateSong(Song song);
@@ -117,9 +132,27 @@ abstract class DownloadTaskDao {
   Future<void> clearByStatus(Set<DownloadStatus> statuses);
 }
 
+/// 设置条目（带更新时间，供云同步判断变更）
+class SettingEntry {
+  /// 键
+  final String key;
+
+  /// 值
+  final String value;
+
+  /// settings.updated_at（毫秒）
+  final int updatedAt;
+
+  /// 构造
+  const SettingEntry({required this.key, required this.value, required this.updatedAt});
+}
+
 /// 设置 DAO 接口（key-value 存储，支持多设备同步预留）
 abstract class SettingsDao {
   Future<String?> get(String key);
+
+  /// 全部设置（含 updated_at，同步用）
+  Future<List<SettingEntry>> getAllEntries();
   Future<void> set(String key, String value);
   Future<Map<String, String>> getAll();
   Future<void> delete(String key);

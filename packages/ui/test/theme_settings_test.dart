@@ -31,6 +31,12 @@ class MemorySettingsDao implements SettingsDao {
   Future<void> delete(String key) async {
     _store.remove(key);
   }
+
+  @override
+  Future<List<SettingEntry>> getAllEntries() async => <SettingEntry>[
+        for (final e in _store.entries)
+          SettingEntry(key: e.key, value: e.value, updatedAt: 0),
+      ];
 }
 
 /// 假 DatabaseProvider：仅实现 settingsDao，其余 DAO 不触达

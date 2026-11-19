@@ -6,11 +6,21 @@ import 'package:core/core.dart';
 class InMemorySongDao implements SongDao {
   final _store = <String, Song>{};
 
+  /// 每首歌的更新时间（毫秒），供同步层测试用
+  final _updatedAt = <String, int>{};
+
   String _key(String id, String sourceId) => '$sourceId:$id';
+
+  /// 打时间戳
+  void _touch(String key) {
+    _updatedAt[key] = DateTime.now().millisecondsSinceEpoch;
+  }
 
   @override
   Future<void> insertSong(Song song) async {
-    _store[_key(song.id, song.sourceId)] = song;
+    final key = _key(song.id, song.sourceId);
+    _store[key] = song;
+    _touch(key);
   }
 
   @override
@@ -30,12 +40,16 @@ class InMemorySongDao implements SongDao {
 
   @override
   Future<void> updateSong(Song song) async {
-    _store[_key(song.id, song.sourceId)] = song;
+    final key = _key(song.id, song.sourceId);
+    _store[key] = song;
+    _touch(key);
   }
 
   @override
   Future<void> upsertSong(Song song) async {
-    _store[_key(song.id, song.sourceId)] = song;
+    final key = _key(song.id, song.sourceId);
+    _store[key] = song;
+    _touch(key);
   }
 
   @override
@@ -47,8 +61,16 @@ class InMemorySongDao implements SongDao {
 
   @override
   Future<void> deleteSong(String id, String sourceId) async {
-    _store.remove(_key(id, sourceId));
+    final key = _key(id, sourceId);
+    _store.remove(key);
+    _updatedAt.remove(key);
   }
+
+  @override
+  Future<List<SongRecord>> getAllSongRecords() async => <SongRecord>[
+        for (final e in _store.entries)
+          SongRecord(song: e.value, updatedAt: _updatedAt[e.key] ?? 0),
+      ];
 }
 
 class InMemoryPlaylistDao implements PlaylistDao {
@@ -193,12 +215,16 @@ class InMemoryFavoritesDao implements FavoritesDao {
 class InMemorySettingsDao implements SettingsDao {
   final _store = <String, String>{};
 
+  /// 每个键的更新时间（毫秒），供同步层测试用
+  final _updatedAt = <String, int>{};
+
   @override
   Future<String?> get(String key) async => _store[key];
 
   @override
   Future<void> set(String key, String value) async {
     _store[key] = value;
+    _updatedAt[key] = DateTime.now().millisecondsSinceEpoch;
   }
 
   @override
@@ -208,7 +234,18 @@ class InMemorySettingsDao implements SettingsDao {
   @override
   Future<void> delete(String key) async {
     _store.remove(key);
+    _updatedAt.remove(key);
   }
+
+  @override
+  Future<List<SettingEntry>> getAllEntries() async => <SettingEntry>[
+        for (final e in _store.entries)
+          SettingEntry(
+            key: e.key,
+            value: e.value,
+            updatedAt: _updatedAt[e.key] ?? 0,
+          ),
+      ];
 }
 
 /// 播放进度 DAO 内存实现（按"种类:id"存一行）
