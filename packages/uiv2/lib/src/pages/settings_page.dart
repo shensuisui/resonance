@@ -271,6 +271,9 @@ class SettingsPage extends ConsumerWidget {
             ),
           ),
 
+          // ---------- 云同步 ----------
+          const SyncSection(),
+
           // ---------- 数据备份 ----------
           UiV2Section(
             title: '数据备份',
