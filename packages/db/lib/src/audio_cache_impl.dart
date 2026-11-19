@@ -19,7 +19,7 @@ import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-class AudioCacheImpl implements AudioCache, AudioCacheFileAccess {
+class AudioCacheImpl implements AudioCache, AudioCacheFileAccess, AudioCacheStreamWriter {
   /// 下载器（测试可注入）
   final Dio _dio;
 
@@ -46,6 +46,9 @@ class AudioCacheImpl implements AudioCache, AudioCacheFileAccess {
 
   /// 在飞下载的取消令牌（clear 时取消）
   final Map<String, CancelToken> _cancelTokens = {};
+
+  /// 流式写入器（同曲去重；clear 时全部中止）
+  final Map<String, _AudioCacheStreamSink> _streamSinks = {};
 
   /// 构造
   AudioCacheImpl({Dio? dio, this.customDir}) : _dio = dio ?? Dio();
@@ -110,6 +113,29 @@ class AudioCacheImpl implements AudioCache, AudioCacheFileAccess {
     // 否则启动时先渲染的列表把 offlineAvailableProvider 的 false 缓存住了，
     // 界面上就是「明明缓存里有、却一直不显示离线可播」（真机实测踩过）。
     _changes.add(null);
+  }
+
+  @override
+  Future<AudioCacheStreamSink> openStream(String songKey) async {
+    await _root();
+    final existing = _streamSinks.remove(songKey);
+    if (existing != null) await existing.abort();
+    final path = _pathFor(songKey);
+    if (path == null) throw StateError('缓存目录未初始化');
+    final part = File('$path.part');
+    await part.parent.create(recursive: true);
+    if (await part.exists()) await part.delete();
+    final raf = await part.open(mode: FileMode.write);
+    final sink = _AudioCacheStreamSink(
+      cache: this,
+      songKey: songKey,
+      targetPath: path,
+      partPath: part.path,
+      raf: raf,
+      generation: _generation,
+    );
+    _streamSinks[songKey] = sink;
+    return sink;
   }
 
   /// 强制重扫缓存目录（init 幂等；测试/工具需要刷新索引时用）
@@ -185,6 +211,10 @@ class AudioCacheImpl implements AudioCache, AudioCacheFileAccess {
   @override
   Future<void> clear() async {
     _generation++;
+    for (final sink in _streamSinks.values.toList()) {
+      await sink.abort();
+    }
+    _streamSinks.clear();
     for (final token in _cancelTokens.values) {
       if (!token.isCancelled) token.cancel();
     }
@@ -262,5 +292,66 @@ class AudioCacheImpl implements AudioCache, AudioCacheFileAccess {
     } catch (_) {
       return null;
     }
+  }
+}
+
+class _AudioCacheStreamSink implements AudioCacheStreamSink {
+  _AudioCacheStreamSink({
+    required this.cache,
+    required this.songKey,
+    required this.targetPath,
+    required this.partPath,
+    required this.raf,
+    required this.generation,
+  });
+
+  final AudioCacheImpl cache;
+  final String songKey;
+  final String targetPath;
+  final String partPath;
+  final RandomAccessFile raf;
+  final int generation;
+  var _bytes = 0;
+  var _closed = false;
+
+  @override
+  Future<void> add(List<int> bytes) async {
+    if (_closed) return;
+    await raf.writeFrom(bytes);
+    _bytes += bytes.length;
+  }
+
+  Future<void> _close() async {
+    if (_closed) return;
+    _closed = true;
+    try {
+      await raf.close();
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> commit() async {
+    await _close();
+    cache._streamSinks.remove(songKey);
+    final part = File(partPath);
+    if (generation != cache._generation || _bytes <= 0) {
+      if (await part.exists()) await part.delete();
+      return;
+    }
+    final target = File(targetPath);
+    if (await target.exists()) await target.delete();
+    await part.rename(targetPath);
+    cache._cached.add(songKey);
+    if (!cache._changes.isClosed) cache._changes.add(null);
+  }
+
+  @override
+  Future<void> abort() async {
+    await _close();
+    cache._streamSinks.remove(songKey);
+    try {
+      final part = File(partPath);
+      if (await part.exists()) await part.delete();
+    } catch (_) {}
   }
 }

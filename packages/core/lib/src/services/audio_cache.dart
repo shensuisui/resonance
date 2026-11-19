@@ -51,3 +51,21 @@ abstract class AudioCacheFileAccess {
   /// 删除单曲缓存（文件 + 索引 + 通知）
   Future<void> remove(String songKey);
 }
+
+/// 流式缓存写入（「甲」边播边落盘）
+abstract class AudioCacheStreamSink {
+  /// 追加一段字节
+  Future<void> add(List<int> bytes);
+
+  /// 完成：完整才改名入索引；生成代际变化/空文件则丢弃
+  Future<void> commit();
+
+  /// 中止：删掉 .part，不留残片
+  Future<void> abort();
+}
+
+/// 打开流式写入的能力（不扩大 AudioCache 契约）
+abstract class AudioCacheStreamWriter {
+  /// 为 songKey 打开 .part 写入；同曲已有写入会先 abort
+  Future<AudioCacheStreamSink> openStream(String songKey);
+}
