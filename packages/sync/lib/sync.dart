@@ -14,3 +14,6 @@ export 'src/merge.dart';
 export 'src/sync_settings_keys.dart';
 export 'src/snapshot.dart';
 export 'src/snapshot_codec.dart';
+export 'src/sync_engine.dart';
+export 'src/sync_report.dart';
+export 'src/sync_state_store.dart';

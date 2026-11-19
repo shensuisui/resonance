@@ -116,4 +116,54 @@ abstract final class SnapshotCodec {
 
   /// 快照字节的 sha256（写进 latest.json，用于完整性校验）
   static String sha256Hex(List<int> bytes) => sha256.convert(bytes).toString();
+
+  /// 内容指纹：只取「实体 + key + data + 墓碑」求 sha256
+  ///
+  /// 刻意**不含 updatedAt / deviceId / version / writer**：写回时 DAO 会用
+  /// 当前时间重写时间戳（settings/songs/playlist_songs），若把时间戳算进指纹，
+  /// 每次同步都会误判为「变了」而白推一版。
+  /// 语义：数据没变就不产生新版本（时间戳漂移不影响其它设备）。
+  static String contentHash(SyncSnapshot snapshot) {
+    final entities = <String, Object?>{};
+    final names = snapshot.entities.keys.toList()..sort();
+    for (final name in names) {
+      final records = <SyncRecord>[...snapshot.recordsOf(name)]
+        ..sort((a, b) => a.key.compareTo(b.key));
+      entities[name] = <Object?>[
+        for (final r in records)
+          <String, Object?>{'key': r.key, 'data': _canonical(r.data)},
+      ];
+    }
+    final tombstones = <Tombstone>[...snapshot.tombstones]
+      ..sort((a, b) {
+        final c = a.entity.compareTo(b.entity);
+        return c != 0 ? c : a.key.compareTo(b.key);
+      });
+    final json = <String, Object?>{
+      'entities': entities,
+      'tombstones': <Object?>[
+        for (final t in tombstones)
+          <String, Object?>{
+            'entity': t.entity,
+            'key': t.key,
+            'deletedAt': t.deletedAt,
+          },
+      ],
+    };
+    return sha256Hex(utf8.encode(jsonEncode(json)));
+  }
+
+  /// 递归排序 Map 键，保证指纹稳定
+  static Object? _canonical(Object? value) {
+    if (value is Map) {
+      final keys = value.keys.map((k) => '$k').toList()..sort();
+      return <String, Object?>{
+        for (final k in keys) k: _canonical(value[k]),
+      };
+    }
+    if (value is List) {
+      return <Object?>[for (final v in value) _canonical(v)];
+    }
+    return value;
+  }
 }
