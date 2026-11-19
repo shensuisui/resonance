@@ -16,4 +16,5 @@ export 'src/snapshot.dart';
 export 'src/snapshot_codec.dart';
 export 'src/sync_engine.dart';
 export 'src/sync_report.dart';
+export 'src/sync_scheduler.dart';
 export 'src/sync_state_store.dart';
