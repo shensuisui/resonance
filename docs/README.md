@@ -38,7 +38,8 @@
 | [features/demo-source.md](features/demo-source.md) | 演示曲库独立 Dart HTTP 服务 | 现行 |
 | [features/build.md](features/build.md) | GitHub Actions 自动打包 | 现行 |
 | [features/flan-integration.md](features/flan-integration.md) | Flan（agent 驱动运行 App）接入 | 现行(5 项遗留) |
-| [features/webdav-sync.md](features/webdav-sync.md) | WebDAV 云同步设计（快照链留7份/多设备合并/墓碑/表结构 v5；变更感知/基线墓碑；分三期） | 设计稿(未实施) |
+| [features/webdav-sync.md](features/webdav-sync.md) | WebDAV 云同步设计（快照链留7份/多设备合并/墓碑/表结构 v5；变更感知/基线墓碑；分三期） | 已实现(待真机) |
+| [features/car-lyrics.md](features/car-lyrics.md) | 车载歌词：蓝牙标题注入 + 车机判定（三态范围/位置） | 已实现(原生待真机) |
 
 ## 实现方案
 | 文档 | 说明 | 状态 |
