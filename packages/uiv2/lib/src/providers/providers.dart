@@ -14,6 +14,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:core/core.dart';
+import 'package:portable/portable.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter/widgets.dart'
     show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
@@ -66,14 +67,7 @@ final filePickersProvider = Provider<FilePickers>(
 /// 整包备份服务（复用项目真实 DAO，不需要壳工程覆盖）
 final backupServiceProvider = Provider<BackupService>((ref) {
   final db = ref.watch(appDatabaseProvider);
-  return BackupService(
-    playlistDao: db.playlistDao,
-    favoritesDao: db.favoritesDao,
-    recentPlaysDao: db.recentPlaysDao,
-    settingsDao: db.settingsDao,
-    playProgressDao: db.playProgressDao,
-    songDao: db.songDao,
-  );
+  return BackupService(db: db, deviceId: 'local');
 }, name: 'backupServiceProvider');
 
 /// 最近一次备份的元信息（settings 的 last_backup 键）

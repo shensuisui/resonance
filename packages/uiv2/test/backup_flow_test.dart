@@ -12,6 +12,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:core/core.dart';
+import 'package:portable/portable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,7 +23,9 @@ import 'package:uiv2/uiv2.dart';
 /// 假文件交互：记住被保存的内容、按预设返回「打开的文件」
 class _FakePickers implements FilePickers {
   String? openContent;
+  List<int>? openBytes;
   String? savedContent;
+  List<int>? savedBytes;
   String? savedName;
 
   final StreamController<OpenedFile> _opened =
@@ -40,10 +43,26 @@ class _FakePickers implements FilePickers {
     String title = '选择文件',
     List<String> extensions = const <String>[],
   }) async =>
-      openContent == null ? null : '/fake/backup.json';
+      (openContent == null && openBytes == null) ? null : '/fake/backup.zip';
 
   @override
   Future<String?> readTextFile(String path) async => openContent;
+
+  @override
+  Future<List<int>?> readBinaryFile(String path) async =>
+      openBytes ?? (openContent == null ? null : utf8.encode(openContent!));
+
+  @override
+  Future<String?> saveBinaryFile({
+    required String title,
+    String? suggestedName,
+    List<String> extensions = const <String>[],
+    required List<int> bytes,
+  }) async {
+    savedBytes = bytes;
+    savedName = suggestedName;
+    return '/fake/out/' + (suggestedName ?? 'backup.zip');
+  }
 
   @override
   Future<String?> saveTextFile({
@@ -130,18 +149,41 @@ class _FakeCache implements AudioCache {
 }
 
 /// 一份可导入的备份文本（一个歌单、两首歌）
-String backupText() => BackupCodec.encode(BackupDocument(
-      exportedAt: DateTime.utc(2026, 11, 12, 20, 30),
-      playlists: const <BackupPlaylist>[
-        BackupPlaylist(name: '导入测试', songs: <BackupSong>[
-          BackupSong(songKey: 'gequbao:1', title: '素颜', artist: '许嵩'),
-          BackupSong(songKey: 'gequbao:2', title: '幻听', artist: '许嵩'),
-        ]),
+String backupText() {
+  final at = DateTime.utc(2026, 11, 12, 20, 30);
+  final ms = at.millisecondsSinceEpoch;
+  final id = legacyPlaylistIdForName('导入测试');
+  return BackupCodec.encode(BackupDocument(
+    exportedAt: at,
+    deviceId: 'test',
+    entities: <String, List<SyncRecord>>{
+      SyncEntity.playlists: <SyncRecord>[
+        SyncRecord(
+          key: id,
+          updatedAt: ms,
+          deviceId: 'test',
+          data: <String, Object?>{
+            'id': id,
+            'name': '导入测试',
+            'songKeys': <String>['gequbao:1', 'gequbao:2'],
+            'snapshots': <String, Object?>{
+              'gequbao:1': <String, Object?>{'title': '素颜', 'artist': '许嵩'},
+              'gequbao:2': <String, Object?>{'title': '幻听', 'artist': '许嵩'},
+            },
+          },
+        ),
       ],
-      favorites: const <BackupFavorite>[
-        BackupFavorite(songKey: 'gequbao:1', time: 1690000000000),
+      SyncEntity.favorites: <SyncRecord>[
+        SyncRecord(
+          key: 'gequbao:1',
+          updatedAt: ms,
+          deviceId: 'test',
+          data: <String, Object?>{'songKey': 'gequbao:1', 'time': ms},
+        ),
       ],
-    ));
+    },
+  ));
+}
 
 /// 多次 pump 代替 pumpAndSettle（页面里有持续动画，settle 会超时）
 Future<void> _settle(WidgetTester tester) async {
@@ -215,9 +257,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('settings_backup_export_btn')));
     await _settle(tester);
 
-    expect(pickers.savedContent, isNotNull);
-    expect(pickers.savedContent!, contains('"format": "resonance-backup"'));
-    expect(pickers.savedName, endsWith('.json'));
+    expect(pickers.savedBytes, isNotNull);
+    expect(pickers.savedBytes!.isNotEmpty, isTrue);
+    expect(pickers.savedName, endsWith('.zip'));
     final lastBackup = await db.settingsDao.get('last_backup');
     expect(lastBackup, isNotNull);
     expect(lastBackup!, contains('"playlists":1'));
@@ -256,7 +298,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('settings_backup_import_btn')));
     await _settle(tester);
 
-    expect(find.textContaining('不是 JSON'), findsOneWidget);
+    expect(find.textContaining('不是有效的备份文件'), findsOneWidget);
     expect(await db.playlistDao.getAllPlaylists(), isEmpty);
     // 消化 toast 的 2.2s 定时器，避免测试结束时报「Timer still pending」
     await tester.pump(const Duration(seconds: 3));

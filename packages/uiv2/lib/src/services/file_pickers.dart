@@ -40,6 +40,17 @@ abstract class FilePickers {
     required String content,
   });
 
+  /// 保存二进制文件（备份 zip 用；桌面写盘、移动端走系统分享/SAF）
+  Future<String?> saveBinaryFile({
+    required String title,
+    String? suggestedName,
+    List<String> extensions = const <String>[],
+    required List<int> bytes,
+  });
+
+  /// 读取二进制文件（移动端 content:// 由壳工程解析）
+  Future<List<int>?> readBinaryFile(String path);
+
   /// 系统「用回响打开文件」事件：
   /// 冷启动时的待处理文件会在订阅后先补发一次，运行中新收到的持续推送。
   Stream<OpenedFile> get openedFiles;

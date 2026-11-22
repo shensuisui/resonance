@@ -7,6 +7,7 @@ library;
 import 'dart:convert';
 
 import 'package:core/core.dart';
+import 'package:portable/portable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -21,14 +22,14 @@ import '../services/file_pickers.dart';
 /// 备份文件名的日戳格式（本地时间，便于用户辨认）
 String backupFileName(DateTime at) {
   String two(int v) => v < 10 ? '0' + v.toString() : v.toString();
-  return 'resonance-backup-v1-' +
+  return 'resonance-backup-v2-' +
       at.year.toString() +
       two(at.month) +
       two(at.day) +
       '-' +
       two(at.hour) +
       two(at.minute) +
-      '.json';
+      '.zip';
 }
 
 /// 统计摘要文案（导出/导入后给用户看）
@@ -52,13 +53,13 @@ Future<void> exportAllBackup(BuildContext context, WidgetRef ref) async {
   final service = ref.read(backupServiceProvider);
   final pickers = ref.read(filePickersProvider);
   final doc = await service.exportAll();
-  final json = BackupCodec.encode(doc);
+  final bytes = BackupArchive.encode(doc);
 
-  final saved = await pickers.saveTextFile(
+  final saved = await pickers.saveBinaryFile(
     title: '导出全部数据',
     suggestedName: backupFileName(doc.exportedAt),
-    extensions: const <String>['json'],
-    content: json,
+    extensions: const <String>['zip'],
+    bytes: bytes,
   );
   if (saved == null || saved.isEmpty) return; // 用户取消
   await ref.read(settingsDaoProvider).set(
@@ -84,18 +85,24 @@ Future<void> importBackupFlow(
 }) async {
   final pickers = ref.read(filePickersProvider);
 
-  String? content = opened?.content;
+  List<int>? bytes;
   String label = opened?.path ?? '';
-  if (content == null) {
+  if (opened != null && opened.content.isNotEmpty) {
+    bytes = utf8.encode(opened.content);
+  } else {
     final path = await pickers.pickOpenFile(
       title: '选择备份文件',
-      extensions: const <String>['json'],
+      extensions: const <String>['zip', 'json'],
     );
     if (path == null || path.isEmpty) return;
     label = path;
-    content = await pickers.readTextFile(path);
+    bytes = await pickers.readBinaryFile(path);
+    if (bytes == null) {
+      final text = await pickers.readTextFile(path);
+      if (text != null) bytes = utf8.encode(text);
+    }
   }
-  if (content == null) {
+  if (bytes == null) {
     if (context.mounted) showUiV2Toast(context, '读不到文件内容');
     return;
   }
@@ -103,9 +110,9 @@ Future<void> importBackupFlow(
   var legacy = false;
   BackupDocument? document;
   try {
-    document = BackupCodec.decode(content);
+    document = BackupArchive.decode(bytes).document;
   } on BackupException catch (error) {
-    document = BackupCodec.decodeLegacyPlaylist(content);
+    document = BackupCodec.decodeLegacyPlaylist(utf8.decode(bytes, allowMalformed: true));
     if (document == null) {
       if (context.mounted) showUiV2Toast(context, error.message);
       return;
@@ -161,15 +168,19 @@ class _ImportPreviewBody extends StatefulWidget {
 
 class _ImportPreviewBodyState extends State<_ImportPreviewBody> {
   BackupImportMode _mode = BackupImportMode.merge;
-  final Set<BackupSection> _selected = BackupSection.values.toSet();
+  final Set<BackupSection> _selected = BackupSection.values
+      .where((s) => s != BackupSection.deviceSettings)
+      .toSet();
   bool _busy = false;
 
   static const Map<BackupSection, String> _labels = <BackupSection, String>{
+    BackupSection.songs: '歌曲索引',
     BackupSection.playlists: '歌单',
     BackupSection.favorites: '收藏',
     BackupSection.recent: '最近播放',
     BackupSection.settings: '设置',
     BackupSection.progress: '播放进度',
+    BackupSection.deviceSettings: '设备本地设置',
   };
 
   @override
@@ -361,23 +372,18 @@ class _PlaylistExportBodyState extends State<_PlaylistExportBody> {
 /// 按所选格式编码（JSON 走无损备份格式；M3U/CSV 只带可播地址）
 String _encodePlaylist(String name, List<Song> songs, String format) {
   if (format == 'json') {
-    return BackupCodec.encode(BackupDocument(
-      exportedAt: DateTime.now(),
-      playlists: <BackupPlaylist>[
-        BackupPlaylist(
-          name: name,
-          songs: <BackupSong>[
-            for (final song in songs)
-              BackupSong(
-                songKey: song.globalKey,
-                title: song.title,
-                artist: song.artist,
-                duration: song.duration,
-                coverUrl: song.coverUrl,
-                localPath: song.localPath,
-              ),
-          ],
-        ),
+    return BackupCodec.encode(BackupCodec.singlePlaylist(
+      name: name,
+      songs: <Map<String, Object?>>[
+        for (final song in songs)
+          <String, Object?>{
+            'songKey': song.globalKey,
+            'title': song.title,
+            'artist': song.artist,
+            'duration': song.duration,
+            'coverUrl': song.coverUrl,
+            'localPath': song.localPath,
+          },
       ],
     ));
   }

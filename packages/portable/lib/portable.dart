@@ -6,3 +6,7 @@ export 'src/local_snapshot_reader.dart';
 export 'src/merge.dart';
 export 'src/settings_keys.dart';
 export 'src/snapshot.dart';
+export 'src/backup_model.dart';
+export 'src/backup_codec.dart';
+export 'src/backup_archive.dart';
+export 'src/backup_service.dart';

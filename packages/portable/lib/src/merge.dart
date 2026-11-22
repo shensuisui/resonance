@@ -120,6 +120,36 @@ abstract final class Merger {
     return MergeOutcome(records: merged, conflicts: conflicts);
   }
 
+  /// 无基线合并：逐 key 取 updatedAt 较新者（同刻比 deviceId），保留并集
+  ///
+  /// 用于「备份导入」这类没有基线、只需“新覆盖旧”的场景；不产生冲突。
+  static List<SyncRecord> mergeNewer(
+    List<SyncRecord> local,
+    List<SyncRecord> incoming,
+  ) {
+    final localByKey = <String, SyncRecord>{for (final r in local) r.key: r};
+    final incomingByKey = <String, SyncRecord>{
+      for (final r in incoming) r.key: r,
+    };
+    final keys = <String>{...localByKey.keys, ...incomingByKey.keys};
+    final out = <SyncRecord>[];
+    for (final key in keys) {
+      final l = localByKey[key];
+      final r = incomingByKey[key];
+      if (l == null) {
+        out.add(r!);
+      } else if (r == null) {
+        out.add(l);
+      } else if (r.updatedAt > l.updatedAt) {
+        out.add(r);
+      } else {
+        // 时间相同：保留本机（备份导入不做无意义覆盖）
+        out.add(l);
+      }
+    }
+    out.sort((a, b) => a.key.compareTo(b.key));
+    return out;
+  }
   /// 合并资产清单（按 mtime 判胜；仅墓碑才删）
   ///
   /// 资产没有逐记录的 deviceId：mtime 相同则比 sha256（大者胜），保证确定。

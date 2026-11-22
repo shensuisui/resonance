@@ -8,6 +8,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
@@ -97,6 +98,36 @@ class ShellFilePickers implements FilePickers {
     } catch (_) {
       return null;
     }
+  }
+
+  @override
+  Future<List<int>?> readBinaryFile(String path) async {
+    try {
+      return await File(path).readAsBytes();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<String?> saveBinaryFile({
+    required String title,
+    String? suggestedName,
+    List<String> extensions = const <String>[],
+    required List<int> bytes,
+  }) async {
+    final path = await FilePicker.platform.saveFile(
+      dialogTitle: title,
+      fileName: suggestedName,
+      type: extensions.isEmpty ? FileType.any : FileType.custom,
+      allowedExtensions: extensions.isEmpty ? null : extensions,
+      bytes: Uint8List.fromList(bytes),
+    );
+    if (path == null || path.isEmpty) return null;
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      await File(path).writeAsBytes(bytes, flush: true);
+    }
+    return path;
   }
 
   @override
