@@ -12,7 +12,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-import 'snapshot.dart';
+import 'package:portable/portable.dart';
 import 'snapshot_codec.dart';
 import 'sync_state_store.dart';
 

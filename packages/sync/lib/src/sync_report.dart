@@ -1,7 +1,7 @@
 /// 一次同步的结果（供 UI 展示）
 library;
 
-import 'merge.dart';
+import 'package:portable/portable.dart';
 
 /// 一次同步的结果
 class SyncReport {

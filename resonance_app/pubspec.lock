@@ -991,6 +991,13 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.5.2"
+  portable:
+    dependency: transitive
+    description:
+      path: "../packages/portable"
+      relative: true
+    source: path
+    version: "0.0.1"
   posix:
     dependency: transitive
     description:

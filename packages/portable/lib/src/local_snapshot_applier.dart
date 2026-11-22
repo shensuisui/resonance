@@ -13,7 +13,7 @@ library;
 import 'package:core/core.dart';
 
 import 'snapshot.dart';
-import 'sync_settings_keys.dart';
+import 'settings_keys.dart';
 
 /// 把快照写回 DB
 class LocalSnapshotApplier {
@@ -205,7 +205,7 @@ class LocalSnapshotApplier {
       await db.settingsDao.set(rec.key, value);
     }
     for (final entry in await db.settingsDao.getAllEntries()) {
-      if (SyncSettingsKeys.isSyncable(entry.key) &&
+      if (PortableSettingsKeys.isSyncable(entry.key) &&
           !desired.contains(entry.key)) {
         await db.settingsDao.delete(entry.key);
       }

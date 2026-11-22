@@ -4,7 +4,7 @@
 /// 单测用内存实现；引擎不直接依赖文件系统。
 library;
 
-import 'snapshot.dart';
+import 'package:portable/portable.dart';
 
 /// 同步状态存储
 abstract interface class SyncStateStore {

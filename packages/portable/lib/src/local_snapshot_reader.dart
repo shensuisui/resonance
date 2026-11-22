@@ -7,7 +7,7 @@ library;
 import 'package:core/core.dart';
 
 import 'snapshot.dart';
-import 'sync_settings_keys.dart';
+import 'settings_keys.dart';
 
 /// 从 DB 组装快照
 class LocalSnapshotReader {
@@ -184,7 +184,7 @@ class LocalSnapshotReader {
     final entries = await db.settingsDao.getAllEntries();
     return <SyncRecord>[
       for (final s in entries)
-        if (SyncSettingsKeys.isSyncable(s.key))
+        if (PortableSettingsKeys.isSyncable(s.key))
           SyncRecord(
             key: s.key,
             updatedAt: s.updatedAt,

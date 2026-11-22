@@ -5,16 +5,13 @@
 ///   * 快照 = tar.bz2（snapshot.json + assets/），保留最近 7 份。
 library;
 
+export 'package:portable/portable.dart';
+
 export 'src/asset_store.dart';
 export 'src/dav_client.dart';
 export 'src/file_sync_state_store.dart';
 export 'src/dav_client_webdav.dart';
 export 'src/latest.dart';
-export 'src/local_snapshot_applier.dart';
-export 'src/local_snapshot_reader.dart';
-export 'src/merge.dart';
-export 'src/sync_settings_keys.dart';
-export 'src/snapshot.dart';
 export 'src/snapshot_codec.dart';
 export 'src/sync_engine.dart';
 export 'src/sync_report.dart';

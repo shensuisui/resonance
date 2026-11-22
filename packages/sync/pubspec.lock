@@ -433,6 +433,13 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.1.8"
+  portable:
+    dependency: "direct main"
+    description:
+      path: "../portable"
+      relative: true
+    source: path
+    version: "0.0.1"
   posix:
     dependency: transitive
     description:

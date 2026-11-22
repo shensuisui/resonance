@@ -11,7 +11,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 
-import 'snapshot.dart';
+import 'package:portable/portable.dart';
 
 /// 快照编解码与校验
 abstract final class SnapshotCodec {
