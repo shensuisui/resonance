@@ -72,6 +72,33 @@ class MainActivity : AudioServiceActivity() {
             }
         }
         setupCarLyrics(flutterEngine)
+        setupPermissions(flutterEngine)
+    }
+
+    private var notifPermissionResult: MethodChannel.Result? = null
+
+    private fun setupPermissions(flutterEngine: FlutterEngine) {
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "resonance/permissions")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "ensureNotificationPermission" -> {
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+                            PackageManager.PERMISSION_GRANTED
+                        ) {
+                            result.success(true)
+                        } else {
+                            notifPermissionResult = result
+                            ActivityCompat.requestPermissions(
+                                this,
+                                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                                REQ_NOTIFICATION,
+                            )
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
     }
 
     private fun setupCarLyrics(flutterEngine: FlutterEngine) {
@@ -125,6 +152,12 @@ class MainActivity : AudioServiceActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQ_BT_CONNECT) emitCarState()
+        if (requestCode == REQ_NOTIFICATION) {
+            val granted = grantResults.isNotEmpty() &&
+                grantResults[0] == PackageManager.PERMISSION_GRANTED
+            notifPermissionResult?.success(granted)
+            notifPermissionResult = null
+        }
     }
 
     private fun initProxies() {
@@ -248,5 +281,6 @@ class MainActivity : AudioServiceActivity() {
     companion object {
         private const val CHANNEL = "resonance/open_file"
         private const val REQ_BT_CONNECT = 9001
+        private const val REQ_NOTIFICATION = 9002
     }
 }

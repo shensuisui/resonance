@@ -33,6 +33,7 @@ import 'package:player/player.dart';
 import 'package:uiv2/uiv2.dart';
 import 'config/agent_debug_config.dart';
 import 'backup/backup_asset_source.dart';
+import 'permissions/notification_permission.dart';
 import 'car_lyrics/car_lyrics_service.dart';
 import 'file_pickers_impl.dart';
 import 'sync/shell_sync_service.dart';
@@ -361,6 +362,11 @@ Future<void> main() async {
     container: gContainer!,
     child: const ResonanceApp(),
   ));
+
+  // 后台播放需要通知权限（Android 13+）：启动后申请一次
+  if (!kIsWeb && Platform.isAndroid) {
+    unawaited(ensureNotificationPermission());
+  }
 }
 
 /// agent 日志桥：把项目日志转发给 Flan 采集（仅 debug 赋值）
