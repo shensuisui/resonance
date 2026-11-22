@@ -139,12 +139,15 @@
 
 存储方式：资产文件原样放进快照包（tar）的 `assets/`（§6.3）；增删由「本地文件集 vs 快照包内文件集」差异推导，删除同样记入该快照的 `tombstones`（`entity="assets"`）。
 
+> 实现调整（2026-11-22）：订阅不再写 `subscriptions/` 资产，而是存 `settings.subscriptions`（含规则原文），默认随白名单备份/同步；`rules/`、`plugins/` 资产前缀保留给用户安装文件（默认仍不含）。
+
 ### 5.4 云同步的设置白名单
 
 在现有 `BackupService.exportableSettingKeys` 基础上**去掉设备本地项、补入需要的项**：
 
 - 保留：`theme_mode, play_mode, volume, wifi_only, search_history, audio_cache_play, lyrics_open, corner_radius, seed_color, last_queue`
 - 前缀：`source_enabled_`（每个源一个开关）
+- 订阅：`subscriptions`（URL / 别名 / sourceId / **规则原文**）——用户确认**默认随同步**；换机后订阅页可见，点「检查更新」用规则原文离线展开。
 - 移除（设备本地）：`scan_dir`、`play_device`（物理输出设备，见 §5.2）
 - 新增入云：`download_name_order`、`download_cover_size`、`download_cover_quality`（纯偏好、非路径）
 - 任何 `sync_*`、`sync_device_id` 一律不进白名单

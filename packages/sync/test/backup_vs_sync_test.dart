@@ -81,6 +81,8 @@ void main() {
     ));
     await a.db.favoritesDao.addFavorite('gequbao:1', 1000, title: '素颜');
     await a.db.settingsDao.set('theme_mode', 'dark');
+    const subs = '[{"url":"https://example.com/rule.json","sourceId":"sub1","alias":"订阅A","rule":"{\"source\":{\"id\":\"sub1\",\"name\":\"订阅源\"}}"}]';
+    await a.db.settingsDao.set('subscriptions', subs);
 
     // 路径一：云同步 A → C
     await a.engine.sync(now: DateTime(2026, 11, 22, 1));
@@ -109,6 +111,9 @@ void main() {
     // 对比：设置
     expect(await b.db.settingsDao.get('theme_mode'),
         await c.db.settingsDao.get('theme_mode'));
+    // 订阅（含规则内容）默认随备份与同步
+    expect(await b.db.settingsDao.get('subscriptions'), subs);
+    expect(await c.db.settingsDao.get('subscriptions'), subs);
 
     // 对比：歌曲索引
     expect((await b.db.songDao.getAllSongRecords()).length,

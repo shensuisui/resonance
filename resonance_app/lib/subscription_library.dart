@@ -24,11 +24,15 @@ class SubscriptionEntry {
   /// 备注名（可空）
   final String? alias;
 
+  /// 规则原始 JSON（离线展开用；随备份/同步走）
+  final String? rule;
+
   /// 构造
   const SubscriptionEntry({
     required this.url,
     required this.sourceId,
     this.alias,
+    this.rule,
   });
 
   /// 序列化
@@ -36,6 +40,7 @@ class SubscriptionEntry {
         'url': url,
         'sourceId': sourceId,
         'alias': alias,
+        if (rule != null) 'rule': rule,
       };
 
   /// 反序列化（脏数据返回 null，不抛）
@@ -45,10 +50,12 @@ class SubscriptionEntry {
     final sourceId = raw['sourceId'];
     if (url is! String || sourceId is! String) return null;
     final alias = raw['alias'];
+    final rule = raw['rule'];
     return SubscriptionEntry(
       url: url,
       sourceId: sourceId,
       alias: alias is String ? alias : null,
+      rule: rule is String && rule.isNotEmpty ? rule : null,
     );
   }
 }
@@ -101,7 +108,7 @@ class SubscriptionLibrary {
   }
 
   /// 拉取并解析一个规则 JSON；任何失败都返回 null（调用方据此报错）
-  Future<RuleConfig?> _fetchRule(String url) async {
+  Future<({RuleConfig config, String raw})?> _fetchRule(String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) {
       return null;
@@ -116,7 +123,7 @@ class SubscriptionLibrary {
           await response.transform(utf8.decoder).join().timeout(timeout);
       final decoded = jsonDecode(text);
       if (decoded is! Map<String, dynamic>) return null;
-      return RuleConfig.fromJson(decoded);
+      return (config: RuleConfig.fromJson(decoded), raw: text);
     } catch (_) {
       return null;
     } finally {
@@ -134,13 +141,14 @@ class SubscriptionLibrary {
     final trimmed = url.trim();
     if (trimmed.isEmpty) return false;
     if (_entries.any((e) => e.url == trimmed)) return false;
-    final config = await _fetchRule(trimmed);
-    if (config == null) return false;
-    _register(config);
+    final fetched = await _fetchRule(trimmed);
+    if (fetched == null) return false;
+    _register(fetched.config);
     _entries.add(SubscriptionEntry(
       url: trimmed,
-      sourceId: config.source.id,
+      sourceId: fetched.config.source.id,
       alias: alias,
+      rule: fetched.raw,
     ));
     await _save();
     return true;
@@ -160,7 +168,21 @@ class SubscriptionLibrary {
     var ok = 0;
     var fail = 0;
     for (final old in List<SubscriptionEntry>.of(_entries)) {
-      final config = await _fetchRule(old.url);
+      final fetched = await _fetchRule(old.url);
+      RuleConfig? config = fetched?.config;
+      var raw = fetched?.raw ?? old.rule;
+      if (config == null && old.rule != null) {
+        // 离线兜底：用备份/同步过来的规则内容展开
+        try {
+          final decoded = jsonDecode(old.rule!);
+          if (decoded is Map<String, dynamic>) {
+            config = RuleConfig.fromJson(decoded);
+            raw = old.rule;
+          }
+        } catch (_) {
+          // 规则损坏：按失败处理
+        }
+      }
       if (config == null) {
         fail++;
         continue;
@@ -173,6 +195,7 @@ class SubscriptionLibrary {
           url: old.url,
           sourceId: config.source.id,
           alias: old.alias,
+          rule: raw,
         );
       }
       ok++;

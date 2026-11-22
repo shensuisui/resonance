@@ -55,7 +55,7 @@ void main() {
     final settingsKeys = doc.entities[SyncEntity.settings]!.map((r) => r.key).toSet();
     expect(settingsKeys.contains('theme_mode'), isTrue);
     expect(settingsKeys.contains('source_enabled_gequbao'), isTrue);
-    expect(settingsKeys.contains('subscriptions'), isFalse);
+    expect(settingsKeys.contains('subscriptions'), isTrue);
     expect(settingsKeys.contains('scan_dir'), isFalse);
     expect(doc.entities.containsKey(kDeviceSettingsEntity), isFalse);
   });

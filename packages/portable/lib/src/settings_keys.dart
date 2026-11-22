@@ -17,6 +17,8 @@ abstract final class PortableSettingsKeys {
     'corner_radius',
     'seed_color',
     'last_queue',
+    // 订阅列表（含规则内容，用户已确认默认随备份/同步）
+    'subscriptions',
     'download_name_order',
     'download_cover_size',
     'download_cover_quality',
