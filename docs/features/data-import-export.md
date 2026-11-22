@@ -209,3 +209,14 @@ backup_codec 是「完整无损」的内网格式，PlaylistCodec 是「对外/�
 **需要真机验证**
 - Android 上「文件管理器点开 .json → 回响 → 导入预览」的整条链路（本机无 adb，且 APK 构建受
   sqlite3 原生库 GitHub 下载限制阻断，见 05 文档第 9 节）。
+
+
+## 12. v2 统一实现（2026-11-22）
+
+备份与云同步已统一到 `packages/portable`（记录模型 + Reader/Applier/Merger），维度与合并语义一致：
+
+- **格式**：`.zip` 容器，内含 `backup.json`（v2 记录式）与可选 `assets/`；仍兼容读取旧 v1 `.json`（歌单 id 按名字推导、时间取 `exportedAt`、`deviceId=legacy`）。
+- **维度**：songs 索引 / 歌单 / 收藏 / 最近 / 进度 / 设置（可移植键）；设备本地设置（`scan_dir`/`play_device`）与资产文件（subscriptions/rules/plugins）为**可选分区，默认不含**。
+- **合并**：`merge` 按 `updatedAt` 判胜（新覆盖旧、旧跳过，并集写回）；`overwrite` 先清空所选分区（歌曲索引只并集、不删除，避免破坏本地关联）。
+- **代码**：`packages/portable`（模型/编解码/归档/服务）← `sync` 复用三件套；`uiv2` 备份流程改二进制 `.zip`，导出前可选「包含资产 / 设备本地设置」。
+- **验证**：portable 27 项、uiv2 227 项（含备份流程 5 项）、sync 45 项（含 `backup_vs_sync_test`：备份导入结果 == 云同步结果）；全量 12 模块 0 失败。

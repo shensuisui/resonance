@@ -32,7 +32,7 @@
 | 文档 | 说明 | 状态 |
 |---|---|---|
 | [features/mobile-audioservice.md](features/mobile-audioservice.md) | audio_service 后台播放接入（Android 一期） | 现行(一期部分完成) |
-| [features/data-import-export.md](features/data-import-export.md) | 数据导入导出（整包备份 + 单歌单导出） | 现行(待真机) |
+| [features/data-import-export.md](features/data-import-export.md) | 数据导入导出（v2 记录式 zip，与云同步统一；单歌单导出） | 现行(已实现 v2) |
 | [features/offline-cache.md](features/offline-cache.md) | 播放 / 歌词缓存决策 | 现行(已实现，端到端验收记录待补) |
 | [features/download.md](features/download.md) | 下载功能重做（A 已下载）：P0–P5 完成，Android 真机集成测试通过 | 现行 |
 | [features/demo-source.md](features/demo-source.md) | 演示曲库独立 Dart HTTP 服务 | 现行 |
