@@ -54,6 +54,7 @@ export 'src/components/sync_section.dart';
 export 'src/components/shell_parts.dart';
 export 'src/components/surfaces.dart';
 export 'src/services/file_pickers.dart';
+export 'src/services/car_lyrics_service.dart';
 export 'src/services/sync_service.dart';
 export 'src/widgets/backup_flow.dart';
 export 'src/widgets/backup_open_handler.dart';

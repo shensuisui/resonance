@@ -22,6 +22,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../data/catalog.dart';
+import '../services/car_lyrics_service.dart';
 import '../services/file_pickers.dart';
 
 // ==================== 壳工程注入的服务 ====================
@@ -2309,6 +2310,12 @@ class AudioCacheEnabledNotifier extends Notifier<bool> {
 final audioCacheEnabledProvider =
     NotifierProvider<AudioCacheEnabledNotifier, bool>(
         AudioCacheEnabledNotifier.new);
+
+/// 车载蓝牙状态服务（壳工程 override）
+final carLyricsServiceProvider = Provider<CarLyricsService>(
+  (ref) => throw UnimplementedError('carLyricsServiceProvider 必须被壳工程覆盖'),
+  name: 'carLyricsServiceProvider',
+);
 
 /// 车载歌词显示范围（off 默认 / car / all）
 class CarLyricsScopeNotifier extends Notifier<CarLyricsScope> {

@@ -25,13 +25,14 @@ import 'package:flan_flutter/flan_flutter.dart';
 import 'package:logging/logging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
-import 'package:just_audio/just_audio.dart';
+import 'package:just_audio/just_audio.dart' hide PlayerState, Player;
 import 'package:crawler/crawler.dart';
 import 'package:db/db.dart';
 import 'package:player/player.dart';
 
 import 'package:uiv2/uiv2.dart';
 import 'config/agent_debug_config.dart';
+import 'car_lyrics/car_lyrics_service.dart';
 import 'file_pickers_impl.dart';
 import 'sync/shell_sync_service.dart';
 import 'sync/sync_auto_runner.dart';
@@ -54,6 +55,20 @@ late ShellSyncService gSyncService;
 
 /// 自动同步运行器（防抖/启动/定时/Wi-Fi）
 late SyncAutoRunner gSyncRunner;
+
+/// 车载蓝牙状态服务（Android/iOS；桌面为 null）
+CarLyricsService? gCarLyricsService;
+
+/// 车载歌词控制器（移动端；桌面为 null）
+CarLyricsController? gCarLyricsController;
+
+/// 车载歌词配置缓存（settings 变化时刷新）
+final ValueNotifier<CarLyricsConfig> gCarLyricsConfig =
+    ValueNotifier<CarLyricsConfig>(const CarLyricsConfig());
+
+/// 蓝牙/车机状态缓存
+final ValueNotifier<CarLyricsDeviceState> gCarLyricsState =
+    ValueNotifier<CarLyricsDeviceState>(const CarLyricsDeviceState());
 
 /// 系统媒体服务 handler（仅 Android/iOS 有；桌面端为 null）
 ///
@@ -204,6 +219,54 @@ Future<void> main() async {
       // 初始化失败不能拖垮播放：如实记录，前台播放继续可用（后台能力降级）
       SourceLogBus.instance.emit('player', SourceLogLevel.error, '媒体服务',
           '音频后台服务初始化失败（前台播放不受影响）: $e\n$st');
+    }
+  }
+
+  // 2.2 车载歌词：状态服务 + 歌词行控制器（仅移动端；桌面无蓝牙车载场景）
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && gAudioHandler != null) {
+    final service = ShellCarLyricsService();
+    gCarLyricsService = service;
+    gCarLyricsConfig.value = await _loadCarLyricsConfig();
+    gCarLyricsState.value = await service.current();
+    gCarLyricsController = CarLyricsController(
+      positionStream:
+          gPlayer.positionStream.map((ms) => Duration(milliseconds: ms)),
+      songStream: gPlayer is CurrentSongSource
+          ? (gPlayer as CurrentSongSource).currentSongStream
+          : const Stream<Song?>.empty(),
+      playingStream:
+          gPlayer.stateStream.map((s) => s == PlayerState.playing),
+      lyricsOf: (key) {
+        final i = key.indexOf(':');
+        if (i <= 0 || i >= key.length - 1) return Future<Lyrics?>.value(null);
+        return gSourceManager.getLyrics(
+            key.substring(0, i), key.substring(i + 1));
+      },
+      onMetadata: (m) =>
+          gAudioHandler?.setMetadataOverride(title: m?.title, artist: m?.artist),
+      config: () => gCarLyricsConfig.value,
+      bluetoothConnected: () => gCarLyricsState.value.bluetoothConnected,
+      carDetected: () => gCarLyricsState.value.carDetected,
+    );
+    service.stream.listen((s) {
+      gCarLyricsState.value = s;
+      gCarLyricsController?.refresh();
+    });
+    if (gDatabaseProvider is DbChangeSource) {
+      (gDatabaseProvider as DbChangeSource).changes.listen((change) async {
+        if (change.entity != DbEntity.settings) return;
+        final cfg = await _loadCarLyricsConfig();
+        if (cfg != gCarLyricsConfig.value) {
+          gCarLyricsConfig.value = cfg;
+          gCarLyricsController?.refresh();
+        }
+        if (cfg.scope != CarLyricsScope.off) {
+          unawaited(service.ensurePermission());
+        }
+      });
+    }
+    if (gCarLyricsConfig.value.scope != CarLyricsScope.off) {
+      unawaited(service.ensurePermission());
     }
   }
 
@@ -936,4 +999,14 @@ class _SyncLifecycleObserver with WidgetsBindingObserver {
       unawaited(runner.onForeground());
     }
   }
+}
+
+
+/// 读取车载歌词配置（settings 设备本地）
+Future<CarLyricsConfig> _loadCarLyricsConfig() async {
+  final dao = gDatabaseProvider.settingsDao;
+  return CarLyricsConfig.fromSettings(
+    scope: await dao.get(CarLyricsSettingsKeys.scope),
+    slot: await dao.get(CarLyricsSettingsKeys.slot),
+  );
 }
