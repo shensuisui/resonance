@@ -128,6 +128,22 @@ class ResonanceAudioHandler extends BaseAudioHandler {
   /// 上一次广播的队列快照（id 串），用于避免重复广播同一份队列
   String _lastQueueSignature = '';
 
+  /// 车载歌词：第一行覆盖（null=不覆盖）
+  String? _titleOverride;
+
+  /// 车载歌词：第二行覆盖（null=不覆盖）
+  String? _artistOverride;
+
+  /// 设置/清除车载歌词覆盖（null 表示恢复真实歌名/歌手）
+  ///
+  /// 只影响系统媒体元数据（通知/车机），App 内 UI 仍用真实 Song。
+  void setMetadataOverride({String? title, String? artist}) {
+    if (_titleOverride == title && _artistOverride == artist) return;
+    _titleOverride = title;
+    _artistOverride = artist;
+    _emitMediaItem();
+  }
+
   /// 取消内部订阅（App 退出 / 测试收尾）
   Future<void> disposeHandler() async {
     for (final sub in _subs) {
@@ -243,10 +259,16 @@ class ResonanceAudioHandler extends BaseAudioHandler {
     final song = _player.currentSong;
     if (song == null) return;
     final duration = Duration(milliseconds: _player.currentDuration);
-    final next = songToMediaItem(
+    final base = songToMediaItem(
       song,
       duration: duration > Duration.zero ? duration : null,
     );
+    final next = (_titleOverride == null && _artistOverride == null)
+        ? base
+        : base.copyWith(
+            title: _titleOverride ?? base.title,
+            artist: _artistOverride ?? base.artist,
+          );
     final prev = mediaItem.value;
     if (prev != null &&
         prev.id == next.id &&
