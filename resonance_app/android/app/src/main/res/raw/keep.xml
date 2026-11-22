@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- audio_service 的自定义媒体按钮按“drawable/名字”运行时查资源；
+     release 的资源裁剪会把它们删掉，导致 CustomAction 抛
+     “You must specify an icon resource id”。这里显式保留。 -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/uiv2_shuffle,@drawable/uiv2_repeat,@drawable/ic_stat_resonance" />

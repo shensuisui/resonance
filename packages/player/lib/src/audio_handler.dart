@@ -328,6 +328,7 @@ abstract final class AudioBackground {
     androidStopForegroundOnPause: true,
     preloadArtwork: true,
     notificationColor: Color(0xFFC9341C),
+    androidNotificationIcon: 'drawable/ic_stat_resonance',
   );
 
   /// 初始化系统媒体服务，返回挂到 [player] 上的 handler
