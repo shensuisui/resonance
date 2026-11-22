@@ -148,6 +148,9 @@ class SettingsPage extends ConsumerWidget {
             ),
           ),
 
+          // ---------- 车载歌词 ----------
+          const CarLyricsSection(),
+
           // ---------- 本地音乐 ----------
           UiV2Section(
             title: '本地音乐',

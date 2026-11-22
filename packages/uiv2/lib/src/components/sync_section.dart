@@ -82,6 +82,7 @@ class _SyncSectionBody extends ConsumerWidget {
                 hint: '坚果云 / Nextcloud / AList',
                 leading: UiV2Icon(UiV2Icons.globe, size: 20, color: t.textDim),
                 trailing: UiV2GhostMini(
+                  key: const ValueKey('sync_config_btn'),
                   label: '配置',
                   icon: UiV2Icons.edit,
                   onTap: () => _openConfigSheet(context, ref),
@@ -106,6 +107,7 @@ class _SyncSectionBody extends ConsumerWidget {
               hint: status.enabled ? '已开启' : '已关闭 · 不再自动同步',
               leading: _dot(t, status.enabled ? t.ok : t.textMute),
               trailing: UiV2Switch(
+                key: const ValueKey('sync_enabled_switch'),
                 value: status.enabled,
                 semanticLabel: '启用云同步',
                 onChanged: (v) async {
@@ -133,6 +135,7 @@ class _SyncSectionBody extends ConsumerWidget {
                 hintColor: _statusColor(t, status),
                 leading: _dot(t, _statusColor(t, status) ?? t.textMute),
                 trailing: UiV2GhostMini(
+                  key: const ValueKey('sync_now_btn'),
                   label: status.phase == SyncPhase.error ? '重试' : '立即同步',
                   icon: UiV2Icons.clock,
                   onTap: () async {
@@ -149,6 +152,7 @@ class _SyncSectionBody extends ConsumerWidget {
                   hintColor: t.warn,
                   leading: _dot(t, t.warn),
                   trailing: UiV2GhostMini(
+                    key: const ValueKey('sync_conflict_btn'),
                     label: '详情',
                     icon: UiV2Icons.info,
                     onTap: () => _openConflictSheet(context, status.conflicts),
@@ -159,6 +163,7 @@ class _SyncSectionBody extends ConsumerWidget {
                 hint: '近 7 份 · 可回滚',
                 leading: UiV2Icon(UiV2Icons.clock, size: 20, color: t.textDim),
                 trailing: UiV2GhostMini(
+                  key: const ValueKey('sync_history_btn'),
                   label: '查看',
                   icon: UiV2Icons.chevronRight,
                   onTap: () => _openHistorySheet(context, ref),
@@ -169,6 +174,7 @@ class _SyncSectionBody extends ConsumerWidget {
                 hint: '清空云端与本地同步状态',
                 leading: UiV2Icon(UiV2Icons.trash, size: 20, color: t.danger),
                 trailing: UiV2GhostMini(
+                  key: const ValueKey('sync_reset_btn'),
                   label: '重置',
                   danger: true,
                   onTap: () => _confirmReset(context, ref),
@@ -378,6 +384,7 @@ class _SyncConfigSheetState extends ConsumerState<_SyncConfigSheet> {
           children: [
             Expanded(
               child: UiV2Button(
+                key: const ValueKey('sync_test_btn'),
                 label: '测试连接',
                 variant: UiV2ButtonVariant.soft,
                 block: true,
@@ -387,6 +394,7 @@ class _SyncConfigSheetState extends ConsumerState<_SyncConfigSheet> {
             const SizedBox(width: UiV2Spacing.s3),
             Expanded(
               child: UiV2Button(
+                key: const ValueKey('sync_save_btn'),
                 label: '保存',
                 variant: UiV2ButtonVariant.primary,
                 block: true,
@@ -414,6 +422,7 @@ class _SyncConfigSheetState extends ConsumerState<_SyncConfigSheet> {
           Text(label, style: UiV2Text.hint.copyWith(color: t.textDim)),
           const SizedBox(height: UiV2Spacing.s1),
           TextField(
+            key: ValueKey('sync_field_$label'),
             controller: controller,
             obscureText: obscure,
             style: UiV2Text.body.copyWith(color: t.text),
@@ -486,6 +495,7 @@ class _SyncHistorySheetState extends ConsumerState<_SyncHistorySheet> {
           children: [
             for (final v in versions)
               UiV2Pressable(
+                key: ValueKey('sync_version_row_${v.version}'),
                 onTap: () => setState(() => _selected = v.version),
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: UiV2Spacing.s3),
@@ -538,6 +548,7 @@ class _SyncHistorySheetState extends ConsumerState<_SyncHistorySheet> {
               ),
             const SizedBox(height: UiV2Spacing.s4),
             UiV2Button(
+              key: const ValueKey('sync_rollback_btn'),
               label: '回滚到选中版本',
               variant: UiV2ButtonVariant.danger,
               block: true,

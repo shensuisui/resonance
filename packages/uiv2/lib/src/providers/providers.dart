@@ -2310,6 +2310,54 @@ final audioCacheEnabledProvider =
     NotifierProvider<AudioCacheEnabledNotifier, bool>(
         AudioCacheEnabledNotifier.new);
 
+/// 车载歌词显示范围（off 默认 / car / all）
+class CarLyricsScopeNotifier extends Notifier<CarLyricsScope> {
+  @override
+  CarLyricsScope build() {
+    load();
+    return CarLyricsScope.off;
+  }
+
+  Future<void> load() async {
+    final v = await ref.read(settingsDaoProvider).get(CarLyricsSettingsKeys.scope);
+    state = CarLyricsSettingsKeys.scopeFrom(v);
+  }
+
+  Future<void> set(CarLyricsScope value) async {
+    state = value;
+    await ref.read(settingsDaoProvider)
+        .set(CarLyricsSettingsKeys.scope, CarLyricsSettingsKeys.scopeValue(value));
+  }
+}
+
+final carLyricsScopeProvider =
+    NotifierProvider<CarLyricsScopeNotifier, CarLyricsScope>(
+        CarLyricsScopeNotifier.new);
+
+/// 车载歌词显示位置（title 默认 / artist）
+class CarLyricsSlotNotifier extends Notifier<CarLyricsSlot> {
+  @override
+  CarLyricsSlot build() {
+    load();
+    return CarLyricsSlot.title;
+  }
+
+  Future<void> load() async {
+    final v = await ref.read(settingsDaoProvider).get(CarLyricsSettingsKeys.slot);
+    state = CarLyricsSettingsKeys.slotFrom(v);
+  }
+
+  Future<void> set(CarLyricsSlot value) async {
+    state = value;
+    await ref.read(settingsDaoProvider)
+        .set(CarLyricsSettingsKeys.slot, CarLyricsSettingsKeys.slotValue(value));
+  }
+}
+
+final carLyricsSlotProvider =
+    NotifierProvider<CarLyricsSlotNotifier, CarLyricsSlot>(
+        CarLyricsSlotNotifier.new);
+
 /// 下载命名顺序（artist_title 默认 / title_artist）
 class DownloadNameOrderNotifier extends Notifier<String> {
   @override
