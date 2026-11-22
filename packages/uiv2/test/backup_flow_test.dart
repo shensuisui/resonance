@@ -256,6 +256,9 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('settings_backup_export_btn')));
     await _settle(tester);
+    // 导出选项弹层 → 开始导出
+    await tester.tap(find.text('开始导出'));
+    await _settle(tester);
 
     expect(pickers.savedBytes, isNotNull);
     expect(pickers.savedBytes!.isNotEmpty, isTrue);

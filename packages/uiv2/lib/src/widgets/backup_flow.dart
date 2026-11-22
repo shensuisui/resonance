@@ -52,8 +52,60 @@ String backupStatsSummary(Map<String, int> stats) {
 Future<void> exportAllBackup(BuildContext context, WidgetRef ref) async {
   final service = ref.read(backupServiceProvider);
   final pickers = ref.read(filePickersProvider);
-  final doc = await service.exportAll();
-  final bytes = BackupArchive.encode(doc);
+  final hasAssets = ref.read(backupAssetSourceProvider) != null;
+
+  final options = <String, bool>{'assets': false, 'device': false};
+  await showUiV2Sheet(
+    context,
+    title: '导出全部数据',
+    child: StatefulBuilder(
+      builder: (context, setState) {
+        final t = UiV2Theme.of(context);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            UiV2ListRow(
+              label: '包含资产文件',
+              hint: hasAssets ? '订阅 / 规则 / 插件（体积可能较大）' : '当前不可用',
+              trailing: UiV2Switch(
+                value: options['assets']!,
+                semanticLabel: '包含资产文件',
+                onChanged: hasAssets ? (v) => setState(() => options['assets'] = v) : null,
+              ),
+            ),
+            UiV2ListRow(
+              label: '包含设备本地设置',
+              hint: '扫描目录 / 输出设备（仅同机恢复有意义）',
+              trailing: UiV2Switch(
+                value: options['device']!,
+                semanticLabel: '包含设备本地设置',
+                onChanged: (v) => setState(() => options['device'] = v),
+              ),
+              divider: false,
+            ),
+            const SizedBox(height: UiV2Spacing.s4),
+            UiV2Button(
+              label: '开始导出',
+              variant: UiV2ButtonVariant.primary,
+              block: true,
+              onTap: () => Navigator.of(context).maybePop(),
+            ),
+            const SizedBox(height: UiV2Spacing.s2),
+            Text('备份为 .zip（backup.json + assets/）；不含账号凭据。',
+                style: UiV2Text.hint.copyWith(color: t.textMute)),
+          ],
+        );
+      },
+    ),
+  );
+  final includeAssets = options['assets'] == true;
+  final includeDeviceSettings = options['device'] == true;
+  final doc = await service.exportAll(
+    includeDeviceSettings: includeDeviceSettings,
+    includeAssets: includeAssets,
+  );
+  final assetBytes = includeAssets ? await service.readAssetBytes() : const <String, List<int>>{};
+  final bytes = BackupArchive.encode(doc, assets: assetBytes);
 
   final saved = await pickers.saveBinaryFile(
     title: '导出全部数据',

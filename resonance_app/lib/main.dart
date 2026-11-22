@@ -32,6 +32,7 @@ import 'package:player/player.dart';
 
 import 'package:uiv2/uiv2.dart';
 import 'config/agent_debug_config.dart';
+import 'backup/backup_asset_source.dart';
 import 'car_lyrics/car_lyrics_service.dart';
 import 'file_pickers_impl.dart';
 import 'sync/shell_sync_service.dart';
@@ -328,6 +329,11 @@ Future<void> main() async {
   unawaited(gSyncRunner.start());
   WidgetsBinding.instance.addObserver(_SyncLifecycleObserver(gSyncRunner));
 
+  // 4.9 备份资产来源（订阅/规则/插件）
+  final backupAssets = ShellBackupAssetSource(
+    (await getApplicationSupportDirectory()).path,
+  );
+
   // 5. 启动应用：手动建 ProviderContainer，便于 driver 钩子直接操作状态
   gContainer = ProviderContainer(overrides: [
     appDatabaseProvider.overrideWith((ref) => gDatabaseProvider),
@@ -338,6 +344,7 @@ Future<void> main() async {
     downloadManagerProvider.overrideWith((ref) => gDownloadManager),
     audioCacheProvider.overrideWith((ref) => gAudioCache),
     filePickersProvider.overrideWith((ref) => gFilePickers),
+    backupAssetSourceProvider.overrideWith((ref) => backupAssets),
     subscriptionHostProvider.overrideWith((ref) => gSubscriptions!.host),
     syncServiceProvider.overrideWith((ref) => gSyncService),
   ]);

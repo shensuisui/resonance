@@ -64,10 +64,20 @@ final filePickersProvider = Provider<FilePickers>(
   name: 'filePickersProvider',
 );
 
+/// 备份资产来源（壳工程 override；桌面/移动读取 subscriptions/rules/plugins）
+final backupAssetSourceProvider = Provider<BackupAssetSource?>(
+  (ref) => null,
+  name: 'backupAssetSourceProvider',
+);
+
 /// 整包备份服务（复用项目真实 DAO，不需要壳工程覆盖）
 final backupServiceProvider = Provider<BackupService>((ref) {
   final db = ref.watch(appDatabaseProvider);
-  return BackupService(db: db, deviceId: 'local');
+  return BackupService(
+    db: db,
+    deviceId: 'local',
+    assetSource: ref.watch(backupAssetSourceProvider),
+  );
 }, name: 'backupServiceProvider');
 
 /// 最近一次备份的元信息（settings 的 last_backup 键）
