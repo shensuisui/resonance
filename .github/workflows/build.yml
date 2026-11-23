@@ -48,8 +48,31 @@ jobs:
 
       - run: flutter pub get
 
-      # release 用 debug 签名（见 android/app/build.gradle.kts），仅用于测试分发
-      - run: flutter build apk --release --split-per-abi
+      # release 使用固定 keystore 签名：从 Secrets 还原 keystore 并生成 android/key.properties。
+      # fork PR 拿不到 Secrets，跳过该步骤（自动回退 debug 签名，产物仍可下载）。
+      - name: 还原 release 签名材料
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_KEYSTORE_BASE64}" ]; then
+            echo "::error::缺少 ANDROID_KEYSTORE_BASE64，无法签名"
+            exit 1
+          fi
+          echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/app/release.jks
+          printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_ALIAS" "$ANDROID_KEY_PASSWORD" \
+            > android/key.properties
+          chmod 600 android/app/release.jks android/key.properties
+          echo "--- 校验证书指纹（应为 7C:B2:04:BC...:47:D2）---"
+          keytool -list -v -keystore android/app/release.jks -storepass "$ANDROID_KEYSTORE_PASSWORD" | grep -E 'SHA256:|Alias name'
+
+      # versionCode 随 run_number 递增（Flutter 会叠加 1000*ABI）
+      - run: flutter build apk --release --split-per-abi --build-number=${{ github.run_number }}
 
       - uses: actions/upload-artifact@v4
         with:
