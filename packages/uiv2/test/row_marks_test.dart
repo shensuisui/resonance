@@ -141,11 +141,15 @@ void main() {
 
     Future<void> pumpRow(WidgetTester tester, Song s,
         {bool offline = false,
+        bool downloadedInDb = false,
         bool withArt = true,
         bool playing = false,
         String? queueIdentity}) async {
       final db = InMemoryDatabaseProvider();
       await db.initialize();
+      if (downloadedInDb) {
+        await db.songDao.upsertSong(s.copyWith(localPath: 'F:\\db\\downloaded.mp3'));
+      }
       container = ProviderContainer(overrides: <Override>[
         appDatabaseProvider.overrideWithValue(db),
         playerProvider.overrideWithValue(_FakePlayer()),
@@ -185,6 +189,8 @@ void main() {
         ),
       ));
       await tester.pump();
+      await tester.pump();
+      await tester.pump();
     }
 
     Finder markOf(String name) => find.byWidgetPredicate(
@@ -206,6 +212,38 @@ void main() {
       expect(find.text('离线可播'), findsNothing);
       // 源图标进封面角标
       expect(find.byType(UiV2SourceEdge), findsOneWidget);
+    });
+
+    testWidgets('已下载但行内 Song 是旧快照（无 localPath）：DAO 有记录也显示下载图标',
+        (tester) async {
+      // 最近播放/歌单等入口的 Song 由快照重建，没有 localPath；
+      // 全局已下载键集应让它们仍显示“已下载”。
+      await pumpRow(tester, song, downloadedInDb: true);
+      expect(markOf(UiV2Icons.downloaded), findsOneWidget);
+      expect(markOf(UiV2Icons.offlineReady), findsNothing);
+    });
+
+    testWidgets('已下载且缓存命中：只显示下载图标，不同时显示缓存图标',
+        (tester) async {
+      await pumpRow(tester, song, downloadedInDb: true, offline: true);
+      expect(markOf(UiV2Icons.downloaded), findsOneWidget);
+      expect(markOf(UiV2Icons.offlineReady), findsNothing);
+    });
+
+    testWidgets('删除下载（DAO local_path 清空）后回退为缓存图标', (tester) async {
+      await pumpRow(tester, song, downloadedInDb: true, offline: true);
+      expect(markOf(UiV2Icons.downloaded), findsOneWidget);
+
+      await tester.runAsync(() async {
+        await container.read(appDatabaseProvider).songDao.clearLocalPath(song.id, song.sourceId);
+      });
+      container.invalidate(downloadedSongKeysProvider);
+      await tester.pump();
+      await tester.pump();
+
+      expect(markOf(UiV2Icons.downloaded), findsNothing);
+      expect(markOf(UiV2Icons.offlineReady), findsOneWidget,
+          reason: '下载缓存删除后，仍有播放缓存时应回到缓存图标');
     });
 
     testWidgets('离线可播：灰色箭头图标在歌手前，无角标文字', (tester) async {

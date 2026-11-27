@@ -407,7 +407,9 @@ class UiV2SongRow extends ConsumerWidget {
     final cover = resolveSongCover(ref, song, catalogCover: meta?.cover);
     final duration = durationOverride ??
         resolveSongDuration(ref, song, catalogDuration: meta?.duration);
-    final downloaded = song.localPath != null && song.localPath!.isNotEmpty;
+    // 已下载以全局真值为准：行内 Song 可能只是下载前的快照（没有 localPath）
+    final downloaded = (song.localPath?.isNotEmpty ?? false) ||
+        ref.watch(isDownloadedProvider(globalKey));
     // 播放缓存命中 → 断网/源失效也能播（与「已下载」是两个来源，徽章分开显示）
     final offlinePlayable =
         !downloaded && ref.watch(offlineAvailableProvider(globalKey));

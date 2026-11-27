@@ -2531,6 +2531,50 @@ final offlineAvailableProvider = Provider.family<bool, String>((ref, songKey) {
   }
 }, name: 'offlineAvailableProvider');
 
+/// 全局「已下载」键集：SongDao.localPath 非空 + 已完成下载任务
+///
+/// 行内不能信自己手里的 `Song.localPath`：最近播放/歌单/搜索/队列都是快照，
+/// 下载完成后不会回写，导致明明已下载却显示「缓存可播」。真值统一收敛到这里。
+final downloadedSongKeysProvider = FutureProvider<Set<String>>((ref) async {
+  // 完成/删除会改变这个签名（任务进度不触发，避免每帧查库）
+  try {
+    ref.watch(downloadTasksProvider.select((value) {
+      final tasks = value.value ?? const <DownloadTask>[];
+      return tasks
+          .where((t) =>
+              t.status == DownloadStatus.completed &&
+              (t.localPath?.isNotEmpty ?? false))
+          .map((t) => t.songKey)
+          .join('|');
+    }));
+  } catch (_) {
+    // 纯组件测试 / 未注入下载管理器：不影响 DAO 兜底
+  }
+
+  final keys = <String>{};
+  try {
+    final tasks = ref.read(downloadTasksProvider).value ?? const <DownloadTask>[];
+    for (final task in tasks) {
+      if (task.status == DownloadStatus.completed &&
+          (task.localPath?.isNotEmpty ?? false)) {
+        keys.add(task.songKey);
+      }
+    }
+  } catch (_) {}
+  try {
+    final songs = await ref.read(songDaoProvider).searchSongs('');
+    for (final song in songs) {
+      if ((song.localPath ?? '').isNotEmpty) keys.add(song.globalKey);
+    }
+  } catch (_) {}
+  return keys;
+}, name: 'downloadedSongKeysProvider');
+
+/// 某首歌是否已下载（跨列表统一口径）
+final isDownloadedProvider = Provider.family<bool, String>((ref, songKey) {
+  return ref.watch(downloadedSongKeysProvider).value?.contains(songKey) ?? false;
+}, name: 'isDownloadedProvider');
+
 /// 播放缓存占用（设置页展示用）
 final audioCacheSizeProvider = FutureProvider<int>((ref) async {
   ref.watch(audioCacheVersionProvider);

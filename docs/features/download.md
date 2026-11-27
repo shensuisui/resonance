@@ -79,7 +79,8 @@
 - 支持格式：mp3 / m4a / flac / ogg（audiotags）；其它格式跳过标签并记 warning。
 
 ### 4.6 已下载判定
-- 统一：`local_path` 非空 **且** 文件 `exists`。列表/徽章/计数共用同一 provider；文件丢失自动降级未下载并回源。
+- 统一：**全局** `downloadedSongKeysProvider`（SongDao `local_path` 非空 + 已完成下载任务的 `localPath`）→ `isDownloadedProvider(globalKey)`；文件丢失由启动自愈清 `local_path` 后自动降级。
+- 行内判定：`Song.localPath` 非空 **或** 全局 provider 命中；缓存徽章只在「未下载且缓存命中」时显示。这样最近播放/歌单/搜索/队列里的旧 Song 快照（下载前生成、不带 localPath）也能显示正确的「已下载」。
 
 ### 4.7 清理与记录（去掉「清理已结束」）
 - `cancel`：取消令牌 + 删 `.part` + cancelled。
