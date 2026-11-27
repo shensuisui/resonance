@@ -227,7 +227,7 @@ void main() {
     expect(systemExitRequested, isFalse, reason: '出栈二级页不能退出 App');
   });
 
-  testWidgets('移动端二级一级页（我喜欢的音乐）按返回：退到上一级', (tester) async {
+  testWidgets('移动端二级一级页（我喜欢的音乐）按返回：退回来路页', (tester) async {
     await pumpApp(tester);
 
     container.read(navProvider.notifier).go('liked');
@@ -235,15 +235,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(container.read(navProvider).current.name, 'liked');
 
-    // liked 是一级分支（分支 Navigator 没得弹）→ 退到上一级「我的」，
-    // 与顶栏返回键同一条 NavNotifier.back 路径
+    // 混合返回模型：liked 记录来路（初始页 home）→ 返回实际来路，而不是退分支父页
     await tester.binding.handlePopRoute();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(
       container.read(navProvider).current.name,
-      'profile',
-      reason: '移动端二级一级页系统返回应退到上一级而不是退出',
+      'home',
+      reason: '移动端二级一级页系统返回应回到来路页（本次从首页进入）',
     );
     expect(systemExitRequested, isFalse);
   });

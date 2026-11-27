@@ -89,18 +89,13 @@ const Map<String, String> kRouteTitles = {
   'settings': '设置',
 };
 
-/// 页面 → 侧栏/底栏高亮项（原型 NAV_FOR）
-const Map<String, String> kNavFor = {
-  'liked': 'liked',
-  'local': 'local',
-  'playlist': 'library',
-  'playlists': 'library',
-  'recent': 'home',
-  'downloads': 'profile',
-  'sources': 'profile',
-  'subs': 'profile',
-  'logs': 'profile',
-  'folder': 'local',
+/// 无来路时，二级页高亮的所属栏目（原型 NAV_FOR 的“层级口径”）
+///
+/// 真实高亮优先走 [activeBranch]（跟随历史来路）；本表只用于**没有历史**的
+/// 直接深链/冷启动进入（否则 liked/local 在移动端没有对应 tab，会出现无高亮）。
+const Map<String, String> kBranchFallback = {
+  'liked': 'profile',
+  'local': 'library',
 };
 
 /// 侧栏/底栏目的地
@@ -151,6 +146,49 @@ class NavState {
   /// 复制并覆盖字段
   NavState copyWith({NavEntry? current, List<NavEntry>? trail}) =>
       NavState(current: current ?? this.current, trail: trail ?? this.trail);
+
+  /// 记录一次「访问下一页」，返回新状态
+  ///
+  /// 混合返回模型：
+  ///   * 切到四个底部 tab（kRootMobile）→ 清空历史：根页没有返回键，
+  ///     留着历史只会让“先点 tab 再进二级页”的返回点不可预期；
+  ///   * 其余（二级页、移动端仅侧栏可见的 liked/local）→ 把当前页压入历史，
+  ///     返回时逐级回上一页；跨分支进入时，历史里天然存着来源页。
+  /// 历史上限，防止异常循环导航把状态无限增长。
+  static const int _maxTrail = 20;
+
+  NavState visit(NavEntry next) {
+    if (next == current) return this;
+    final trail2 = kRootMobile.contains(next.name)
+        ? const <NavEntry>[]
+        : <NavEntry>[...trail, current];
+    if (trail2.length > _maxTrail) trail2.removeAt(0);
+    return NavState(current: next, trail: trail2);
+  }
+
+  /// 取「上一页」对应的状态（历史存在时），否则 null
+  NavState? backTarget() {
+    if (trail.isEmpty) return null;
+    return NavState(
+      current: trail.last,
+      trail: trail.sublist(0, trail.length - 1),
+    );
+  }
+}
+
+/// 当前页在侧栏/底栏应高亮的分支
+///
+/// 混合返回模型下高亮必须与“返回落点”一致，否则会出现
+/// 「高亮首页、返回去我的」这种割裂：
+///   * 一级页（移动端 kRootMobile / 桌面 kRootWide）→ 高亮自己；
+///   * 二级页/移动端 liked、local → 优先高亮**历史来路**的分支；
+///   * 没有来路（深链/冷启动）→ 回落到所属分支，移动端 liked/local 用回退表。
+String activeBranch(NavState nav, {required bool wide}) {
+  final name = nav.current.name;
+  final isRoot = wide ? kRootWide.contains(name) : kRootMobile.contains(name);
+  if (isRoot) return name;
+  if (nav.trail.isEmpty) return kBranchFallback[name] ?? branchOf(name);
+  return branchOf(nav.trail.last.name);
 }
 
 /// 导航 Notifier —— **门面**：对外仍是 go / back + NavState，内部交给 go_router。
@@ -167,8 +205,9 @@ class NavNotifier extends Notifier<NavState> {
       final entry = navEntryFromUri(
         router.routerDelegate.currentConfiguration.uri,
       );
+      // 只更新当前条目，保留 trail（返回栈由 visit/backTarget 维护）
       if (entry != state.current) {
-        state = NavState(current: entry);
+        state = state.copyWith(current: entry);
       }
     }
 
@@ -186,6 +225,8 @@ class NavNotifier extends Notifier<NavState> {
   void go(String name, [String param = '']) {
     final entry = NavEntry(name, param);
     if (entry == state.current) return;
+    // 先落历史再导航：路由监听回调只会改 current，不会动 trail
+    state = state.copyWith(trail: state.visit(entry).trail);
     final router = ref.read(appRouterProvider);
     final location = locationOf(name, param);
     // 一律用 go：go_router 按路径重建匹配栈（shell → 分支 → 二级页），
@@ -198,6 +239,13 @@ class NavNotifier extends Notifier<NavState> {
   /// 返回上一页；没有来路时退到该页的上一级，再没有就回首页
   void back() {
     final router = ref.read(appRouterProvider);
+    // 有历史：返回上一页（跨分支时即“来路页”），不依赖路由自身 pop 栈
+    final prev = state.backTarget();
+    if (prev != null) {
+      state = prev;
+      router.go(locationOf(prev.current.name, prev.current.param));
+      return;
+    }
     if (router.canPop()) {
       router.pop();
       return;

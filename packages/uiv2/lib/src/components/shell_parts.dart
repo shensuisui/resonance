@@ -107,7 +107,7 @@ class UiV2Sidebar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = UiV2Theme.of(context);
     final nav = ref.watch(navProvider);
-    final active = kNavFor[nav.current.name] ?? nav.current.name;
+    final active = activeBranch(nav, wide: MediaQuery.sizeOf(context).width >= UiV2Breakpoints.wide);
     // 侧栏「你的歌单」只列自建歌单（收藏的远端歌单只在音乐库「收藏歌单」分栏）
     final playlists = ref.watch(ownedPlaylistsProvider).value ?? const <Playlist>[];
 
@@ -355,7 +355,7 @@ class UiV2TabBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = UiV2Theme.of(context);
     final nav = ref.watch(navProvider);
-    final active = kNavFor[nav.current.name] ?? nav.current.name;
+    final active = activeBranch(nav, wide: false);
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return ClipRect(
