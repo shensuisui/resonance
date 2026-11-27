@@ -11,6 +11,8 @@
 - 前缘阴影：4% 黑、sigma 12、stops [0,1/6,1/3,1/2,2/3,1]，仅入场绘制。
 - 拖拽：任意位置 30px 起手；`popReach=0.4665`、`popLead=0.35`、flick 1.5→4.25×；反向橡皮筋 0.55/0.5；`navigator.didStartUserGesture` 配对；焦点归还。
 - 停稳后清空 transform/clip 图层句柄；`offstage` 覆写为空，避免 HeroController 钉住首帧。
+- **不透明底色**：Card/Fade/Root 路由统一包 `RouteSurface`（主题 bg），修复过渡中透出上一页；带单测。
+- **拖拽 pop 的 URL**：走壳层 `dragBackPopOverride → NavNotifier.back()`，URL 与混合历史一致；带单测（/profile/settings → /home）。
 
 ## 2. 大屏（≥768dp）：原地淡入
 

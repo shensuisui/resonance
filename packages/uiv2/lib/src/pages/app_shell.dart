@@ -21,6 +21,7 @@ import '../components/rows.dart';
 import '../design/icons.dart';
 import '../design/tokens.dart';
 import '../providers/providers.dart';
+import '../route/drag_back.dart';
 import '../router.dart';
 
 /// 当前页面标题
@@ -58,6 +59,8 @@ class _UiV2AppShellState extends ConsumerState<UiV2AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    // 拖拽返回走与顶栏/系统返回同一条混合历史（否则只会退到分支根）
+    dragBackPopOverride = () => ref.read(navProvider.notifier).back();
     // 页面切走之后，上一轮「再按一次退出」的计时作废：
     // 否则「首页提示 → 切到别的页 → 2 秒内返回」会被当成连按两次直接退出
     ref.listen(navProvider, (previous, next) {

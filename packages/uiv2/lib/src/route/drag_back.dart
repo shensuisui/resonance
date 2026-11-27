@@ -10,6 +10,9 @@ import 'package:flutter/physics.dart';
 
 import 'motion.dart';
 
+/// 拖拽 pop 的壳层接管：设置后走 NavNotifier.back（保留混合历史/URL）
+void Function()? dragBackPopOverride;
+
 /// 让页面支持横向拖拽返回
 ///
 /// 只负责手势与位移，不改变路由本身；配合 CardRouteMixin 使用。
@@ -83,7 +86,7 @@ mixin DragBackRouteMixin<T> on PageRoute<T> {
       await controller!.animateWith(ArrivingSimulation(sim)).orCancel
           .catchError((Object _) {});
       finishDrag();
-      navigator?.pop();
+      performPop();
     } else {
       final sim = SpringSimulation(
         releaseSpring,
@@ -95,6 +98,16 @@ mixin DragBackRouteMixin<T> on PageRoute<T> {
       await controller!.animateWith(ArrivingSimulation(sim)).orCancel
           .catchError((Object _) {});
       finishDrag();
+    }
+  }
+
+  /// 真正执行 pop（默认 Navigator.pop；子类可覆盖为 go_router 的 pop）
+  void performPop() {
+    final handler = dragBackPopOverride;
+    if (handler != null) {
+      handler();
+    } else {
+      navigator?.pop();
     }
   }
 

@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 
 import 'drag_back.dart';
+import 'route_surface.dart';
 
 /// 淡入路由（桌面/平板）
 class FadePageRoute<T> extends PageRoute<T> with DragBackRouteMixin<T> {
@@ -37,7 +38,7 @@ class FadePageRoute<T> extends PageRoute<T> with DragBackRouteMixin<T> {
       Semantics(
         scopesRoute: true,
         explicitChildNodes: true,
-        child: builder(context),
+        child: RouteSurface(child: builder(context)),
       );
 
   @override

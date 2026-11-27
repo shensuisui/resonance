@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'card_route.dart';
 import 'drag_back.dart';
+import 'route_surface.dart';
 
 /// 移动端二级页：卡片推入 + 全屏拖拽返回
 class CardPage<T> extends Page<T> {
@@ -51,7 +52,7 @@ class CardPageRoute<T> extends PageRoute<T>
       Semantics(
         scopesRoute: true,
         explicitChildNodes: true,
-        child: builder(context),
+        child: RouteSurface(child: builder(context)),
       );
 
   // HeroController 会把首帧页面 offstage 并把动画钉在 completed，禁止

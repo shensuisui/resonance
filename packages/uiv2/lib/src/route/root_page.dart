@@ -3,6 +3,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import 'route_surface.dart';
+
 /// 一级页（每个 tab 的首屏）
 class RootPage<T> extends Page<T> {
   /// 页面内容
@@ -51,7 +53,7 @@ class RootPageRoute<T> extends PageRoute<T> {
       Semantics(
         scopesRoute: true,
         explicitChildNodes: true,
-        child: builder(context),
+        child: RouteSurface(child: builder(context)),
       );
 
   // 首屏自身不参与推入，但作为被覆盖页仍要接收 secondaryAnimation（左移 30%）
