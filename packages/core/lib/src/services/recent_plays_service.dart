@@ -63,6 +63,25 @@ class RecentPlaysService {
     await _dao.cleanOldest(kRecentPlaysMaxCount);
   }
 
+  /// 用补齐后的元数据刷新已有记录的快照（不改播放时间/顺序）
+  ///
+  /// 封面等详情常在起播后才取到；最近播放列表直接渲染快照，
+  /// 若不刷新，列表与启动恢复都会一直用旧快照（无封面）。
+  Future<void> updateMetadata(Song song) async {
+    final rows = await _dao.getRecentPlayRecords(limit: kRecentPlaysMaxCount);
+    for (final row in rows) {
+      if (row.songKey != song.globalKey) continue;
+      await _dao.insertOrUpdateRecentPlay(
+        row.songKey,
+        row.playedAt,
+        title: song.title.isEmpty ? row.title : song.title,
+        artist: song.artist.isEmpty ? row.artist : song.artist,
+        coverUrl: (song.coverUrl ?? '').isEmpty ? row.coverUrl : song.coverUrl,
+      );
+      return;
+    }
+  }
+
   /// 获取最近播放的歌曲全局键列表
   ///
   /// 返回按播放时间倒序排列的 songKey 列表，

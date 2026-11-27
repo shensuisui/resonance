@@ -180,3 +180,14 @@ docs/summaries/summary-s1-s3.md:113  低 | S3-2 后台播放/锁屏/通知栏 | 
 - ~~本机 Gradle 构建卡在 sqlite3 下载~~ **已解决**（2026-11-13：`file_picker` 固定 10.3.10 + `HTTPS_PROXY` 代理后，`flutter build apk --debug` 成功，见 features/build.md）。
 - 2026-11-19 已在 Android 模拟器（emulator-5554）实测：**通知样式 / 媒体键（play-pause）/ 前台服务保活均通过**，见 [evidence/android-audio-notification](../evidence/android-audio-notification/README.md)；**锁屏媒体控件视觉因模拟器 SystemUI ANR 未截到**，待复验。
 - 自定义通知按钮（随机/循环图标）**已实现（2026-11-19）**：复用 `UiV2Icons` 同源 SVG path 生成 VectorDrawable（`uiv2_shuffle`/`uiv2_repeat`），`MediaControl.custom` + `customAction('toggleShuffle'/'toggleRepeat')` 切 `playMode`；模拟器通知栏已见 5 按钮（`docs/evidence/android-audio-notification/notif_custom_buttons.png`）。
+
+
+## 媒体元数据（封面/歌手）链路
+
+系统媒体面板（通知/锁屏/车机）只认播放器当前曲目这一份快照，链路必须闭环：
+
+1. **取地址同一次请求就带回详情**：`PlayableInfo.meta` → `PlayResolution.meta` → 播放前与搜索快照合并（起播第一帧就有封面）。
+2. **异步补齐后回写播放器**：`SongMetadataSink` 可选契约 + `backfillSongMetadata()`；`PlayerImpl.updateSongMetadata` 只替换队列条目/在播曲目，不重新加载音源，随后 `currentSongStream` 让 `ResonanceAudioHandler` 重建 `MediaItem.artUri`。
+3. **列表快照同步刷新**：`SongMetadataService.updateCollections()` 把补到的封面写回「最近播放/收藏」快照（只改快照，不动播放时间/顺序）。
+4. **启动恢复先补缓存再补详情**：`songsOfQueueIdentity` 对最近/收藏/本地/歌单统一用 `song 表` 缓存补全（`hydrateSongsFromCache`）；恢复成功后对目标曲目再 `enrich` 一次并回写面板。修复了「杀掉 App 重进后无封面」。
+5. **诊断结论（2026-11-27）**：问题不是清单/权限，而是「封面在起播后才取到，但从未回写播放器」，以及恢复队列读的是旧快照。模拟器 release 实测：新播放、杀进程重进后播放，通知封面均正常。

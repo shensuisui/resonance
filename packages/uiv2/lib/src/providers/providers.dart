@@ -423,6 +423,8 @@ class LikedNotifier extends Notifier<List<FavoriteRecord>> {
   /// 从数据库加载收藏记录（含 title/artist/cover 快照）
   Future<void> load() async {
     final records = await ref.read(favoritesDaoProvider).getAllFavoriteRecords();
+    // 异步期间容器可能已销毁（退出/测试收尾）：此时不能再写 state
+    if (!ref.mounted) return;
     final sorted = List.of(records)
       ..sort((a, b) => b.time.compareTo(a.time)); // 新的在前
     state = sorted;
@@ -490,6 +492,7 @@ class RecentNotifier extends Notifier<List<RecentPlayRecord>> {
   Future<void> load() async {
     final records =
         await ref.read(recentPlaysServiceProvider).getRecentPlayRecords();
+    if (!ref.mounted) return;
     state = records;
   }
 
@@ -805,7 +808,8 @@ final playlistSongsProvider =
     FutureProvider.family<List<Song>, String>((ref, id) async {
   final playlist = await ref.watch(playlistByIdProvider(id).future);
   if (playlist == null) return const [];
-  return ref.watch(playlistActionsProvider).songsOf(playlist);
+  return hydrateSongsFromCache(
+          ref.read(songDaoProvider), await ref.watch(playlistActionsProvider).songsOf(playlist));
 }, name: 'playlistSongsProvider');
 
 // ==================== 启动恢复（上次的队列 + 曲目 + 进度） ====================
@@ -814,6 +818,23 @@ final playlistSongsProvider =
 ///
 /// 四类队列都能从数据库推导，所以 play_progress 只存"听到哪"就够了；
 /// 存了队列内容反而会与真实数据不一致（歌单删了歌，队列里还留着）。
+/// 用 song 表里已缓存的元数据补齐队列曲目（封面/歌手/时长）
+///
+/// 最近播放/收藏/歌单都是「快照」而非实时数据：快照可能写于封面补全之前。
+/// 队列恢复/播放前用缓存行补一次，避免重启后无封面；缓存缺失保持原样。
+Future<List<Song>> hydrateSongsFromCache(SongDao dao, List<Song> songs) async {
+  final out = <Song>[];
+  for (final song in songs) {
+    try {
+      final cached = await dao.getSong(song.id, song.sourceId);
+      out.add(cached == null ? song : mergeSongMetadata(song, cached));
+    } catch (_) {
+      out.add(song);
+    }
+  }
+  return out;
+}
+
 Future<List<Song>> songsOfQueueIdentity(
   Ref ref,
   PlayQueueKind kind,
@@ -825,16 +846,21 @@ Future<List<Song>> songsOfQueueIdentity(
       // 不等它加载完就取，会误判"这个队列没有曲目"——真机实测：上次听的是最近播放，
       // 结果恢复时读到空列表，把进度当成废数据删掉了。
       await ref.read(recentProvider.notifier).load();
-      return ref.read(recentSongsProvider);
+      return hydrateSongsFromCache(
+          ref.read(songDaoProvider), ref.read(recentSongsProvider));
     case PlayQueueKind.liked:
       await ref.read(likedProvider.notifier).load();
-      return ref.read(likedSongsProvider);
+      return hydrateSongsFromCache(
+          ref.read(songDaoProvider), ref.read(likedSongsProvider));
     case PlayQueueKind.local:
       await ref.read(localTracksProvider.notifier).load();
-      return ref.read(localTracksProvider);
+      return hydrateSongsFromCache(
+          ref.read(songDaoProvider), ref.read(localTracksProvider));
     case PlayQueueKind.playlist:
       if (id == null || id.isEmpty) return const [];
-      return ref.read(playlistSongsProvider(id).future);
+      return hydrateSongsFromCache(
+          ref.read(songDaoProvider),
+          await ref.read(playlistSongsProvider(id).future),);
   }
 }
 
@@ -965,6 +991,15 @@ Future<void> runStartupResume(Ref ref) async {
         .prepareQueue(queue, index, position);
   }
   if (!ok) return;
+
+  // 恢复出的曲目可能只有旧快照（无封面）：补一次并回写媒体面板，
+  // 这样「关掉 App 再进」时通知/锁屏也能显示封面。
+  final restored = queue.songs[index];
+  unawaited(ref.read(songMetadataServiceProvider).enrich(restored).then((merged) {
+    backfillSongMetadata(ref.read(playerProvider), merged);
+  }, onError: (Object _) {
+    // 补元数据失败不影响恢复
+  }));
   SourceLogBus.instance.emit('player', SourceLogLevel.info, '播放',
       '已恢复上次队列「' + title + '」第 ' + (index + 1).toString() + ' 首，进度 ' +
           (row.positionMs ~/ 1000).toString() + 's（暂停中）');
@@ -1850,7 +1885,10 @@ class PlaybackController {
         pending.set(null);
         return false;
       }
-      await _startPlayback(song, url);
+      // 取地址那一趟通常顺带取回了封面/歌手/时长：先合并再起播，
+      // 这样媒体面板/通知从第一帧就有正确元数据，不用等异步补齐
+      final startSong = res.meta == null ? song : mergeSongMetadata(song, res.meta!);
+      await _startPlayback(startSong, url);
       // pending 由 PlayerImpl._ensureProgressing 保证：真机慢资源时它会等到
       // 首次真实进度（最长 networkLoadTimeout）才让 play() 返回；失败则抛错由
       // 上面 catch 清 pending，item loading 不会提前消失也不会永远挂着。
@@ -1877,7 +1915,15 @@ class PlaybackController {
     await _player.play(playable);
     // 封面等元数据异步补齐：不阻塞起播，失败静默
     // （详情已在解析地址时登记，这里不会重复请求）
-    unawaited(ref.read(songMetadataServiceProvider).enrich(playable));
+    final player = _player;
+    final metaService = ref.read(songMetadataServiceProvider);
+    unawaited(metaService.enrich(playable).then((merged) async {
+      // 封面等元数据可能起播后才补齐：回写播放器（媒体面板）并刷新各列表快照
+      backfillSongMetadata(player, merged);
+      await metaService.updateCollections(merged);
+    }, onError: (Object _) {
+      // 补元数据失败不影响播放
+    }));
     ref.read(currentTrackIdProvider.notifier).set(playable.globalKey);
     ref.read(isPlayingProvider.notifier).set(true);
     // 队列身份与曲目由 playInQueue（起播成功后）负责，这里不再写队列
@@ -2503,7 +2549,10 @@ class PlayResolution {
   /// 源站人机验证挑战（image / key / 回传字段名）
   final PlaybackChallenge? challenge;
 
-  const PlayResolution({this.url = '', this.challenge});
+  /// 解析地址同一次请求顺带取回的元数据（封面/歌手/时长）
+  final Song? meta;
+
+  const PlayResolution({this.url = '', this.challenge, this.meta});
 
   /// 是否拿到可直接播放的地址
   bool get hasUrl => url.isNotEmpty;
@@ -2587,7 +2636,7 @@ final playSourceResolverProvider = Provider<
     if (info.url.isEmpty && info.needsChallenge) {
       return PlayResolution(challenge: info.challenge);
     }
-    return PlayResolution(url: info.url);
+    return PlayResolution(url: info.url, meta: info.meta);
   };
 }, name: 'playSourceResolverProvider');
 
@@ -2714,6 +2763,83 @@ class SongMetadataService {
         (merged.duration ?? 0) != knownDuration;
     if (hasNewInfo) await _persist(merged, 'meta');
     return merged;
+  }
+
+  /// 把补齐后的元数据同步到最近播放/收藏快照，并刷新对应列表
+  ///
+  /// 这些列表与启动恢复都直接读快照；只写 song 表的话，重启后仍显示无封面。
+  Future<void> updateCollections(Song song) async {
+    try {
+      await ref.read(recentPlaysServiceProvider).updateMetadata(song);
+    } catch (_) {
+      // 快照刷新失败不影响播放
+    }
+    try {
+      final dao = ref.read(favoritesDaoProvider);
+      final records = await dao.getAllFavoriteRecords();
+      for (final rec in records) {
+        if (rec.songKey != song.globalKey) continue;
+        await dao.addFavorite(
+          rec.songKey,
+          rec.time,
+          title: song.title.isEmpty ? rec.title : song.title,
+          artist: song.artist.isEmpty ? rec.artist : song.artist,
+          coverUrl:
+              (song.coverUrl ?? '').isEmpty ? rec.coverUrl : song.coverUrl,
+        );
+        break;
+      }
+    } catch (_) {
+      // 同上
+    }
+    // 容器已销毁就不再触碰任何 Provider（异步补齐可能晚于退出/测试销毁）
+    if (!ref.mounted) return;
+    // 同步更新内存里的列表快照（不发起异步 load：播放可能已在测试/退出后结束，
+    // 异步回写会在容器 dispose 后触碰 state）。失败（已销毁）直接忽略。
+    try {
+      final recents = ref.read(recentProvider);
+      if (recents.any((r) => r.songKey == song.globalKey)) {
+        ref.read(recentProvider.notifier).state = <RecentPlayRecord>[
+          for (final r in recents)
+            if (r.songKey == song.globalKey)
+              RecentPlayRecord(
+                songKey: r.songKey,
+                playedAt: r.playedAt,
+                title: song.title.isEmpty ? r.title : song.title,
+                artist: song.artist.isEmpty ? r.artist : song.artist,
+                coverUrl: (song.coverUrl ?? '').isEmpty
+                    ? r.coverUrl
+                    : song.coverUrl,
+              )
+            else
+              r,
+        ];
+      }
+    } catch (_) {
+      // 容器已销毁：忽略
+    }
+    try {
+      final likes = ref.read(likedProvider);
+      if (likes.any((r) => r.songKey == song.globalKey)) {
+        ref.read(likedProvider.notifier).state = <FavoriteRecord>[
+          for (final r in likes)
+            if (r.songKey == song.globalKey)
+              FavoriteRecord(
+                songKey: r.songKey,
+                time: r.time,
+                title: song.title.isEmpty ? r.title : song.title,
+                artist: song.artist.isEmpty ? r.artist : song.artist,
+                coverUrl: (song.coverUrl ?? '').isEmpty
+                    ? r.coverUrl
+                    : song.coverUrl,
+              )
+            else
+              r,
+        ];
+      }
+    } catch (_) {
+      // 容器已销毁：忽略
+    }
   }
 
   /// 读库里已经写过的行（读失败当"没有"，不影响主流程）

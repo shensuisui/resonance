@@ -118,6 +118,23 @@ void main() {
       expect(keys, isEmpty);
     });
 
+    test('updateMetadata 只刷新快照，不改播放时间与顺序', () async {
+      // 封面常在起播后才取到；最近播放列表直接读快照，必须能补上
+      final snapshot = Song(id: '1', sourceId: 's', title: '歌', artist: '手');
+      await service.recordPlay(snapshot);
+      final before = (await service.getRecentPlayRecords()).single;
+
+      await service.updateMetadata(Song(
+        id: '1', sourceId: 's', title: '歌', artist: '手',
+        coverUrl: 'http://cover/1.jpg',
+      ));
+      final after = (await service.getRecentPlayRecords()).single;
+
+      expect(after.coverUrl, 'http://cover/1.jpg');
+      expect(after.playedAt, before.playedAt);
+      expect(after.songKey, before.songKey);
+    });
+
     test('不同源相同 id 不互相覆盖', () async {
       final songA =
           Song(id: '1', sourceId: 'sourceA', title: 'A', artist: '手');
