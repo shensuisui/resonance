@@ -44,3 +44,10 @@
 - 窄屏 `nav.go('liked'|'local')` 走 `/profile/liked`、`/library/local`（CardPage 卡片推入+混合返回）；宽屏仍走 `/liked`、`/local` 分支根（RootPage，侧栏保活）。
 - 位置由 `locationFor(name, param, wide)` 选择；`layoutWideProvider` 由壳工程帧后写入；`navEntryFromUri` 兼容移动路径别名。
 - 测试：手机 liked/local 路由类型为 `CardPageRoute`、宽屏为 `RootPageRoute`；before/after 像素 diff 手机 0.06/0.07、大屏 0.01/0.01（页面内容无变化）。
+
+## 7. 播放条 → 播放页手势 morph
+
+- 新增 `NowPlayingFlow`（AnimationController 0..1）：点击、播放条上滑、播放页下滑共用同一进度，可跟手、可撤回。
+- 播放条根节点带 GlobalKey，起手/点击时取全局 Rect；Overlay 用 `Rect.lerp(barRect, fullRect, t)` + `FittedBox` 做“播放条长成播放页”的 morph，收起反向。
+- 播放页下滑只在不可滚动区域生效（子滚动先赢手势竞技场），松手按 0.5 进度/±600px/s 判定开合。
+- 验证：模拟器 release 实测——播放条上滑展开到播放页（截图 morph_open.png）、顶部非滚动区下滑关闭回播放条（morph_closed2.png）；flow 单测覆盖跟手/阈值/撤回；uiv2 246 项全过。

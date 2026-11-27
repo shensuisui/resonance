@@ -20,6 +20,7 @@ import '../design/typography.dart';
 import '../providers/providers.dart';
 import '../router.dart';
 import 'captcha_sheet.dart';
+import 'now_playing_flow.dart';
 import 'rows.dart';
 import 'sheets.dart';
 
@@ -451,6 +452,9 @@ class UiV2PlayerBar extends ConsumerWidget {
     this.applyBottomSafeArea = true,
   });
 
+  /// 播放条根节点 key（用于取播放条矩形做 morph）
+  static final GlobalKey _barKey = GlobalKey(debugLabel: 'uiV2PlayerBar');
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // 源站要求人机验证时弹验证面板（挑战由播放控制器挂起）。
@@ -476,7 +480,44 @@ class UiV2PlayerBar extends ConsumerWidget {
         ? 0.0
         : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
 
-    return ClipRect(
+    final flow = ref.read(nowPlayingFlowProvider);
+    final hasTrack = ref.read(currentTrackIdProvider) != null;
+    void captureBarRect() {
+      final box = _barKey.currentContext?.findRenderObject();
+      if (box is RenderBox) {
+        flow.barRect = box.localToGlobal(Offset.zero) & box.size;
+      }
+    }
+
+    return GestureDetector(
+      key: _barKey,
+      behavior: HitTestBehavior.translucent,
+      onTap: hasTrack
+          ? () {
+              captureBarRect();
+              ref.read(nowPlayingProvider.notifier).open();
+            }
+          : null,
+      onVerticalDragStart: hasTrack
+          ? (_) {
+              captureBarRect();
+              flow.beginDrag();
+            }
+          : null,
+      onVerticalDragUpdate: hasTrack
+          ? (d) {
+              flow.dragBy(d.primaryDelta ?? 0,
+                  MediaQuery.sizeOf(context).height * 0.55);
+            }
+          : null,
+      onVerticalDragEnd: hasTrack
+          ? (d) {
+              final opened = flow.endDrag(d.velocity.pixelsPerSecond.dy);
+              final notifier = ref.read(nowPlayingProvider.notifier);
+              opened ? notifier.open() : notifier.close();
+            }
+          : null,
+      child: ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
@@ -523,7 +564,7 @@ class UiV2PlayerBar extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 
   // ---------------- 移动端布局：信息 + 三个控制键 ----------------

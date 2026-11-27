@@ -18,6 +18,7 @@ import '../design/network_image.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../providers/providers.dart';
+import 'now_playing_flow.dart';
 import 'player_bar.dart';
 import 'rows.dart';
 import 'sheets.dart';
@@ -34,52 +35,66 @@ class UiV2NowPlayingOverlay extends ConsumerStatefulWidget {
 
 class _UiV2NowPlayingOverlayState extends ConsumerState<UiV2NowPlayingOverlay>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: UiV2Motion.d3,
-    value: ref.read(nowPlayingProvider) ? 1 : 0,
-  );
+  late final NowPlayingFlow _flow = ref.read(nowPlayingFlowProvider);
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _flow.attach(this);
+    _flow.setValue(ref.read(nowPlayingProvider) ? 1 : 0);
   }
 
   @override
   Widget build(BuildContext context) {
-    final open = ref.watch(nowPlayingProvider);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (open) {
-        if (_controller.value < 1 &&
-            _controller.status != AnimationStatus.forward) {
-          _controller.forward();
-        }
-      } else if (_controller.value > 0 &&
-          _controller.status != AnimationStatus.reverse) {
-        _controller.reverse();
-      }
+    // 外部布尔状态（按钮/返回）驱动动画；拖拽期间让手势自己控制，不被弹回
+    ref.listen(nowPlayingProvider, (previous, next) {
+      if (_flow.dragging) return;
+      next ? _flow.open() : _flow.close();
     });
 
-    return AnimatedBuilder(
-      animation: _controller,
+    return ListenableBuilder(
+      listenable: _flow,
       builder: (context, _) {
-        if (_controller.value == 0) return const SizedBox.shrink();
-        final slide = Tween<Offset>(
-          begin: const Offset(0, 1),
-          end: Offset.zero,
-        )
-            .animate(CurvedAnimation(
-              parent: _controller,
-              curve: UiV2Motion.enter,
-              reverseCurve: UiV2Motion.exit,
-            ))
-            .value;
+        final v = _flow.value;
+        final open = ref.read(nowPlayingProvider);
+        if (v <= 0 && !open) return const SizedBox.shrink();
+        final size = MediaQuery.sizeOf(context);
+        final full = Offset.zero & size;
+        final bar = _flow.barRect ??
+            Rect.fromLTWH(
+              0,
+              size.height - UiV2Metrics.playerBarHeight,
+              size.width,
+              UiV2Metrics.playerBarHeight,
+            );
+        final rect = Rect.lerp(bar, full, v)!;
         return Positioned.fill(
-          child: FractionalTranslation(
-            translation: slide,
-            child: const UiV2NowPlayingScreen(),
+          child: Stack(
+            children: [
+              if (v < 1)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: (0.25 * v).clamp(0.0, 0.25),
+                      child: const ColoredBox(color: Colors.black),
+                    ),
+                  ),
+                ),
+              Positioned.fromRect(
+                rect: rect,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular((1 - v) * 18),
+                  child: FittedBox(
+                    fit: BoxFit.fill,
+                    child: SizedBox(
+                      width: size.width,
+                      height: size.height,
+                      child: const UiV2NowPlayingScreen(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -106,11 +121,20 @@ class UiV2NowPlayingScreen extends ConsumerWidget {
     return Material(
       color: t.bg,
       child: GestureDetector(
+        // 下滑收起：跟手进度；起手在可滚动区域内时子滚动会赢下竞技场，不抢
+        onVerticalDragStart: (_) =>
+            ref.read(nowPlayingFlowProvider).beginDrag(),
+        onVerticalDragUpdate: (details) {
+          ref.read(nowPlayingFlowProvider).dragBy(
+                details.primaryDelta ?? 0,
+                MediaQuery.sizeOf(context).height,
+              );
+        },
         onVerticalDragEnd: (details) {
-          // 下滑收起（原型的收起入口是顶部箭头，这里额外支持下拉手势）
-          if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
-            ref.read(nowPlayingProvider.notifier).close();
-          }
+          final opened = ref.read(nowPlayingFlowProvider).endDrag(
+                details.primaryVelocity ?? 0,
+              );
+          if (!opened) ref.read(nowPlayingProvider.notifier).close();
         },
         child: Stack(
           children: [
