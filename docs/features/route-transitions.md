@@ -25,7 +25,8 @@
 
 ## 4. 待实现（大屏 sheet）
 
-- `SideSheetRoute`（300/200ms，0.4 视口宽夹 360–560，右侧平移，遮罩同步）
-- `FormSheetRoute`（404ms，1.2→1 缩放 + 淡入，遮罩同弹簧）
-- `PagedSheetRoute`（sheet 内二级页复用 CardPageRoute + 尺寸动画）
-- 现有 `showUiV2Sheet` 的宽屏路径接入侧边 sheet；表格/设置表单逐个迁移。
+- ✅ `SideSheetRoute`（300/200ms，0.4 视口宽夹 360–560，右侧平移，遮罩同步）——已实现，未替换现有 showUiV2Sheet。
+- ✅ `FormSheetRoute`（404ms，1.2→1 缩放 + 淡入，遮罩同弹簧）——已实现，未接入具体表单。
+- ⏳ `PagedSheetRoute`（sheet 内二级页复用 CardPageRoute + 尺寸动画）——待实现。
+- ⏳ 现有 `showUiV2Sheet` 宽屏路径接入侧边 sheet（需先出视觉预览）；表格/设置表单逐个迁移。
+- ⏳ 跨断点掉落重开（桌面 push 后缩窗到 <600 的重放）——待实现。
