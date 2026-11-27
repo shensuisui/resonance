@@ -32,3 +32,9 @@
 - ⏳ `PagedSheetRoute`（sheet 内二级页复用 CardPageRoute + 尺寸动画）——待实现。
 - ⏳ 现有 `showUiV2Sheet` 宽屏路径接入侧边 sheet（需先出视觉预览）；表格/设置表单逐个迁移。
 - ⏳ 跨断点掉落重开（桌面 push 后缩窗到 <600 的重放）——待实现。
+
+## 5. 顶栏下沉（手机）
+
+- 手机顶栏从 `app_shell` 移到页面层：`UiV2MobilePageChrome` 包住窄屏路由页，顶栏随页面一起做转场（AppBar 不再瞬换）。
+- 按页配置：`kPageHeadRoutes` 的页面（home/search/library/liked/local/recent/downloads/playlist/playlists/sources/subs/logs/settings）已有 PageHead 大标题 → 顶栏 `showTitle=false`，消除双标题；无 PageHead 的页面（如 folder/个人页）顶栏显示标题兜底。宽屏不渲染顶栏，保持页面自带大标题。
+- 逐页 before/after（手机 9 页 + 大屏 9 页）像素 diff：大屏 meanAbsDiff 0.00–0.01（仅时钟），手机 0.05–0.53（仅顶栏标题区域），无布局位移。证据：`.dsh/tmp/evidence/compare_mobile.png`、`compare_wide.png`。

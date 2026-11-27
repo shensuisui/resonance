@@ -23,6 +23,7 @@ import 'package:uiv2/src/components/now_playing.dart';
 import 'package:uiv2/src/design/theme.dart';
 import 'package:uiv2/src/pages/profile_page.dart';
 import 'package:uiv2/src/pages/settings_page.dart';
+import 'package:uiv2/src/components/shell_parts.dart';
 import 'package:uiv2/src/providers/providers.dart';
 import 'package:uiv2/src/router.dart';
 
@@ -143,8 +144,8 @@ void main() {
     container.dispose();
   });
 
-  Future<void> pumpApp(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(444, 900);
+  Future<void> pumpApp(WidgetTester tester, {double width = 444}) async {
+    tester.view.physicalSize = Size(width, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
@@ -160,6 +161,26 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 600));
   }
+
+  testWidgets('顶栏下沉：手机有顶栏且隐藏重复标题，宽屏无顶栏', (tester) async {
+    await pumpApp(tester);
+    container.read(navProvider.notifier).go('settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.byType(UiV2TopBar), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(UiV2TopBar), matching: find.text('设置')),
+      findsNothing,
+    );
+    expect(find.text('设置'), findsOneWidget);
+
+    await pumpApp(tester, width: 900);
+    container.read(navProvider.notifier).go('settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.byType(UiV2TopBar), findsNothing);
+    expect(find.text('设置'), findsOneWidget);
+  });
 
   testWidgets('一级页按返回：第一次只提示，两秒内第二次才退出', (tester) async {
     await pumpApp(tester);

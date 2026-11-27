@@ -83,7 +83,6 @@ class _UiV2AppShellState extends ConsumerState<UiV2AppShell> {
 
     final isRoot = kRootWide.contains(nav.current.name);
     final showBack = wide ? !isRoot : !kRootMobile.contains(nav.current.name);
-    final title = ref.watch(pageTitleProvider);
 
     // 栅格（原型 .app）：纵向 = [上区 | 播放条 | 底栏]，上区 = [侧栏 | 内容]。
     // 两个要点：
@@ -94,10 +93,7 @@ class _UiV2AppShellState extends ConsumerState<UiV2AppShell> {
       children: [
         // 窄屏顶栏自带状态栏安全区；宽屏没有顶栏，这里整体让出状态栏高度
         // （安卓平板/横屏窗口画到状态栏底下，Issue #5 第 2 条）
-        if (!wide)
-          UiV2TopBar(title: title, showBack: showBack)
-        else if (topInset > 0)
-          SizedBox(height: topInset),
+        if (wide && topInset > 0) SizedBox(height: topInset),
         Expanded(
           child: Stack(
             children: [

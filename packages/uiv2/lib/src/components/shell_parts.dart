@@ -26,8 +26,11 @@ class UiV2TopBar extends ConsumerWidget {
   /// 是否显示返回键
   final bool showBack;
 
+  /// 是否显示标题（页面已有 PageHead 大标题时置 false，避免双标题）
+  final bool showTitle;
+
   /// 构造顶栏
-  const UiV2TopBar({super.key, required this.title, required this.showBack});
+  const UiV2TopBar({super.key, required this.title, required this.showBack, this.showTitle = true});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -64,14 +67,17 @@ class UiV2TopBar extends ConsumerWidget {
                   semanticLabel: '返回',
                   onTap: () => ref.read(navProvider.notifier).back(),
                 ),
-              Expanded(
-                child: Text(
-                  title,
-                  style: UiV2Text.topBarTitle.copyWith(color: t.text),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+              if (showTitle)
+                Expanded(
+                  child: Text(
+                    title,
+                    style: UiV2Text.topBarTitle.copyWith(color: t.text),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                )
+              else
+                const Spacer(),
               UiV2IconButton(
                 icon: UiV2Icons.search,
                 semanticLabel: '搜索',

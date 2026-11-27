@@ -33,6 +33,7 @@ import 'pages/settings_page.dart';
 import 'pages/sources_page.dart';
 import 'pages/subs_page.dart';
 import 'route/card_page.dart';
+import 'components/page_chrome.dart';
 import 'route/page_for.dart';
 import 'route/root_page.dart';
 import 'router.dart';
@@ -149,21 +150,29 @@ Offset subPageSlideFrom(double width) => width >= UiV2Breakpoints.wide
 Page<void> _subPage(BuildContext context, GoRouterState state, Widget child) =>
     pageFor<void>(
       context: context,
-      child: child,
+      child: _withMobileChrome(context, child),
       key: state.pageKey,
       name: state.name,
     );
 
+/// 窄屏把顶栏下沉进页面（随页面转场）；宽屏保持页面自带大标题
+Widget _withMobileChrome(BuildContext context, Widget child) =>
+    isMobileViewFor(context) ? UiV2MobilePageChrome(child: child) : child;
+
 /// 一级页：首屏零时长
-Page<void> _rootPage(GoRouterState state, Widget child) =>
-    RootPage<void>(key: state.pageKey, name: state.name, child: child);
+Page<void> _rootPage(BuildContext context, GoRouterState state, Widget child) =>
+    RootPage<void>(
+      key: state.pageKey,
+      name: state.name,
+      child: _withMobileChrome(context, child),
+    );
 
 /// 错误页也必须走同一种 Route，避免那一段退化为默认 Material 转场
 Page<void> _errorPage(BuildContext context, GoRouterState state) => pageFor<void>(
       context: context,
       key: state.pageKey,
       name: state.name,
-      child: const _RouteErrorPage(),
+      child: _withMobileChrome(context, const _RouteErrorPage()),
     );
 
 class _RouteErrorPage extends StatelessWidget {
@@ -257,7 +266,7 @@ StatefulShellBranch _branch(
     routes: [
       GoRoute(
         path: path,
-        pageBuilder: (context, state) => _rootPage(state, child),
+        pageBuilder: (context, state) => _rootPage(context, state, child),
         routes: subs,
       ),
     ],
