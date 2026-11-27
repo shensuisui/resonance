@@ -99,6 +99,22 @@ abstract class AudibleSongSource {
   Song? get audibleSong;
 }
 
+/// 可选契约：当前曲目元数据被异步补齐后可回写
+///
+/// 为什么需要：封面/歌手等详情常在起播后才取到；若播放器不接收回写，
+/// 系统媒体面板（通知/锁屏/车机）会一直用起播时的旧元数据（无封面）。
+abstract class SongMetadataSink {
+  /// 用补齐后的曲目替换同 key 的当前曲目与队列条目（不重新加载音源）
+  void updateSongMetadata(Song song);
+}
+
+/// 若 [player] 支持元数据回写则调用；否则静默忽略（旧实现/测试桩零破坏）
+void backfillSongMetadata(Player player, Song song) {
+  if (player is SongMetadataSink) {
+    (player as SongMetadataSink).updateSongMetadata(song);
+  }
+}
+
 /// [Player] 的便捷派生：当前曲目 = 队列里索引指向的那一首
 extension PlayerCurrentSong on Player {
   /// 当前曲目（永不与播放器内部状态脱节）

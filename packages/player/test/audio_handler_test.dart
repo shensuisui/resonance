@@ -101,6 +101,16 @@ class FakePlayer implements Player, CurrentSongSource, AudibleSongSource {
   }
 }
 
+/// 支持元数据回写的假播放器：验证回写桥只对实现 [SongMetadataSink] 的播放器生效
+class _SinkPlayer extends FakePlayer implements SongMetadataSink {
+  Song? updated;
+
+  @override
+  void updateSongMetadata(Song song) {
+    updated = song;
+  }
+}
+
 /// 造一首歌（默认带封面与时长）
 Song sampleSong({
   String id = '1',
@@ -374,6 +384,31 @@ void main() {
       expect(plainHandler.queue.value.length, 1);
       expect(plainHandler.playbackState.value.playing, isTrue);
       await plainHandler.disposeHandler();
+    });
+
+    test('起播后补齐封面：currentSong 流推送新曲目 → mediaItem.artUri 同步更新', () async {
+      // 封面常在起播后才异步取到；媒体面板必须随之更新，否则通知/锁屏一直无封面
+      player.emitSong(sampleSong(id: '1', cover: 'https://example.com/a.jpg', title: '起播'));
+      await flush();
+      expect(handler.mediaItem.value?.artUri, Uri.parse('https://example.com/a.jpg'));
+
+      player.emitSong(sampleSong(id: '1', cover: 'https://example.com/b.jpg', title: '补齐后'));
+      await flush();
+      expect(handler.mediaItem.value?.artUri, Uri.parse('https://example.com/b.jpg'));
+      expect(handler.mediaItem.value?.title, '补齐后');
+    });
+
+    test('backfillSongMetadata：只回写给实现 SongMetadataSink 的播放器', () async {
+      final sink = _SinkPlayer();
+      final song = sampleSong();
+      backfillSongMetadata(sink, song);
+      expect(sink.updated, song);
+
+      // 不实现 sink 的播放器必须静默忽略，不抛
+      final plain = FakePlayer();
+      backfillSongMetadata(plain, song);
+      await sink.close();
+      await plain.close();
     });
 
     test('setRepeatMode / setShuffleMode 写回 Player.playMode 并刷新面板', () async {

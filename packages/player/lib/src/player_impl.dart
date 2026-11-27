@@ -9,7 +9,8 @@ import 'shuffle_bag.dart';
 typedef AudioSourceBuilder = AudioSource Function(Uri url, {Song? song});
 
 /// 基于 just_audio 的播放器实现
-class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
+class PlayerImpl
+    implements AudibleSongSource, Player, CurrentSongSource, SongMetadataSink {
   AudioPlayer _audioPlayer = AudioPlayer();
 
   /// 音源构建器（默认 AudioSource.uri，行为与旧实现一致）
@@ -595,6 +596,22 @@ class PlayerImpl implements AudibleSongSource, Player, CurrentSongSource {
 
   @override
   Stream<Song?> get currentSongStream => _currentSongController.stream;
+
+  @override
+  void updateSongMetadata(Song song) {
+    // 保留真实播放地址：元数据合并结果通常不带 playUrl，队列条目不因此变空
+    final audible = _audibleSong;
+    final merged = (song.playUrl == null || song.playUrl!.isEmpty) &&
+            audible != null &&
+            (audible.playUrl?.isNotEmpty ?? false)
+        ? song.copyWith(playUrl: audible.playUrl)
+        : song;
+    final index = _queue.indexWhere((s) => s.globalKey == merged.globalKey);
+    if (index >= 0) _queue[index] = merged;
+    if (audible == null || audible.globalKey != merged.globalKey) return;
+    _audibleSong = merged;
+    _emitCurrentSong();
+  }
 
   void _emitCurrentSong() {
     if (!_currentSongController.isClosed) {
