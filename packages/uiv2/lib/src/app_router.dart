@@ -32,6 +32,9 @@ import 'pages/search_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/sources_page.dart';
 import 'pages/subs_page.dart';
+import 'route/card_page.dart';
+import 'route/page_for.dart';
+import 'route/root_page.dart';
 import 'router.dart';
 
 /// 全局 Navigator key
@@ -142,42 +145,35 @@ Offset subPageSlideFrom(double width) => width >= UiV2Breakpoints.wide
     ? const Offset(0, 0.04)
     : const Offset(0.12, 0);
 
-/// 二级页转场：位移（按屏宽分档）+ 淡入；一级页不转场，切 tab 要即时
-CustomTransitionPage<void> _subPage(GoRouterState state, Widget child) {
-  return CustomTransitionPage<void>(
-    key: state.pageKey,
-    child: child,
-    transitionDuration: UiV2Motion.d2,
-    reverseTransitionDuration: UiV2Motion.d2,
-    transitionsBuilder: (context, animation, secondary, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: UiV2Motion.enter,
-        reverseCurve: UiV2Motion.exit,
-      );
-      return SlideTransition(
-        position: Tween<Offset>(
-          begin: subPageSlideFrom(MediaQuery.sizeOf(context).width),
-          end: Offset.zero,
-        ).animate(curved),
-        // 底色铺实（不淡入），内容在实底色上淡入：
-        // 若连底色一起淡入，过渡途中依旧能透出上一页的文字，等于没修
-        child: UiV2RouteSurface(
-          // 只在**进入**方向淡入；**退出**（出栈）方向整页原样滑走。
-          // 同一根动画反向时 FadeTransition 会变成淡出，把整页内容先褪成白板
-          // 再滑走 —— 就是用户报的「出栈时页面变白」。
-          child: animation.status == AnimationStatus.reverse
-              ? child
-              : FadeTransition(opacity: curved, child: child),
-        ),
-      );
-    },
-  );
-}
+/// 二级页：移动端卡片推入 / 大屏原地淡入，按断点分派
+Page<void> _subPage(BuildContext context, GoRouterState state, Widget child) =>
+    pageFor<void>(
+      context: context,
+      child: child,
+      key: state.pageKey,
+      name: state.name,
+    );
 
-/// 一级页（无转场）
-NoTransitionPage<void> _rootPage(GoRouterState state, Widget child) =>
-    NoTransitionPage<void>(key: state.pageKey, child: child);
+/// 一级页：首屏零时长
+Page<void> _rootPage(GoRouterState state, Widget child) =>
+    RootPage<void>(key: state.pageKey, name: state.name, child: child);
+
+/// 错误页也必须走同一种 Route，避免那一段退化为默认 Material 转场
+Page<void> _errorPage(BuildContext context, GoRouterState state) => pageFor<void>(
+      context: context,
+      key: state.pageKey,
+      name: state.name,
+      child: const _RouteErrorPage(),
+    );
+
+class _RouteErrorPage extends StatelessWidget {
+  const _RouteErrorPage();
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+        body: Center(child: Text('页面不存在')),
+      );
+}
 
 /// 取查询参数里的路由参数
 String _param(GoRouterState state) => state.uri.queryParameters['p'] ?? '';
@@ -190,6 +186,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     navigatorKey: uiV2NavigatorKey,
     initialLocation: '/home',
+    errorPageBuilder: (context, state) => _errorPage(context, state),
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
@@ -201,11 +198,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(
               path: 'playlist',
               pageBuilder: (c, s) =>
-                  _subPage(s, PlaylistPage(playlistId: _param(s))),
+                  _subPage(c, s, PlaylistPage(playlistId: _param(s))),
             ),
             GoRoute(
               path: 'playlists',
-              pageBuilder: (c, s) => _subPage(s, const PlaylistsPage()),
+              pageBuilder: (c, s) => _subPage(c, s, const PlaylistsPage()),
             ),
           ]),
           _branch('/liked', const LikedPage()),
@@ -213,33 +210,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(
               path: 'folder',
               pageBuilder: (c, s) =>
-                  _subPage(s, FolderPage(folderName: _param(s))),
+                  _subPage(c, s, FolderPage(folderName: _param(s))),
             ),
           ]),
           _branch('/profile', const ProfilePage(), subs: [
             GoRoute(
               path: 'recent',
-              pageBuilder: (c, s) => _subPage(s, const RecentPage()),
+              pageBuilder: (c, s) => _subPage(c, s, const RecentPage()),
             ),
             GoRoute(
               path: 'downloads',
-              pageBuilder: (c, s) => _subPage(s, const DownloadsPage()),
+              pageBuilder: (c, s) => _subPage(c, s, const DownloadsPage()),
             ),
             GoRoute(
               path: 'sources',
-              pageBuilder: (c, s) => _subPage(s, const SourcesPage()),
+              pageBuilder: (c, s) => _subPage(c, s, const SourcesPage()),
             ),
             GoRoute(
               path: 'subs',
-              pageBuilder: (c, s) => _subPage(s, const SubsPage()),
+              pageBuilder: (c, s) => _subPage(c, s, const SubsPage()),
             ),
             GoRoute(
               path: 'logs',
-              pageBuilder: (c, s) => _subPage(s, const LogsPage()),
+              pageBuilder: (c, s) => _subPage(c, s, const LogsPage()),
             ),
             GoRoute(
               path: 'settings',
-              pageBuilder: (c, s) => _subPage(s, const SettingsPage()),
+              pageBuilder: (c, s) => _subPage(c, s, const SettingsPage()),
             ),
           ]),
         ],

@@ -1,0 +1,31 @@
+# 路由转场（iOS 27 卡片推入 + 大屏淡入）
+
+> 状态：移动端卡片推入/拖拽返回、大屏淡入与断点分派已实现；侧边/表单/paged sheet 待接入。
+> 关联：[routing-navigation](routing-navigation.md)。
+
+## 1. 移动端（窄屏 < 768dp）：卡片推入 + 全屏拖拽返回
+
+- 路由：`CardPage<T>` → `CardPageRoute<T>`（`packages/uiv2/lib/src/route/card_page.dart`）。
+- 弹簧：`pushSpring` 300ms 临界阻尼，初速 9；时长由 `settlingTimeOf` 求出（本机 3.47 库解 449ms，规格估算 459ms）。
+- 新页位移 `dx=(1-progress-overdrag)*width`，对齐物理像素；被覆盖页 `-0.3*width*secondary` + 10% 黑遮罩；超椭圆裁剪（`RSuperellipse` + `MediaQuery.displayCornerRadiiOf`）。
+- 前缘阴影：4% 黑、sigma 12、stops [0,1/6,1/3,1/2,2/3,1]，仅入场绘制。
+- 拖拽：任意位置 30px 起手；`popReach=0.4665`、`popLead=0.35`、flick 1.5→4.25×；反向橡皮筋 0.55/0.5；`navigator.didStartUserGesture` 配对；焦点归还。
+- 停稳后清空 transform/clip 图层句柄；`offstage` 覆写为空，避免 HeroController 钉住首帧。
+
+## 2. 大屏（≥768dp）：原地淡入
+
+- 路由：`FadePage<T>` → `FadePageRoute<T>`，200ms 线性 `FadeTransition`；被覆盖页**完全不动**（不读 secondaryAnimation），无位移/缩放/遮罩。
+- 断点分派：`pageFor(context: ...)` 窄屏 CardPage、宽屏 FadePage；错误页同源，不混 MaterialPage。
+- tab：仍为 `NoTransitionPage/RootPage`（RootPage 零时长），切 tab 即时。
+
+## 3. 实测
+
+- 模拟器 release：手机 360dp 录屏逐帧可见卡片从右滑入、底层页左移；左→右拖拽可返回。
+- 模拟器切 1600×1000（桌面形态）：设置页淡入，底层“我的”页全程不动。
+
+## 4. 待实现（大屏 sheet）
+
+- `SideSheetRoute`（300/200ms，0.4 视口宽夹 360–560，右侧平移，遮罩同步）
+- `FormSheetRoute`（404ms，1.2→1 缩放 + 淡入，遮罩同弹簧）
+- `PagedSheetRoute`（sheet 内二级页复用 CardPageRoute + 尺寸动画）
+- 现有 `showUiV2Sheet` 的宽屏路径接入侧边 sheet；表格/设置表单逐个迁移。

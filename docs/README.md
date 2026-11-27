@@ -32,6 +32,7 @@
 | 文档 | 说明 | 状态 |
 |---|---|---|
 | [features/mobile-audioservice.md](features/mobile-audioservice.md) | audio_service 后台播放接入（Android 一期） | 现行(一期部分完成) |
+| [features/route-transitions.md](features/route-transitions.md) | 路由转场（移动卡片推入 / 大屏淡入） | 已实现 |
 | [features/routing-navigation.md](features/routing-navigation.md) | 路由栈与返回逻辑（现状审计 + 改造方案） | 审计(待拍板) |
 | [features/data-import-export.md](features/data-import-export.md) | 数据导入导出（v2 记录式 zip，与云同步统一；单歌单导出） | 现行(已实现 v2) |
 | [features/offline-cache.md](features/offline-cache.md) | 播放 / 歌词缓存决策 | 现行(已实现，端到端验收记录待补) |

@@ -135,7 +135,7 @@ void main() {
     // 先停在「我的」
     container.read(navProvider.notifier).go('profile');
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 700));
     expect(find.byType(ProfilePage, skipOffstage: false), findsOneWidget);
 
     // 进二级页（设置）：一级页不能被销毁，必须仍在树上
@@ -143,7 +143,7 @@ void main() {
     // 先 pump 起帧让入场动画开始，再推进时间：单次 pump(500ms) 时动画可能还没启动，
     // 新页面仍是 offstage（find.byType 默认跳过 offstage）—— 踩过一次
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 700));
     expect(find.byType(SettingsPage), findsOneWidget, reason: '二级页要显示');
     expect(find.byType(ProfilePage, skipOffstage: false), findsOneWidget,
         reason: '一级页必须保活，否则返回后滚动位置/状态全丢');
@@ -151,7 +151,7 @@ void main() {
     // 返回：回到「我的」
     container.read(navProvider.notifier).back();
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 700));
     expect(find.byType(SettingsPage), findsNothing);
     expect(find.byType(ProfilePage, skipOffstage: false), findsOneWidget);
   });
