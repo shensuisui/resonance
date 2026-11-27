@@ -24,6 +24,10 @@ import 'package:uiv2/src/design/theme.dart';
 import 'package:uiv2/src/pages/profile_page.dart';
 import 'package:uiv2/src/pages/settings_page.dart';
 import 'package:uiv2/src/components/shell_parts.dart';
+import 'package:uiv2/src/pages/liked_page.dart';
+import 'package:uiv2/src/pages/local_page.dart';
+import 'package:uiv2/src/route/card_page.dart';
+import 'package:uiv2/src/route/root_page.dart';
 import 'package:uiv2/src/providers/providers.dart';
 import 'package:uiv2/src/router.dart';
 
@@ -182,6 +186,24 @@ void main() {
     expect(find.text('设置'), findsOneWidget);
   });
 
+  testWidgets('liked/local：手机是卡片二级页，宽屏仍是分支根', (tester) async {
+    await pumpApp(tester);
+    container.read(navProvider.notifier).go('liked');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(ModalRoute.of(tester.element(find.byType(LikedPage))), isA<CardPageRoute<void>>());
+    container.read(navProvider.notifier).go('local');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(ModalRoute.of(tester.element(find.byType(LocalPage))), isA<CardPageRoute<void>>());
+
+    await pumpApp(tester, width: 900);
+    container.read(navProvider.notifier).go('liked');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(ModalRoute.of(tester.element(find.byType(LikedPage))), isA<RootPageRoute<void>>());
+  });
+
   testWidgets('一级页按返回：第一次只提示，两秒内第二次才退出', (tester) async {
     await pumpApp(tester);
 
@@ -248,7 +270,7 @@ void main() {
     expect(systemExitRequested, isFalse, reason: '出栈二级页不能退出 App');
   });
 
-  testWidgets('移动端二级一级页（我喜欢的音乐）按返回：退回来路页', (tester) async {
+  testWidgets('移动端 liked（二级页）系统返回：出栈到所属栏目', (tester) async {
     await pumpApp(tester);
 
     container.read(navProvider.notifier).go('liked');
@@ -256,15 +278,28 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(container.read(navProvider).current.name, 'liked');
 
-    // 混合返回模型：liked 记录来路（初始页 home）→ 返回实际来路，而不是退分支父页
+    // liked 现在是 profile 下的二级页：系统返回由 Navigator 默认出栈到 profile；
+    // 顶栏返回仍走混合历史（见下方断言）
     await tester.binding.handlePopRoute();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(
       container.read(navProvider).current.name,
-      'home',
-      reason: '移动端二级一级页系统返回应回到来路页（本次从首页进入）',
+      'profile',
+      reason: '二级页系统返回先出栈到所属栏目（顶栏返回才走混合历史）',
     );
+    // 顶栏/页内返回按钮：走 NavNotifier.back → 来路 home
+    container.read(navProvider.notifier).go('home');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    container.read(navProvider.notifier).go('liked');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    container.read(navProvider.notifier).back();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(container.read(navProvider).current.name, 'home',
+        reason: '顶栏返回应回到来路页');
     expect(systemExitRequested, isFalse);
   });
 

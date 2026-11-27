@@ -38,3 +38,9 @@
 - 手机顶栏从 `app_shell` 移到页面层：`UiV2MobilePageChrome` 包住窄屏路由页，顶栏随页面一起做转场（AppBar 不再瞬换）。
 - 按页配置：`kPageHeadRoutes` 的页面（home/search/library/liked/local/recent/downloads/playlist/playlists/sources/subs/logs/settings）已有 PageHead 大标题 → 顶栏 `showTitle=false`，消除双标题；无 PageHead 的页面（如 folder/个人页）顶栏显示标题兜底。宽屏不渲染顶栏，保持页面自带大标题。
 - 逐页 before/after（手机 9 页 + 大屏 9 页）像素 diff：大屏 meanAbsDiff 0.00–0.01（仅时钟），手机 0.05–0.53（仅顶栏标题区域），无布局位移。证据：`.dsh/tmp/evidence/compare_mobile.png`、`compare_wide.png`。
+
+## 6. liked/local：手机二级页、桌面分支
+
+- 窄屏 `nav.go('liked'|'local')` 走 `/profile/liked`、`/library/local`（CardPage 卡片推入+混合返回）；宽屏仍走 `/liked`、`/local` 分支根（RootPage，侧栏保活）。
+- 位置由 `locationFor(name, param, wide)` 选择；`layoutWideProvider` 由壳工程帧后写入；`navEntryFromUri` 兼容移动路径别名。
+- 测试：手机 liked/local 路由类型为 `CardPageRoute`、宽屏为 `RootPageRoute`；before/after 像素 diff 手机 0.06/0.07、大屏 0.01/0.01（页面内容无变化）。

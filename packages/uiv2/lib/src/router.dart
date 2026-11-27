@@ -228,7 +228,7 @@ class NavNotifier extends Notifier<NavState> {
     // 先落历史再导航：路由监听回调只会改 current，不会动 trail
     state = state.copyWith(trail: state.visit(entry).trail);
     final router = ref.read(appRouterProvider);
-    final location = locationOf(name, param);
+    final location = locationFor(name, param, wide: ref.read(layoutWideProvider));
     // 一律用 go：go_router 按路径重建匹配栈（shell → 分支 → 二级页），
     // 返回时 pop 回分支根，语义与原来「二级页压栈、返回退回上一级」一致。
     // 不用 push：命令式压栈不会更新 currentConfiguration.uri，
@@ -243,7 +243,7 @@ class NavNotifier extends Notifier<NavState> {
     final prev = state.backTarget();
     if (prev != null) {
       state = prev;
-      router.go(locationOf(prev.current.name, prev.current.param));
+      router.go(locationFor(prev.current.name, prev.current.param, wide: ref.read(layoutWideProvider)));
       return;
     }
     if (router.canPop()) {
@@ -263,6 +263,17 @@ class NavNotifier extends Notifier<NavState> {
   }
 }
 
+
+/// 当前布局是否宽屏（壳工程在 build 里写；用于 liked/local 的路径选择）
+class LayoutWideNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  set(bool value) => state = value;
+}
+
+final layoutWideProvider =
+    NotifierProvider<LayoutWideNotifier, bool>(LayoutWideNotifier.new);
 
 /// 导航状态 Provider
 final navProvider = NotifierProvider<NavNotifier, NavState>(NavNotifier.new);

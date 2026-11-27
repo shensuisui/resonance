@@ -100,6 +100,21 @@ final Map<String, String> kRouteNameByPath = {
 /// 该路由属于哪个一级页（一级页返回自身）
 String branchOf(String name) => kRouteDefByName[name]?.parent ?? name;
 
+/// 移动端 liked/local 作为二级页的路径（桌面仍走分支根）
+const Map<String, String> kMobileRoutePaths = <String, String>{
+  'liked': '/profile/liked',
+  'local': '/library/local',
+};
+
+/// 按布局选位置：窄屏 liked/local 走二级页路径
+String locationFor(String name, String param, {required bool wide}) {
+  final path = (wide ? null : kMobileRoutePaths[name]) ??
+      kRouteDefByName[name]?.path ??
+      '/home';
+  if (param.isEmpty) return path;
+  return path + '?p=' + Uri.encodeQueryComponent(param);
+}
+
 /// 路由名 + 参数 → 位置字符串（参数走查询参数）
 String locationOf(String name, [String param = '']) {
   final path = kRouteDefByName[name]?.path ?? '/home';
@@ -108,8 +123,15 @@ String locationOf(String name, [String param = '']) {
 }
 
 /// 位置字符串 → 导航记录
+const Map<String, String> kMobilePathRouteNames = <String, String>{
+  '/profile/liked': 'liked',
+  '/library/local': 'local',
+};
+
 NavEntry navEntryFromUri(Uri uri) {
-  final name = kRouteNameByPath[uri.path] ?? 'home';
+  final name = kRouteNameByPath[uri.path] ??
+      kMobilePathRouteNames[uri.path] ??
+      'home';
   return NavEntry(name, uri.queryParameters['p'] ?? '');
 }
 
@@ -205,6 +227,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           _branch('/search', const SearchPage()),
           _branch('/library', const LibraryPage(), subs: [
             GoRoute(
+              path: 'local',
+              pageBuilder: (c, s) =>
+                  _subPage(c, s, const LocalPage()),
+            ),
+            GoRoute(
               path: 'playlist',
               pageBuilder: (c, s) =>
                   _subPage(c, s, PlaylistPage(playlistId: _param(s))),
@@ -223,6 +250,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ]),
           _branch('/profile', const ProfilePage(), subs: [
+            GoRoute(
+              path: 'liked',
+              pageBuilder: (c, s) =>
+                  _subPage(c, s, const LikedPage()),
+            ),
             GoRoute(
               path: 'recent',
               pageBuilder: (c, s) => _subPage(c, s, const RecentPage()),

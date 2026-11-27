@@ -75,6 +75,12 @@ class _UiV2AppShellState extends ConsumerState<UiV2AppShell> {
 
     final nav = ref.watch(navProvider);
     final width = MediaQuery.sizeOf(context).width;
+    // 让 nav.go('liked'/'local') 在窄屏走二级页路径、宽屏走分支根
+    // （不能在 build 内直接改 Provider，放到帧后）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(layoutWideProvider.notifier).set(width >= UiV2Breakpoints.wide);
+    });
     final height = MediaQuery.sizeOf(context).height;
     final topInset = MediaQuery.paddingOf(context).top;
     final wide = width >= UiV2Breakpoints.wide;
